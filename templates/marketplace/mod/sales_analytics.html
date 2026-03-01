@@ -1,0 +1,83 @@
+{% extends 'marketplace/mod/base.html' %}
+{% block title %}Sales Analytics{% endblock %}
+{% block mod_content %}
+<h2 class="font-display fw-bold mb-4"><i class="bi bi-graph-up me-2"></i>Sales Analytics</h2>
+
+<div class="card mb-4">
+    <div class="card-header font-display fw-bold">Daily Revenue (Last 30 Days)</div>
+    <div class="card-body">
+        <canvas id="revenueChart" height="100"></canvas>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header font-display fw-bold">Revenue by Category</div>
+            <div class="card-body">
+                <canvas id="categoryChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dailyData = {{ daily_data_json|safe }};
+    const dates = dailyData.map(d => d.date);
+    const revenues = dailyData.map(d => d.revenue);
+
+    new Chart(document.getElementById('revenueChart'), {
+        type: 'line',
+        data: {
+            labels: dates,
+            datasets: [{
+                label: 'Revenue (₱)',
+                data: revenues,
+                borderColor: '#2563EB',
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    const categoryData = {{ by_category_json|safe }};
+    const labels = categoryData.map(c => c.listing__category__name || 'Unknown');
+    const catRevenues = categoryData.map(c => parseFloat(c.revenue));
+
+    new Chart(document.getElementById('categoryChart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Revenue (₱)',
+                data: catRevenues,
+                backgroundColor: '#22D3EE',
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends 'marketplace/mod/base.html' %}
+{% block title %}Forum Moderation{% endblock %}
+{% block mod_content %}
+<h2 class="font-display fw-bold mb-4"><i class="bi bi-chat-dots me-2"></i>Forum Moderation</h2>
+
+<p>
+    <a href="?hidden=0" class="btn btn-sm {% if not show_hidden %}btn-ubelt{% else %}btn-outline-secondary{% endif %}">Visible</a>
+    <a href="?hidden=1" class="btn btn-sm {% if show_hidden %}btn-ubelt{% else %}btn-outline-secondary{% endif %}">Hidden</a>
+</p>
+
+{% for post in posts %}
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+            <div class="flex-grow-1">
+                <h5 class="card-title mb-1">
+                    <a href="{% url 'marketplace:forum_post' post.pk %}" class="text-decoration-none">{{ post.title }}</a>
+                    {% if post.is_hidden %}<span class="badge bg-danger ms-2">Hidden</span>{% endif %}
+                </h5>
+                <p class="text-muted small mb-2">by {{ post.author.username }} · {{ post.created_at|timesince }} ago</p>
+                <p class="card-text small mb-2">{{ post.body|truncatewords:40 }}</p>
+                <p class="mb-0 small">Replies: {{ post.replies.count }}</p>
+            </div>
+            <div>
+                <form method="post" action="{% url 'marketplace:mod_forum_action' 'post' post.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    {% if post.is_hidden %}
+                    <input type="hidden" name="action" value="restore">
+                    <button type="submit" class="btn btn-sm btn-success">Restore</button>
+                    {% else %}
+                    <input type="hidden" name="action" value="hide">
+                    <input type="text" name="reason" placeholder="Reason (optional)" class="form-control form-control-sm d-inline-block w-auto mb-1" maxlength="200">
+                    <button type="submit" class="btn btn-sm btn-danger">Hide</button>
+                    {% endif %}
+                </form>
+                <a href="{% url 'marketplace:forum_post' post.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% empty %}
+<p class="text-muted">No {% if show_hidden %}hidden{% else %}visible{% endif %} posts.</p>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% block title %}My Listings{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mylist-hero {
+        background: linear-gradient(135deg, #1F1F1F 0%, #2D2D2D 100%);
+        border-radius: 18px;
+        padding: 1.5rem 1.75rem;
+        margin-bottom: 1.75rem;
+        color: #e5e7eb;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    .mylist-title {
+        font-size: 1.6rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+    .mylist-sub {
+        font-size: 0.9rem;
+        color: #9ca3af;
+    }
+    .mylist-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1.25rem;
+    }
+    .mylist-card {
+        border-radius: 16px;
+        border: 1px solid var(--color-border);
+        background: var(--color-bg);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        text-decoration: none;
+        color: inherit;
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+    .mylist-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 25px rgba(15,23,42,0.18);
+        border-color: var(--ubelt-gold);
+    }
+    .mylist-img {
+        height: 160px;
+        background: radial-gradient(circle at 0 0, #38bdf8, #0f172a);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .mylist-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .mylist-body {
+        padding: 0.75rem 0.9rem 0.5rem;
+    }
+    .mylist-price {
+        font-family: 'Space Grotesk', sans-serif;
+        font-weight: 700;
+        color: var(--ubelt-gold);
+        font-size: 1.05rem;
+    }
+    .mylist-name {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-top: 0.15rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .mylist-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+        color: var(--color-text-muted);
+        margin-top: 0.25rem;
+    }
+    .mylist-footer {
+        padding: 0.5rem 0.9rem 0.75rem;
+        border-top: 1px solid var(--color-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mylist-hero">
+    <div>
+        <div class="mylist-title">My Listings</div>
+        <div class="mylist-sub">Manage what you’re selling and keep track of active vs sold items.</div>
+    </div>
+    <a href="{% url 'marketplace:listing_create' %}" class="btn btn-ubelt">
+        <i class="bi bi-plus me-1"></i> New Listing
+    </a>
+</div>
+
+<div class="mylist-grid">
+    {% for listing in listings %}
+    <div class="mylist-card">
+        <a href="{% url 'marketplace:listing_detail' listing.pk %}" class="text-decoration-none text-reset">
+            <div class="mylist-img">
+                {% if listing.image %}
+                <img src="{{ listing.image.url }}" alt="{{ listing.title }}">
+                {% else %}
+                <i class="bi bi-image text-white-50" style="font-size: 2rem;"></i>
+                {% endif %}
+            </div>
+            <div class="mylist-body">
+                <div class="mylist-price">₱{{ listing.price|floatformat:0 }}</div>
+                <div class="mylist-name">{{ listing.title }}</div>
+                <div class="mylist-meta">
+                    {% if listing.is_sold %}
+                    <span class="badge bg-secondary">Sold</span>
+                    {% else %}
+                    <span class="badge bg-success">Active</span>
+                    {% endif %}
+                    <span><i class="bi bi-eye me-1"></i>{{ listing.view_count }}</span>
+                </div>
+            </div>
+        </a>
+        <div class="mylist-footer">
+            {% if listing.school %}
+            <span class="small">
+                {% include 'marketplace/_school_badge.html' with school=listing.school %}
+            </span>
+            {% else %}
+            <span></span>
+            {% endif %}
+            <a href="{% url 'marketplace:listing_edit' listing.pk %}" class="btn btn-sm btn-outline-ubelt">Edit</a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="text-center text-muted py-5" style="grid-column: 1 / -1;">
+        <i class="bi bi-box-seam fs-1 d-block mb-2"></i>
+        <p class="mb-2">You haven't posted any listings yet.</p>
+        <a href="{% url 'marketplace:listing_create' %}" class="btn btn-ubelt">Post your first listing</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,432 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}UBXchange{% endblock %} | Campus Marketplace</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        :root {
+            /* UBXchange - Modern minimalist palette */
+            --ubelt-navy: #1F1F1F;     /* Dark black - primary */
+            --ubelt-gold: #97C2EC;     /* Light blue - primary accent */
+            --ubelt-teal: #97C2EC;     /* Light blue - secondary accent */
+            --ubelt-cream: #F5F5F5;    /* Off-white background */
+            --ubelt-charcoal: #1F1F1F; /* Dark text */
+            --ubelt-coral: #D6D0C2;    /* Warm beige - secondary */
+            --color-bg: #ffffff;
+            --color-bg-secondary: #F5F5F5;
+            --color-text: #1F1F1F;
+            --color-text-muted: #666666;
+            --color-border: #E5E5E5;
+            --color-accent-blue: #97C2EC;
+            --color-accent-beige: #D6D0C2;
+        }
+        body.dark-mode {
+            --color-bg: #1a1a1a;
+            --color-bg-secondary: #252525;
+            --color-text: #e0e0e0;
+            --color-text-muted: #999999;
+            --color-border: #404040;
+        }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--color-bg-secondary);
+            color: var(--color-text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .font-display { font-family: 'Space Grotesk', sans-serif; }
+        .navbar {
+            background: #FFFFFF;
+            box-shadow: 0 2px 10px rgba(31, 31, 31, 0.1);
+            border-bottom: 2px solid #97C2EC;
+        }
+        .navbar-brand {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            color: #1F1F1F !important;
+            font-size: 1.3rem;
+        }
+        .navbar-brand:hover { color: #97C2EC !important; }
+        .nav-link {
+            color: #1F1F1F !important;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .nav-link:hover { color: #97C2EC !important; }
+        .btn-ubelt {
+            background: #97C2EC;
+            color: #FFFFFF;
+            font-weight: 600;
+            border: none;
+        }
+        .btn-ubelt:hover {
+            background: #7DB4E8;
+            color: #fff;
+        }
+        .btn-outline-ubelt {
+            border: 2px solid #97C2EC;
+            color: #97C2EC;
+            font-weight: 600;
+        }
+        .btn-outline-ubelt:hover {
+            background: #97C2EC;
+            color: #ffffff;
+        }
+        .btn-offer {
+            background: #d97706;
+            color: white;
+            font-weight: 600;
+            border: none;
+        }
+        .btn-offer:hover {
+            background: #b45309;
+            color: white;
+        }
+        .theme-toggle {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+        }
+        .theme-toggle:hover {
+            background: rgba(255,255,255,0.2);
+            color: #34D399;
+        }
+        main { flex: 1; }
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+            transition: transform 0.2s, box-shadow 0.2s;
+            background: var(--color-bg);
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+        }
+        body.dark-mode .card {
+            background: #2a2a2a;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        .card-img-top {
+            height: 200px;
+            object-fit: cover;
+            border-radius: 12px 12px 0 0;
+        }
+        .listing-card .card-img-placeholder {
+            height: 200px;
+            background: linear-gradient(135deg, #e8e4dc 0%, #d4cfc4 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--ubelt-charcoal);
+            font-size: 3rem;
+            border-radius: 12px 12px 0 0;
+        }
+        body.dark-mode .listing-card .card-img-placeholder {
+            background: linear-gradient(135deg, #404040 0%, #353535 100%);
+            color: #e0e0e0;
+        }
+        .price-tag {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            color: #97C2EC;
+            font-size: 1.2rem;
+        }
+        .badge-school {
+            font-weight: 500;
+            border: 1px solid currentColor;
+            background: #D6D0C2;
+            color: #1F1F1F;
+        }
+        footer {
+            background: #1F1F1F;
+            color: rgba(255,255,255,0.85);
+            padding: 2rem 0;
+            margin-top: 3rem;
+        }
+        footer a { color: #97C2EC; }
+        footer a:hover { color: #D6D0C2; }
+        
+        /* Enhanced form styling */
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        input[type="number"],
+        input[type="date"],
+        textarea,
+        select {
+            border: 1.5px solid #E5E5E5 !important;
+            border-radius: 8px !important;
+            background: #FFFFFF !important;
+            color: #1F1F1F !important;
+            transition: all 0.3s ease !important;
+            font-size: 0.95rem;
+        }
+        
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus,
+        input[type="number"]:focus,
+        input[type="date"]:focus,
+        textarea:focus,
+        select:focus {
+            border-color: #97C2EC !important;
+            box-shadow: 0 0 0 3px rgba(151, 194, 236, 0.1) !important;
+        }
+        
+        input::placeholder,
+        textarea::placeholder {
+            color: #999999 !important;
+        }
+        
+        /* Dark mode styles for form elements */
+        body.dark-mode input[type="text"],
+        body.dark-mode input[type="email"],
+        body.dark-mode input[type="password"],
+        body.dark-mode input[type="number"],
+        body.dark-mode textarea,
+        body.dark-mode select {
+            background-color: #2a2a2a !important;
+            color: #e0e0e0 !important;
+            border-color: #404040 !important;
+        }
+        
+        body.dark-mode input:focus,
+        body.dark-mode textarea:focus,
+        body.dark-mode select:focus {
+            border-color: #97C2EC !important;
+            box-shadow: 0 0 0 3px rgba(151, 194, 236, 0.2) !important;
+        }
+        
+        body.dark-mode input::placeholder,
+        body.dark-mode textarea::placeholder {
+            color: #999999 !important;
+        }
+        
+        /* Better link styling */
+        a {
+            color: #97C2EC;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        
+        a:hover {
+            color: #7DB4E8;
+        }
+        
+        /* Better list styling */
+        .list-group-item {
+            border-color: #E5E5E5;
+            background-color: #FFFFFF;
+            transition: all 0.2s ease;
+        }
+        
+        .list-group-item:hover {
+            background-color: #F5F5F5;
+            border-color: #97C2EC;
+        }
+        
+        /* Improved badge styling */
+        .badge {
+            font-weight: 600;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+        
+        .badge-primary {
+            background-color: #97C2EC !important;
+            color: #FFFFFF !important;
+        }
+        
+        .badge-secondary {
+            background-color: #D6D0C2 !important;
+            color: #1F1F1F !important;
+        }
+        
+        /* Alert styling */
+        .alert {
+            border-radius: 10px;
+            border: none;
+            padding: 1rem 1.25rem;
+        }
+        
+        .alert-info {
+            background-color: #E8F4FD;
+            color: #1F1F1F;
+            border-left: 4px solid #97C2EC;
+        }
+        
+        .alert-success {
+            background-color: #E8F5E9;
+            color: #1F1F1F;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .alert-warning {
+            background-color: #FFF8E1;
+            color: #1F1F1F;
+            border-left: 4px solid #FFC107;
+        }
+        
+        .alert-danger {
+            background-color: #FFEBEE;
+            color: #1F1F1F;
+            border-left: 4px solid #F44336;
+        }
+        
+        /* Improved pagination */
+        .pagination .page-link {
+            color: #97C2EC;
+            border-color: #E5E5E5;
+            background-color: #FFFFFF;
+        }
+        
+        .pagination .page-link:hover {
+            color: #7DB4E8;
+            background-color: #F5F5F5;
+            border-color: #97C2EC;
+        }
+        
+        .pagination .page-item.active .page-link {
+            background-color: #97C2EC;
+            border-color: #97C2EC;
+        }
+        
+        /* Smooth transitions */
+        * {
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+        }
+        
+        button, a {
+            transition: all 0.3s ease;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'marketplace:home' %}">
+                <i class="bi bi-lightning-charge-fill me-1"></i> UBXchange
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:home' %}">Home</a></li>
+                    {% if user.is_authenticated %}
+                    {% if user.is_superuser %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:forum' %}"><i class="bi bi-chat-dots me-1"></i>Forum</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:inbox' %}"><i class="bi bi-envelope me-1"></i>Messages</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:mod_dashboard' %}"><i class="bi bi-shield-check me-1"></i>Mod</a></li>
+                    {% else %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:listing_create' %}">Sell</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:my_listings' %}">My Listings</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:favorites' %}"><i class="bi bi-heart me-1"></i>Favorites</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:forum' %}"><i class="bi bi-chat-dots me-1"></i>Forum</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:inbox' %}"><i class="bi bi-envelope me-1"></i>Messages</a></li>
+                    {% endif %}
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item me-2">
+                        <button id="theme-toggle" class="theme-toggle" title="Toggle dark mode">
+                            <i class="bi bi-moon"></i>
+                        </button>
+                    </li>
+                    {% if user.is_authenticated %}
+                    <li class="nav-item me-2">
+                        <a class="nav-link position-relative" href="{% url 'marketplace:notifications' %}">
+                            <i class="bi bi-bell"></i>
+                            {% if unread_notifications_count %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                {{ unread_notifications_count }}
+                            </span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">{{ user.username }}</a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            {% if user.is_superuser %}
+                            <li><a class="dropdown-item" href="{% url 'marketplace:mod_dashboard' %}"><i class="bi bi-shield-check me-2"></i>Mod Dashboard</a></li>
+                            <li><a class="dropdown-item" href="{% url 'marketplace:forum' %}"><i class="bi bi-chat-dots me-2"></i>Forum</a></li>
+                            <li><a class="dropdown-item" href="{% url 'marketplace:inbox' %}"><i class="bi bi-envelope me-2"></i>Messages</a></li>
+                            {% else %}
+                            <li><a class="dropdown-item" href="{% url 'marketplace:profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+                            <li><a class="dropdown-item" href="{% url 'marketplace:my_listings' %}"><i class="bi bi-box-seam me-2"></i>My Listings</a></li>
+                            <li><a class="dropdown-item" href="{% url 'marketplace:favorites' %}"><i class="bi bi-heart me-2"></i>Favorites</a></li>
+                            <li><a class="dropdown-item" href="{% url 'marketplace:forum' %}"><i class="bi bi-chat-dots me-2"></i>Forum</a></li>
+                            <li><a class="dropdown-item" href="{% url 'marketplace:inbox' %}"><i class="bi bi-envelope me-2"></i>Messages</a></li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'account_logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'account_login' %}">Login</a></li>
+                    <li class="nav-item"><a class="btn btn-ubelt btn-sm ms-2" href="{% url 'marketplace:register' %}">Sign Up</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="py-4">
+        <div class="container">
+            {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer>
+        <div class="container text-center">
+            <p class="mb-0 font-display fw-semibold">UBXchange</p>
+            <p class="small mb-0 opacity-75">Campus-to-campus marketplace for students — buy &amp; sell books, tech, and essentials.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Dark mode toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+            themeToggle.innerHTML = '<i class="bi bi-sun"></i>';
+        }
+        
+        themeToggle.addEventListener('click', function() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            themeToggle.innerHTML = isDark ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon"></i>';
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

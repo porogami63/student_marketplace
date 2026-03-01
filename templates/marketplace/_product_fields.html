@@ -1,0 +1,15 @@
+{% load crispy_forms_tags %}
+{% if form.product_attribute_fields %}
+<div class="product-fields-section">
+    <h5>Product-Specific Details</h5>
+    <p class="text-muted mb-3" style="font-size: 0.9rem;">
+        Complete the following details about your product to help buyers make informed decisions.
+    </p>
+    
+    {% for field in form %}
+        {% if field.name in 'product_author,product_edition,product_isbn,product_subject,product_brand,product_model,product_storage,product_ram,product_color,product_year_purchased,product_school_college,product_uniform_type,product_gender,product_size,product_material,product_type,product_quantity,product_semester,product_professor,product_item_type,product_dimensions,product_delivery_available' %}
+            {{ field|as_crispy_field }}
+        {% endif %}
+    {% endfor %}
+</div>
+{% endif %}

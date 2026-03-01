@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Moderation{% endblock %}
+{% block extra_css %}
+<style>
+    .mod-sidebar {
+        background: linear-gradient(135deg, var(--ubelt-navy) 0%, #065F46 100%);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .mod-sidebar a {
+        color: rgba(255,255,255,0.9);
+        text-decoration: none;
+        padding: 0.5rem 0.75rem;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .mod-sidebar a:hover { background: rgba(255,255,255,0.1); color: white; }
+    .mod-sidebar a.active { background: var(--ubelt-gold); color: var(--ubelt-navy); }
+</style>
+{% endblock %}
+{% block content %}
+<nav class="mod-sidebar d-flex flex-wrap gap-2">
+    <a href="{% url 'marketplace:mod_dashboard' %}" class="{% if request.resolver_match.url_name == 'mod_dashboard' %}active{% endif %}"><i class="bi bi-speedometer2"></i> Dashboard</a>
+    <a href="{% url 'marketplace:mod_sales' %}" class="{% if request.resolver_match.url_name == 'mod_sales' %}active{% endif %}"><i class="bi bi-graph-up"></i> Sales</a>
+    <a href="{% url 'marketplace:mod_users' %}" class="{% if request.resolver_match.url_name == 'mod_users' %}active{% endif %}"><i class="bi bi-people"></i> Users</a>
+    <a href="{% url 'marketplace:mod_forum' %}" class="{% if request.resolver_match.url_name == 'mod_forum' %}active{% endif %}"><i class="bi bi-chat-dots"></i> Forum</a>
+    <a href="{% url 'marketplace:mod_chat' %}" class="{% if request.resolver_match.url_name == 'mod_chat' or request.resolver_match.url_name == 'mod_conversation' %}active{% endif %}"><i class="bi bi-envelope"></i> Chat</a>
+    <a href="{% url 'marketplace:mod_transactions' %}" class="{% if request.resolver_match.url_name == 'mod_transactions' or request.resolver_match.url_name == 'mod_transaction_detail' %}active{% endif %}"><i class="bi bi-receipt"></i> Transactions</a>
+    <a href="{% url 'marketplace:mod_log' %}" class="{% if request.resolver_match.url_name == 'mod_log' %}active{% endif %}"><i class="bi bi-journal-text"></i> Audit Log</a>
+</nav>
+{% block mod_content %}{% endblock %}
+{% endblock %}

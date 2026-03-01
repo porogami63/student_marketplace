@@ -1,0 +1,22 @@
+{% extends 'marketplace/mod/base.html' %}
+{% block title %}Chat Moderation{% endblock %}
+{% block mod_content %}
+<h2 class="font-display fw-bold mb-4"><i class="bi bi-envelope me-2"></i>Chat Moderation</h2>
+
+<p class="text-muted">Select a conversation to view messages. You can hide inappropriate messages.</p>
+
+<div class="list-group">
+    {% for conv in conversations %}
+    <a href="{% url 'marketplace:mod_conversation' conv.pk %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+        <div>
+            <strong>Conversation #{{ conv.pk }}</strong>
+            <span class="text-muted ms-2">{% for u in conv.participants.all %}{{ u.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+            {% if conv.listing %}<br><small class="text-muted">Listing: {{ conv.listing.title|truncatechars:50 }}</small>{% endif %}
+        </div>
+        <span class="badge bg-secondary rounded-pill">{{ conv.messages.count }} msgs</span>
+    </a>
+    {% empty %}
+    <p class="text-muted">No conversations yet.</p>
+    {% endfor %}
+</div>
+{% endblock %}

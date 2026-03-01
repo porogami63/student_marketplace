@@ -1,0 +1,770 @@
+{% extends 'base.html' %}
+{% block title %}Browse Listings{% endblock %}
+{% block extra_css %}
+<style>
+    /* Hero - full and busy */
+    .home-hero {
+        background: linear-gradient(135deg, #1F1F1F 0%, #2D2D2D 100%);
+        border-radius: 20px;
+        padding: 2rem 2.5rem;
+        margin-bottom: 2rem;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    .home-hero::before {
+        content: '';
+        position: absolute;
+        top: 0; right: 0;
+        width: 40%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(151, 194, 236, 0.1));
+        pointer-events: none;
+    }
+    .home-hero-title { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.25rem; }
+    .home-hero-sub { font-size: 1rem; opacity: 0.9; }
+    .home-search-bar {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1.25rem;
+        flex-wrap: wrap;
+        position: relative;
+    }
+    .home-search-bar-wrapper {
+        flex: 1;
+        min-width: 200px;
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    .home-search-bar-wrapper::before {
+        content: '🔍';
+        position: absolute;
+        left: 0.85rem;
+        font-size: 1rem;
+        pointer-events: none;
+        opacity: 0.6;
+    }
+    .home-search-bar input {
+        width: 100%;
+        border-radius: 12px;
+        padding: 0.65rem 1rem 0.65rem 2.5rem;
+        border: 2px solid rgba(151, 194, 236, 0.3);
+        background: rgba(255,255,255,0.98);
+        color: #1F1F1F;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+    .home-search-bar input:focus {
+        outline: none;
+        border-color: #97C2EC;
+        box-shadow: 0 0 0 3px rgba(151, 194, 236, 0.1);
+        background: #FFFFFF;
+    }
+    .home-search-bar input::placeholder {
+        color: #999999;
+    }
+    .home-search-bar .btn-search {
+        background: #97C2EC;
+        color: #FFFFFF;
+        font-weight: 700;
+        border-radius: 12px;
+        padding: 0.65rem 1.5rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        white-space: nowrap;
+    }
+    .home-search-bar .btn-search:hover {
+        background: #7DB4E8;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(151, 194, 236, 0.3);
+    }
+    .home-search-bar .btn-search:active {
+        transform: translateY(0);
+    }
+    .trending-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        align-items: center;
+    }
+    .trending-label { font-size: 0.8rem; opacity: 0.9; }
+    .trending-tag {
+        background: rgba(151, 194, 236, 0.2);
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        color: white;
+        text-decoration: none;
+        transition: background 0.2s;
+        border: 1px solid rgba(151, 194, 236, 0.4);
+    }
+    .trending-tag:hover { background: rgba(151, 194, 236, 0.3); color: white; }
+    /* Featured categories - horizontal scroll */
+    .section-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-weight: 700;
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #1F1F1F;
+    }
+    .section-title a { font-size: 0.9rem; color: #97C2EC; text-decoration: none; font-weight: 600; }
+    .section-title a:hover { color: #7DB4E8; }
+    .categories-scroll {
+        display: flex;
+        gap: 0.75rem;
+        overflow-x: auto;
+        padding-bottom: 0.5rem;
+        margin-bottom: 2rem;
+        scrollbar-width: thin;
+    }
+    .categories-scroll::-webkit-scrollbar { height: 6px; }
+    .category-chip {
+        flex-shrink: 0;
+        padding: 0.6rem 1rem;
+        border-radius: 12px;
+        background: var(--color-bg);
+        border: 2px solid #E5E5E5;
+        color: #1F1F1F;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        transition: all 0.2s;
+    }
+    .category-chip:hover, .category-chip.active {
+        border-color: #97C2EC;
+        background: rgba(151, 194, 236, 0.08);
+        color: #97C2EC;
+    }
+    /* Promo banner */
+    .promo-banner {
+        background: linear-gradient(135deg, #E8F4FD 0%, #D0E8FB 100%);
+        border-radius: 16px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        border: 1px solid #97C2EC;
+    }
+    body.dark-mode .promo-banner {
+        background: linear-gradient(135deg, #1a3a4a 0%, #0f2a3a 100%);
+        border-color: rgba(151, 194, 236, 0.2);
+    }
+    .promo-banner h5 { margin: 0; font-weight: 700; color: #1F1F1F; }
+    body.dark-mode .promo-banner h5 { color: #97C2EC; }
+    .promo-banner p { margin: 0.25rem 0 0; font-size: 0.9rem; color: #666666; }
+    /* Newly listed - horizontal scroll */
+    .listings-scroll {
+        display: flex;
+        gap: 1rem;
+        overflow-x: auto;
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
+        scrollbar-width: thin;
+    }
+    .listings-scroll::-webkit-scrollbar { height: 6px; }
+    /* Detailed listing card */
+    .listing-card {
+        flex-shrink: 0;
+        width: 220px;
+        background: var(--color-bg);
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--color-border);
+        text-decoration: none;
+        color: inherit;
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        display: flex;
+        flex-direction: column;
+    }
+    .listing-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+        border-color: var(--ubelt-teal);
+    }
+    body.dark-mode .listing-card:hover { box-shadow: 0 12px 28px rgba(0,0,0,0.4); }
+    .listing-card-img {
+        height: 160px;
+        background: linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+    body.dark-mode .listing-card-img { background: linear-gradient(135deg, #334155 0%, #1e293b 100%); }
+    .listing-card-img img { width: 100%; height: 100%; object-fit: cover; }
+    .listing-card-fav {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        font-size: 0.9rem;
+        color: var(--color-text-muted);
+    }
+    .listing-card-body { padding: 0.85rem 1rem; flex: 1; display: flex; flex-direction: column; gap: 0.35rem; }
+    .listing-card-price {
+        font-family: 'Space Grotesk', sans-serif;
+        font-weight: 800;
+        color: var(--ubelt-teal);
+        font-size: 1.15rem;
+    }
+    .listing-card-title {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--color-text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        line-clamp: 2;
+        -webkit-line-clamp: 2;
+        min-height: 2.5em;
+    }
+    .listing-card-condition {
+        font-size: 0.75rem;
+        color: var(--color-text-muted);
+    }
+    .listing-card-seller {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: auto;
+        padding-top: 0.5rem;
+    }
+    .listing-card-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--ubelt-teal);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+    .listing-card-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .listing-card-seller-info { flex: 1; min-width: 0; }
+    .listing-card-seller-name { font-size: 0.8rem; font-weight: 600; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .listing-card-time { font-size: 0.7rem; color: var(--ubelt-teal); }
+    .listing-card-chat {
+        padding: 0.35rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 2px solid var(--ubelt-teal);
+        color: var(--ubelt-teal);
+        border-radius: 8px;
+        background: transparent;
+        transition: all 0.2s;
+    }
+    .listing-card-chat:hover { background: var(--ubelt-teal); color: white; }
+    /* Browse grid - same detailed cards */
+    .browse-filters { margin-bottom: 1.5rem; display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+    .filter-chip {
+        border-radius: 999px;
+        border: 2px solid var(--color-border);
+        padding: 0.35rem 0.9rem;
+        font-size: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: var(--color-bg);
+        color: var(--color-text);
+    }
+    .filter-chip.active { border-color: var(--ubelt-teal); background: rgba(5, 150, 105, 0.06); color: var(--ubelt-teal); }
+    .filter-select { border-radius: 999px; padding-inline: 0.75rem; font-size: 0.85rem; }
+    /* Results header with sorting */
+    .results-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .results-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-weight: 700;
+        font-size: 1.25rem;
+        color: #1F1F1F;
+        margin: 0;
+    }
+    .results-sort {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .results-sort label {
+        font-size: 0.9rem;
+        color: #666666;
+        margin: 0;
+        font-weight: 500;
+    }
+    .results-sort select {
+        border-radius: 8px;
+        border: 2px solid #E5E5E5;
+        padding: 0.45rem 0.75rem;
+        font-size: 0.9rem;
+        background: white;
+        color: #1F1F1F;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .results-sort select:hover {
+        border-color: #97C2EC;
+    }
+    .results-sort select:focus {
+        outline: none;
+        border-color: #97C2EC;
+        box-shadow: 0 0 0 3px rgba(151, 194, 236, 0.1);
+    }
+    .filter-count {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.85rem;
+        color: #97C2EC;
+        background: rgba(151, 194, 236, 0.1);
+        padding: 0.3rem 0.7rem;
+        border-radius: 6px;
+        font-weight: 600;
+    }
+    .browse-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1.25rem;
+    }
+    @media (max-width: 768px) {
+        .home-hero { padding: 1.5rem; }
+        .listing-card { width: 180px; }
+    }
+    /* Empty State Styling */
+    .empty-state {
+        grid-column: 1 / -1;
+        padding: 3rem 1rem;
+        text-align: center;
+        background: linear-gradient(135deg, #F5F5F5 0%, #FFFFFF 100%);
+        border-radius: 16px;
+        border: 2px dashed #E5E5E5;
+    }
+    .empty-state-icon {
+        font-size: 3.5rem;
+        margin-bottom: 1rem;
+        display: block;
+    }
+    .empty-state-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #1F1F1F;
+        margin-bottom: 0.5rem;
+    }
+    .empty-state-text {
+        font-size: 0.95rem;
+        color: #666666;
+        margin-bottom: 1.5rem;
+        max-width: 400px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .empty-state-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    .empty-state-actions .btn {
+        padding: 0.6rem 1.25rem;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s;
+    }
+    .empty-state-actions .btn-primary {
+        background: #97C2EC;
+        color: white;
+        border: none;
+    }
+    .empty-state-actions .btn-primary:hover {
+        background: #7DB4E8;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(151, 194, 236, 0.3);
+    }
+    .empty-state-actions .btn-secondary {
+        background: transparent;
+        color: #97C2EC;
+        border: 2px solid #97C2EC;
+    }
+    .empty-state-actions .btn-secondary:hover {
+        background: rgba(151, 194, 236, 0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<div class="home-hero">
+    <div class="home-hero-title">Every kinda find, for every kinda student</div>
+    <div class="home-hero-sub">Buy & sell textbooks, gadgets, dorm essentials — from fellow students on campus.</div>
+    <form method="get" class="home-search-bar">
+        <div class="home-search-bar-wrapper">
+            <input type="text" name="q" value="{{ query }}" placeholder="Search course codes (e.g. CS101), textbooks, gadgets...">
+        </div>
+        {% if selected_school %}
+        <input type="hidden" name="school" value="{{ selected_school }}">
+        {% endif %}
+        {% if sort %}
+        <input type="hidden" name="sort" value="{{ sort }}">
+        {% endif %}
+        <button type="submit" class="btn btn-search"><span>Search</span></button>
+    </form>
+    {% if trending %}
+    <div class="trending-row">
+        <span class="trending-label">Trending:</span>
+        {% for item in trending|slice:":8" %}
+            {% if item.slug %}
+                <a href="?category={{ item.slug }}{% if selected_school %}&school={{ selected_school }}{% endif %}" class="trending-tag">{{ item.name }}</a>
+            {% else %}
+                <a href="?q={{ item.name|urlencode }}{% if selected_school %}&school={{ selected_school }}{% endif %}" class="trending-tag">{{ item.name }}</a>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Featured categories -->
+<div class="section-title">
+    <span>Featured categories</span>
+</div>
+<div class="categories-scroll">
+    <a href="{% url 'marketplace:listing_list' %}{% if selected_school %}?school={{ selected_school }}{% endif %}" class="category-chip {% if not selected_category %}active{% endif %}">All</a>
+    {% for c in categories %}
+    <a href="?category={{ c.slug }}{% if query %}&q={{ query|urlencode }}{% endif %}{% if selected_school %}&school={{ selected_school }}{% endif %}" class="category-chip {% if selected_category == c.slug %}active{% endif %}">{{ c.name }}</a>
+    {% empty %}
+    <span class="text-muted small">No categories yet</span>
+    {% endfor %}
+</div>
+
+<!-- Promo banner -->
+<div class="promo-banner">
+    <div>
+        <h5><i class="bi bi-megaphone me-2"></i>Student Marketplace</h5>
+        <p>Shop from your campus community — textbooks, tech, and essentials at student-friendly prices.</p>
+    </div>
+    {% if user.is_authenticated and not user.is_superuser %}
+    <a href="{% url 'marketplace:listing_create' %}" class="btn btn-ubelt">Sell now</a>
+    {% endif %}
+</div>
+
+<!-- Newly listed (horizontal scroll) - only when no filters -->
+{% if newly_listed %}
+<div class="section-title">
+    <span>Newly listed</span>
+    <a href="?sort=newest">View all &rarr;</a>
+</div>
+<div class="listings-scroll">
+    {% for listing in newly_listed %}
+    <a href="{% url 'marketplace:listing_detail' listing.pk %}" class="listing-card">
+        <div class="listing-card-img">
+            {% if listing.image %}
+            <img src="{{ listing.image.url }}" alt="{{ listing.title }}" loading="lazy">
+            {% else %}
+            <i class="bi bi-image text-muted" style="font-size: 2.5rem;"></i>
+            {% endif %}
+            <span class="listing-card-fav"><i class="bi bi-heart"></i> {{ listing.fav_count|default:0 }}</span>
+        </div>
+        <div class="listing-card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="listing-card-price">₱{{ listing.price|floatformat:0 }}</div>
+                {% if listing.pending_offers_count > 0 %}
+                <div title="{{ listing.pending_offers_count }} active offers!" style="color: #f59e0b; font-size: 0.75rem; font-weight: 700; background: rgba(245,158,11,0.1); padding: 2px 6px; border-radius: 4px;">
+                    <i class="bi bi-fire"></i> {{ listing.pending_offers_count }}
+                </div>
+                {% endif %}
+            </div>
+            <div class="listing-card-title">{{ listing.title }}</div>
+            <div class="listing-card-condition">{{ listing.get_condition_display }}</div>
+            {% if listing.school %}
+            <div style="font-size: 0.7rem; color: {{ listing.school.primary_color }}; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.25rem;">
+                {% if listing.school.logo_url %}
+                <img src="{{ listing.school.logo_url }}" alt="{{ listing.school.short_name }}" style="height: 14px; width: auto; object-fit: contain; background: white; padding: 1px; border-radius: 2px;">
+                {% endif %}
+                <span>{{ listing.school.short_name|default:listing.school.name }}</span>
+            </div>
+            {% endif %}
+            <div class="listing-card-seller">
+                <div class="listing-card-avatar">
+                    {% if listing.seller.profile.avatar %}
+                    <img src="{{ listing.seller.profile.avatar.url }}" alt="">
+                    {% elif listing.seller.profile.google_avatar_url %}
+                    <img src="{{ listing.seller.profile.google_avatar_url }}" alt="">
+                    {% else %}
+                    {{ listing.seller.username|slice:":1"|upper }}
+                    {% endif %}
+                </div>
+                <div class="listing-card-seller-info">
+                    <div class="listing-card-seller-name">{{ listing.seller.username }}</div>
+                    <div class="listing-card-time">{{ listing.created_at|timesince }} ago</div>
+                </div>
+                <button type="button" class="listing-card-chat" style="background: transparent; border: none; cursor: pointer;" data-url="{% url 'marketplace:listing_detail' listing.pk %}" data-title="{{ listing.title|escapejs }}" data-price="{{ listing.price|floatformat:2 }}" data-condition="{{ listing.get_condition_display }}" data-description="{{ listing.description|truncatewords:20|escapejs }}" data-seller="{{ listing.seller.username }}" data-school="{{ listing.school.name|default:'' }}" data-image="{{ listing.image.url|default:'' }}" onclick="openQuickViewFromButton(this); return false;" title="Quick view"><i class="bi bi-eye"></i></button>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Filters -->
+<form method="get" class="browse-filters">
+    <div class="filter-chip {% if selected_category %}active{% endif %}">
+        <i class="bi bi-grid me-1"></i>
+        <select name="category" class="form-select form-select-sm filter-select" onchange="this.form.submit()">
+            <option value="">All categories</option>
+            {% for c in categories %}
+            <option value="{{ c.slug }}" {% if selected_category == c.slug %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-chip {% if selected_school %}active{% endif %}">
+        <i class="bi bi-mortarboard me-1"></i>
+        <select name="school" class="form-select form-select-sm filter-select" onchange="this.form.submit()">
+            <option value="">All Schools</option>
+            {% for s in schools %}
+            <option value="{{ s.id }}" {% if selected_school == s.id|stringformat:"d" %}selected{% endif %}>{{ s.short_name|default:s.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-chip {% if campus %}active{% endif %}">
+        <i class="bi bi-geo-alt me-1"></i>
+        <select name="campus" class="form-select form-select-sm filter-select" onchange="this.form.submit()">
+            <option value="">All Campuses</option>
+            {% for code, label in campus_choices %}
+            <option value="{{ code }}" {% if campus == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-chip {% if min_price or max_price %}active{% endif %}">
+        <i class="bi bi-cash-coin me-1"></i>
+        <input type="number" name="min_price" value="{{ min_price }}" min="0" class="form-control form-control-sm filter-select" placeholder="Min" style="width:70px">
+        <span>-</span>
+        <input type="number" name="max_price" value="{{ max_price }}" min="0" class="form-control form-control-sm filter-select" placeholder="Max" style="width:70px">
+    </div>
+    <div class="filter-chip {% if sort != 'newest' %}active{% endif %}">
+        <i class="bi bi-arrow-down-up me-1"></i>
+        <select name="sort" class="form-select form-select-sm filter-select" onchange="this.form.submit()">
+            <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest</option>
+            <option value="price_low" {% if sort == 'price_low' %}selected{% endif %}>Price: Low to High</option>
+            <option value="price_high" {% if sort == 'price_high' %}selected{% endif %}>Price: High to Low</option>
+            <option value="popular" {% if sort == 'popular' %}selected{% endif %}>Most Popular</option>
+        </select>
+    </div>
+
+    <!-- Advanced Filters -->
+    <div class="filter-chip {% if condition %}active{% endif %}">
+        <i class="bi bi-info-circle me-1"></i>
+        <select name="condition" class="form-select form-select-sm filter-select" onchange="this.form.submit()">
+            <option value="">Any condition</option>
+            {% for value, label in condition_choices %}
+            <option value="{{ value }}" {% if condition == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    {% if selected_category == 'electronics' or selected_category == 'clothing' or not selected_category %}
+    <div class="filter-chip {% if brand %}active{% endif %}">
+        <i class="bi bi-tag me-1"></i>
+        <input type="text" name="brand" value="{{ brand }}" class="form-control form-control-sm filter-select" placeholder="Brand" style="width:100px">
+    </div>
+    {% endif %}
+
+    {% if selected_category == 'clothing' or not selected_category %}
+    <div class="filter-chip {% if size %}active{% endif %}">
+        <i class="bi bi-rulers me-1"></i>
+        <input type="text" name="size" value="{{ size }}" class="form-control form-control-sm filter-select" placeholder="Size" style="width:70px">
+    </div>
+    {% endif %}
+
+    {% if selected_category == 'textbooks' or not selected_category %}
+    <div class="filter-chip {% if author %}active{% endif %}">
+        <i class="bi bi-person me-1"></i>
+        <input type="text" name="author" value="{{ author }}" class="form-control form-control-sm filter-select" placeholder="Author" style="width:100px">
+    </div>
+    {% endif %}
+
+    <div class="filter-chip {% if attribute %}active{% endif %}">
+        <i class="bi bi-search me-1"></i>
+        <input type="text" name="attribute" value="{{ attribute }}" class="form-control form-control-sm filter-select" placeholder="Any spec (e.g. 256GB)" style="width:130px">
+    </div>
+
+    <input type="hidden" name="q" value="{{ query }}">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <button type="submit" class="btn btn-search btn-sm ms-auto" style="height:35px; border-radius:999px"><i class="bi bi-funnel me-1"></i> Apply Filters</button>
+</form>
+
+<!-- Full listings grid -->
+<div class="results-header">
+    <h2 class="results-title">{% if query %}Results for "{{ query }}"{% else %}All listings{% endif %}</h2>
+    <div class="results-sort">
+        <label for="sort-select">Sort by:</label>
+        <form method="get" style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="hidden" name="q" value="{{ query }}">
+            <input type="hidden" name="category" value="{{ selected_category }}">
+            <input type="hidden" name="school" value="{{ selected_school }}">
+            <input type="hidden" name="min_price" value="{{ min_price }}">
+            <input type="hidden" name="max_price" value="{{ max_price }}">
+            <input type="hidden" name="condition" value="{{ condition }}">
+            <input type="hidden" name="brand" value="{{ brand }}">
+            <input type="hidden" name="size" value="{{ size }}">
+            <input type="hidden" name="author" value="{{ author }}">
+            <input type="hidden" name="attribute" value="{{ attribute }}">
+            <select name="sort" id="sort-select" onchange="this.form.submit()">
+                <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest First</option>
+                <option value="price_low" {% if sort == 'price_low' %}selected{% endif %}>Price: Low to High</option>
+                <option value="price_high" {% if sort == 'price_high' %}selected{% endif %}>Price: High to Low</option>
+                <option value="popular" {% if sort == 'popular' %}selected{% endif %}>Most Popular</option>
+            </select>
+        </form>
+    </div>
+</div>
+<div class="browse-grid">
+    {% for listing in listings %}
+    <a href="{% url 'marketplace:listing_detail' listing.pk %}" class="listing-card">
+        <div class="listing-card-img">
+            {% if listing.image %}
+            <img src="{{ listing.image.url }}" alt="{{ listing.title }}" loading="lazy">
+            {% else %}
+            <i class="bi bi-image text-muted" style="font-size: 2.5rem;"></i>
+            {% endif %}
+            <span class="listing-card-fav"><i class="bi bi-heart"></i> {{ listing.fav_count|default:0 }}</span>
+        </div>
+        <div class="listing-card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="listing-card-price">₱{{ listing.price|floatformat:0 }}</div>
+                {% if listing.pending_offers_count > 0 %}
+                <div title="{{ listing.pending_offers_count }} active offers!" style="color: #f59e0b; font-size: 0.75rem; font-weight: 700; background: rgba(245,158,11,0.1); padding: 2px 6px; border-radius: 4px;">
+                    <i class="bi bi-fire"></i> {{ listing.pending_offers_count }}
+                </div>
+                {% endif %}
+            </div>
+            <div class="listing-card-title">{{ listing.title }}</div>
+            <div class="listing-card-condition">{{ listing.get_condition_display }}{% if listing.school %} · {% include 'marketplace/_school_badge.html' with school=listing.school %}{% endif %}</div>
+            <div class="listing-card-seller">
+                <div class="listing-card-avatar">
+                    {% if listing.seller.profile.avatar %}
+                    <img src="{{ listing.seller.profile.avatar.url }}" alt="">
+                    {% elif listing.seller.profile.google_avatar_url %}
+                    <img src="{{ listing.seller.profile.google_avatar_url }}" alt="">
+                    {% else %}
+                    {{ listing.seller.username|slice:":1"|upper }}
+                    {% endif %}
+                </div>
+                <div class="listing-card-seller-info">
+                    <div class="listing-card-seller-name">{{ listing.seller.username }}</div>
+                    <div class="listing-card-time">{{ listing.created_at|timesince }} ago</div>
+                </div>
+                <button type="button" class="listing-card-chat" style="background: transparent; border: none; cursor: pointer;" data-url="{% url 'marketplace:listing_detail' listing.pk %}" data-title="{{ listing.title|escapejs }}" data-price="{{ listing.price|floatformat:2 }}" data-condition="{{ listing.get_condition_display }}" data-description="{{ listing.description|truncatewords:20|escapejs }}" data-seller="{{ listing.seller.username }}" data-school="{{ listing.school.name|default:'' }}" data-image="{{ listing.image.url|default:'' }}" onclick="openQuickViewFromButton(this); return false;" title="Quick view"><i class="bi bi-eye"></i></button>
+            </div>
+        </div>
+    </a>
+    {% empty %}
+    <div class="empty-state">
+        <span class="empty-state-icon"><i class="bi bi-shop"></i></span>
+        <div class="empty-state-title">{% if query %}No results found{% else %}No listings yet{% endif %}</div>
+        <p class="empty-state-text">
+            {% if query %}
+                We couldn't find any listings matching "{{ query }}". Try searching with different keywords or clear your filters.
+            {% else %}
+                There are no listings available right now. Check back soon or create your own listing!
+            {% endif %}
+        </p>
+        <div class="empty-state-actions">
+            {% if query %}
+                <a href="{% url 'marketplace:listing_list' %}" class="btn btn-secondary">Clear Filters</a>
+            {% else %}
+                <a href="{% url 'marketplace:listing_list' %}?sort=newest" class="btn btn-secondary">Browse Featured</a>
+            {% endif %}
+            {% if user.is_authenticated and not user.is_superuser %}
+                <a href="{% url 'marketplace:listing_create' %}" class="btn btn-primary">Create Listing</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Quick View Modal -->
+<div class="modal fade" id="quickViewModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content" style="border-radius: 16px; border: 1px solid #E5E5E5;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title" id="quickViewTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <img id="quickViewImage" src="" alt="" style="width: 100%; border-radius: 12px;">
+                    </div>
+                    <div class="col-md-6">
+                        <h4 id="quickViewPrice" style="color: #97C2EC; font-weight: 800; font-size: 1.8rem;"></h4>
+                        <p id="quickViewCondition" style="color: #999; font-size: 0.9rem;"></p>
+                        <p id="quickViewDescription" style="margin-top: 1rem; line-height: 1.6;"></p>
+                        
+                        <div style="margin-top: 1.5rem; padding: 1rem; background: #F5F5F5; border-radius: 12px;">
+                            <div style="font-weight: 600; color: #1F1F1F; margin-bottom: 0.75rem;">Seller Info</div>
+                            <div id="quickViewSeller" style="font-size: 0.9rem;"></div>
+                        </div>
+                        
+                        <div style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                            <a id="quickViewDetailBtn" href="#" class="btn" style="background: #97C2EC; color: white; border-radius: 10px; font-weight: 600;">View Details</a>
+                            <button class="btn btn-outline-secondary" data-bs-dismiss="modal" style="border-radius: 10px; border: 2px solid #E5E5E5;">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openQuickViewFromButton(button) {
+    const listingUrl = button.dataset.url;
+    const title = button.dataset.title;
+    const price = button.dataset.price;
+    const condition = button.dataset.condition;
+    const description = button.dataset.description;
+    const sellerName = button.dataset.seller;
+    const sellerSchool = button.dataset.school;
+    const imageUrl = button.dataset.image;
+    
+    openQuickView(listingUrl, title, price, condition, description, sellerName, sellerSchool, imageUrl);
+}
+
+function openQuickView(listingUrl, title, price, condition, description, sellerName, sellerSchool, imageUrl) {
+    document.getElementById('quickViewTitle').textContent = title;
+    document.getElementById('quickViewPrice').textContent = '₱' + price;
+    document.getElementById('quickViewCondition').textContent = condition;
+    document.getElementById('quickViewDescription').textContent = description || 'No additional details provided.';
+    document.getElementById('quickViewImage').src = imageUrl || 'https://via.placeholder.com/400x400?text=No+Image';
+    document.getElementById('quickViewSeller').innerHTML = `<strong>${sellerName}</strong><br>${sellerSchool || 'Campus Student'}`;
+    document.getElementById('quickViewDetailBtn').href = listingUrl;
+    
+    const modal = new bootstrap.Modal(document.getElementById('quickViewModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

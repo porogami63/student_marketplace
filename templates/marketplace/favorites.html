@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% block title %}My Favorites{% endblock %}
+
+{% block extra_css %}
+<style>
+    .fav-hero {
+        background: linear-gradient(135deg, #1F1F1F 0%, #2D2D2D 100%);
+        border-radius: 18px;
+        padding: 1.5rem 1.75rem;
+        margin-bottom: 1.75rem;
+        color: #e5e7eb;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .fav-title {
+        font-size: 1.6rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+    .fav-sub {
+        font-size: 0.9rem;
+        color: #9ca3af;
+    }
+    .fav-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1.25rem;
+    }
+    .fav-card {
+        border-radius: 16px;
+        border: 1px solid #E5E5E5;
+        background: var(--color-bg);
+        overflow: hidden;
+        text-decoration: none;
+        color: inherit;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+    .fav-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 25px rgba(151, 194, 236, 0.15);
+        border-color: #97C2EC;
+    }
+    .fav-img {
+        height: 160px;
+        background: linear-gradient(135deg, #F5F5F5, #E5E5E5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .fav-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .fav-body {
+        padding: 0.75rem 0.9rem 0.5rem;
+    }
+    .fav-price {
+        font-family: 'Space Grotesk', sans-serif;
+        font-weight: 700;
+        color: #97C2EC;
+        font-size: 1.05rem;
+    }
+    .fav-title-text {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-top: 0.15rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .fav-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+        color: var(--color-text-muted);
+        margin-top: 0.25rem;
+    }
+    .fav-empty {
+        grid-column: 1 / -1;
+        padding: 3rem 1rem;
+        text-align: center;
+        background: linear-gradient(135deg, #F5F5F5 0%, #FFFFFF 100%);
+        border-radius: 16px;
+        border: 2px dashed #E5E5E5;
+    }
+    .fav-empty-icon {
+        font-size: 3.5rem;
+        margin-bottom: 1rem;
+        display: block;
+    }
+    .fav-empty-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #1F1F1F;
+        margin-bottom: 0.5rem;
+    }
+    .fav-empty-text {
+        font-size: 0.95rem;
+        color: #666666;
+        margin-bottom: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fav-hero">
+    <div>
+        <div class="fav-title"><i class="bi bi-heart me-2"></i>My Favorites</div>
+        <div class="fav-sub">All the listings you’ve saved to watch or buy later.</div>
+    </div>
+    <a href="{% url 'marketplace:listing_list' %}" class="btn btn-outline-light btn-sm">
+        <i class="bi bi-search-heart me-1"></i> Browse more
+    </a>
+</div>
+
+<div class="fav-grid">
+    {% for listing in listings %}
+    <a href="{% url 'marketplace:listing_detail' listing.pk %}" class="fav-card">
+        <div class="fav-img">
+            {% if listing.image %}
+            <img src="{{ listing.image.url }}" alt="{{ listing.title }}" loading="lazy">
+            {% else %}
+            <i class="bi bi-image text-white-50" style="font-size: 2rem;"></i>
+            {% endif %}
+        </div>
+        <div class="fav-body">
+            <div class="fav-price">
+                ₱{{ listing.price|floatformat:0 }}
+                {% if listing.is_sold %}<span class="badge bg-secondary ms-1">Sold</span>{% endif %}
+            </div>
+            <div class="fav-title-text">{{ listing.title }}</div>
+            <div class="fav-meta">
+                {% if listing.school %}
+                <span class="small">
+                    {% include 'marketplace/_school_badge.html' with school=listing.school %}
+                </span>
+                {% else %}
+                <span></span>
+                {% endif %}
+                <span><i class="bi bi-eye me-1"></i>{{ listing.view_count }}</span>
+            </div>
+        </div>
+    </a>
+    {% empty %}
+    <div class="fav-empty">
+        <span class="fav-empty-icon">💔</span>
+        <div class="fav-empty-title">No Favorites Yet</div>
+        <p class="fav-empty-text">Start saving listings you love to view them later and make purchase decisions faster.</p>
+        <a href="{% url 'marketplace:listing_list' %}" class="btn btn-ubelt">Browse Listings</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

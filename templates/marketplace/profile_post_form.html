@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}Create a Post{% endblock %}
+{% block extra_css %}
+<style>
+    .form-container {
+        max-width: 600px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e0e0e0;
+    }
+    .form-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--ubelt-navy);
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        color: var(--ubelt-navy);
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+    }
+    .form-group textarea {
+        width: 100%;
+        padding: 1rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-family: inherit;
+        font-size: 1rem;
+        resize: vertical;
+        transition: border-color 0.3s;
+    }
+    .form-group textarea:focus {
+        outline: none;
+        border-color: var(--ubelt-navy);
+    }
+    .character-count {
+        font-size: 0.85rem;
+        color: #999;
+        margin-top: 0.5rem;
+    }
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-top: 2rem;
+    }
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, var(--ubelt-navy) 0%, #2d4a6f 100%);
+        color: white;
+    }
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(26, 43, 74, 0.3);
+    }
+    .btn-secondary {
+        background: white;
+        color: var(--ubelt-navy);
+        border: 2px solid var(--ubelt-gold);
+    }
+    .btn-secondary:hover {
+        background: var(--ubelt-gold);
+        color: white;
+        transform: translateY(-2px);
+    }
+    .form-hint {
+        font-size: 0.9rem;
+        color: #999;
+        margin-top: 0.5rem;
+        font-style: italic;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="form-container">
+        <h1 class="form-title">Share Your Thoughts</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 2rem;">
+            Post a message on your profile that will be visible to all visitors!
+        </p>
+
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="id_content">{{ form.content.label }}</label>
+                {{ form.content }}
+                <div class="form-hint">Maximum 1000 characters. Keep it friendly and informative!</div>
+                <div class="character-count">
+                    <span id="charCount">0</span> / 1000 characters
+                </div>
+            </div>
+
+            {% if form.non_field_errors %}
+            <div style="background: #fee; color: #c33; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Post Now</button>
+                <a href="{% url 'marketplace:public_profile' request.user.username %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const textarea = document.querySelector('textarea');
+    const charCount = document.getElementById('charCount');
+    
+    textarea.addEventListener('input', function() {
+        charCount.textContent = this.value.length;
+    });
+</script>
+{% endblock %}

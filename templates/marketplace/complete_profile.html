@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% block title %}Complete Profile{% endblock %}
+{% block extra_css %}
+<style>
+    .profile-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem 1rem; background: linear-gradient(135deg, var(--ubelt-navy) 0%, var(--ubelt-teal) 100%); }
+    .profile-card { width: 100%; max-width: 650px; border-radius: 16px; border: 1px solid rgba(0,0,0,0.05); background: white; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    .profile-header { text-align: center; padding: 2rem; background: linear-gradient(135deg, var(--ubelt-navy) 0%, var(--ubelt-teal) 100%); color: white; border-radius: 16px 16px 0 0; }
+    .profile-header h1 { font-family: 'Space Grotesk', sans-serif; font-size: 1.8rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .profile-header p { font-size: 0.95rem; opacity: 0.95; }
+    .form-container { padding: 2rem; }
+    .auth-form-group { margin-bottom: 1.25rem; }
+    .auth-form-group label { display: block; font-weight: 600; color: var(--ubelt-navy); margin-bottom: 0.5rem; font-size: 0.9rem; }
+    .auth-form-group input, .auth-form-group select { width: 100%; padding: 0.75rem 1rem; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1rem; transition: border-color 0.2s; box-sizing: border-box; font-family: inherit; }
+    .auth-form-group input:focus, .auth-form-group select:focus { border-color: var(--ubelt-gold); outline: none; box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.1); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-row-full { grid-column: 1 / -1; }
+    @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+    .form-section { margin-bottom: 2rem; border-bottom: 1px solid #e0e0e0; padding-bottom: 1.5rem; }
+    .form-section:last-of-type { border-bottom: none; }
+    .section-title { font-size: 0.95rem; font-weight: 600; color: var(--ubelt-teal); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1rem; }
+    .errorlist { list-style: none; padding: 0; margin: 0.5rem 0 0 0; }
+    .errorlist li { color: #c33; font-size: 0.85rem; }
+    .required-note { font-size: 0.85rem; color: #999; margin-bottom: 1.5rem; }
+    .button-group { display: flex; gap: 1rem; }
+    .button-group button, .button-group a { flex: 1; }
+    @media (max-width: 600px) { .button-group { flex-direction: column; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="profile-container">
+    <div class="profile-card">
+        <div class="profile-header">
+            <h1>Complete Your Profile</h1>
+            <p>Welcome to U-Belt! Help us get to know you better</p>
+        </div>
+        
+        <div class="form-container">
+            <p class="required-note"><span style="color: var(--ubelt-gold);">*</span> = Required fields</p>
+            
+            <form method="post" class="auth-form">
+                {% csrf_token %}
+                
+                <!-- Personal Information -->
+                <div class="form-section">
+                    <div class="section-title">Personal Information</div>
+                    <div class="form-row form-row-full">
+                        <div class="auth-form-group">
+                            <label for="id_full_name">Full Name <span style="color: var(--ubelt-gold);">*</span></label>
+                            <input type="text" name="full_name" id="id_full_name" placeholder="Enter your full name" value="{{ form.full_name.value|default:'' }}" required>
+                            {% if form.full_name.errors %}<ul class="errorlist">{{ form.full_name.errors }}</ul>{% endif %}
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="auth-form-group">
+                            <label for="id_birthday">Birthday</label>
+                            <input type="date" name="birthday" id="id_birthday" value="{{ form.birthday.value|default:'' }}">
+                            {% if form.birthday.errors %}<ul class="errorlist">{{ form.birthday.errors }}</ul>{% endif %}
+                        </div>
+                        <div class="auth-form-group">
+                            <label for="id_age">Age</label>
+                            <input type="number" name="age" id="id_age" placeholder="E.g., 18" min="10" max="80" value="{{ form.age.value|default:'' }}">
+                            {% if form.age.errors %}<ul class="errorlist">{{ form.age.errors }}</ul>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- School Information -->
+                <div class="form-section">
+                    <div class="section-title">School Information</div>
+                    <div class="form-row">
+                        <div class="auth-form-group">
+                            <label for="id_school">School <span style="color: var(--ubelt-gold);">*</span></label>
+                            {{ form.school }}
+                            {% if form.school.errors %}<ul class="errorlist">{{ form.school.errors }}</ul>{% endif %}
+                        </div>
+                        <div class="auth-form-group">
+                            <label for="id_year_level">Year Level <span style="color: var(--ubelt-gold);">*</span></label>
+                            {{ form.year_level }}
+                            {% if form.year_level.errors %}<ul class="errorlist">{{ form.year_level.errors }}</ul>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Contact Information -->
+                <div class="form-section">
+                    <div class="section-title">Contact Information</div>
+                    <div class="form-row form-row-full">
+                        <div class="auth-form-group">
+                            <label for="id_phone">Mobile Number</label>
+                            <input type="text" name="phone" id="id_phone" placeholder="09XXXXXXXXX or +63XXXXXXXXX" value="{{ form.phone.value|default:'' }}">
+                            {% if form.phone.errors %}<ul class="errorlist">{{ form.phone.errors }}</ul>{% endif %}
+                        </div>
+                    </div>
+                    <div class="form-row form-row-full">
+                        <div class="auth-form-group">
+                            <label for="id_address">Address / Meetup Area</label>
+                            <input type="text" name="address" id="id_address" placeholder="General meetup area or barangay" value="{{ form.address.value|default:'' }}">
+                            {% if form.address.errors %}<ul class="errorlist">{{ form.address.errors }}</ul>{% endif %}
+                        </div>
+                    </div>
+                    <div class="form-row form-row-full">
+                        <div class="auth-form-group">
+                            <label for="id_contact_info">Other Contact Info / Social Media</label>
+                            <input type="text" name="contact_info" id="id_contact_info" placeholder="Facebook, Instagram, Discord, etc." value="{{ form.contact_info.value|default:'' }}">
+                            {% if form.contact_info.errors %}<ul class="errorlist">{{ form.contact_info.errors }}</ul>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="button-group" style="margin-top: 2rem;">
+                    <button type="submit" class="btn btn-ubelt py-2" style="border-radius: 8px; font-weight: 600;">Save Profile & Continue</button>
+                    <a href="{% url 'marketplace:home' %}" class="btn btn-secondary py-2" style="border-radius: 8px; font-weight: 600; background: #e0e0e0; color: #333; text-decoration: none; display: flex; align-items: center; justify-content: center;">Skip for Now</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

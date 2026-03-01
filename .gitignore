@@ -1,0 +1,62 @@
+# Django
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Media files
+media/avatars/*
+!media/avatars/.gitkeep
+media/listings/*
+!media/listings/.gitkeep
+
+# Environment
+.env
+.env.local
+
+# Testing
+.coverage
+htmlcov/
+
+# Exclude nested git repositories
+testing/
+UBELT MARKETPLACE/

@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% block title %}{{ post.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .forum-post-hero {
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav class="mb-3">
+    <a href="{% url 'marketplace:forum' %}">← Back to Forum</a>
+</nav>
+<div class="card mb-4">
+    <div class="card-body">
+        <h1 class="font-display fw-bold h4 mb-2" style="color: var(--ubelt-navy);">{{ post.title }}</h1>
+        <p class="text-muted small mb-3">
+            by <a href="{% url 'marketplace:public_profile' post.author.username %}" style="color: var(--ubelt-navy); text-decoration: none; font-weight: 600;">{{ post.author.username }}</a>
+            {% if post.author.profile.average_rating > 0 %}
+                <span style="margin-left: 0.5rem; color: var(--ubelt-gold);">
+                    {% for star in "12345" %}{% if star|add:"0" <= post.author.profile.average_rating %}⭐{% else %}☆{% endif %}{% endfor %}
+                    <span style="font-size: 0.9rem; color: #999;">{{ post.author.profile.average_rating|floatformat:1 }}</span>
+                </span>
+            {% endif %}
+            · {{ post.created_at|timesince }} ago
+        </p>
+        <p class="card-text">{{ post.body|linebreaks }}</p>
+        {% if post.listing %}
+        <hr>
+        <h6 class="mb-2">Linked Listing</h6>
+        <a href="{% url 'marketplace:listing_detail' post.listing.pk %}" class="text-decoration-none">
+            <div class="d-inline-flex align-items-center p-3 rounded-3 border" style="background: var(--ubelt-cream);">
+                {% if post.listing.image %}
+                <img src="{{ post.listing.image.url }}" alt="" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;" class="me-3">
+                {% else %}
+                <div class="bg-secondary bg-opacity-25 rounded me-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;"><i class="bi bi-image fs-2"></i></div>
+                {% endif %}
+                <div>
+                    <strong>{{ post.listing.title }}</strong>
+                    <br><span class="price-tag">₱{{ post.listing.price|floatformat:0 }}</span>
+                    {% if post.listing.school %}{% include 'marketplace/_school_badge.html' with school=post.listing.school %}{% endif %}
+                    <br><span class="small text-muted">{{ post.listing.get_condition_display }}</span>
+                </div>
+            </div>
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<h5 class="mb-3">Replies ({{ replies|length }})</h5>
+{% for reply in replies %}
+<div class="card mb-2">
+    <div class="card-body py-2 d-flex justify-content-between align-items-start">
+        <div>
+            <strong>{{ reply.author.username }}</strong> <span class="text-muted small">{{ reply.created_at|timesince }} ago</span>
+            <p class="mb-0 mt-1">{{ reply.body|linebreaks }}</p>
+        </div>
+        {% if user.is_superuser %}
+        <form method="post" action="{% url 'marketplace:mod_forum_action' 'reply' reply.pk %}" class="d-inline">
+            {% csrf_token %}
+            {% if reply.is_hidden %}
+            <input type="hidden" name="action" value="restore">
+            <button type="submit" class="btn btn-sm btn-success">Restore</button>
+            {% else %}
+            <input type="hidden" name="action" value="hide">
+            <input type="text" name="reason" placeholder="Reason" class="form-control form-control-sm d-inline-block w-auto mb-1" maxlength="200">
+            <button type="submit" class="btn btn-sm btn-danger">Hide</button>
+            {% endif %}
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% empty %}
+<p class="text-muted">No replies yet.</p>
+{% endfor %}
+
+{% if user.is_authenticated %}
+<hr class="my-4">
+<h5 class="mb-3">Add Reply</h5>
+<form method="post">
+    {% csrf_token %}
+    {{ form|crispy }}
+    <button type="submit" class="btn btn-ubelt">Post Reply</button>
+</form>
+{% else %}
+<p class="text-muted"><a href="{% url 'login' %}">Log in</a> to reply.</p>
+{% endif %}
+{% endblock %}

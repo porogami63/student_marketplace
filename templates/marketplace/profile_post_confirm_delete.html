@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block title %}Delete Post{% endblock %}
+{% block extra_css %}
+<style>
+    .confirm-container {
+        max-width: 500px;
+        margin: 3rem auto;
+        padding: 2rem;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e0e0e0;
+        text-align: center;
+    }
+    .confirm-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: #d32f2f;
+    }
+    .confirm-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--ubelt-navy);
+        margin-bottom: 1rem;
+    }
+    .confirm-message {
+        color: #666;
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
+    }
+    .post-preview {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin: 1.5rem 0;
+        text-align: left;
+        border-left: 4px solid var(--ubelt-navy);
+    }
+    .post-preview-content {
+        color: #333;
+        line-height: 1.6;
+        word-wrap: break-word;
+    }
+    .confirm-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-top: 2rem;
+    }
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-danger {
+        background: #d32f2f;
+        color: white;
+    }
+    .btn-danger:hover {
+        background: #c62828;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(211, 47, 47, 0.3);
+    }
+    .btn-secondary {
+        background: white;
+        color: var(--ubelt-navy);
+        border: 2px solid var(--ubelt-navy);
+    }
+    .btn-secondary:hover {
+        background: var(--ubelt-navy);
+        color: white;
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="confirm-container">
+        <div class="confirm-icon">⚠️</div>
+        <h1 class="confirm-title">Delete This Post?</h1>
+        
+        <p class="confirm-message">
+            This action cannot be undone. You will permanently delete this post from your profile.
+        </p>
+
+        <div class="post-preview">
+            <div class="post-preview-content">
+                {{ post.content }}
+            </div>
+            <div style="font-size: 0.85rem; color: #999; margin-top: 1rem;">
+                Posted on {{ post.created_at|date:"M d, Y" }}
+            </div>
+        </div>
+
+        <form method="post" style="margin: 0;">
+            {% csrf_token %}
+            <div class="confirm-actions">
+                <button type="submit" class="btn btn-danger">Yes, Delete It</button>
+                <a href="{% url 'marketplace:public_profile' request.user.username %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

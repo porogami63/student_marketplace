@@ -1,0 +1,1196 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% block title %}My Profile{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-dashboard-hero {
+        background: #ffffff;
+        padding: 0;
+        margin-bottom: 0;
+        position: relative;
+        overflow: hidden;
+        background-size: cover;
+        background-position: center;
+        min-height: 300px;
+        border-bottom: 1px solid rgba(200, 200, 200, 0.3);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    .profile-dashboard-hero::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 1);
+        z-index: 1;
+    }
+    .dashboard-container {
+        position: relative;
+        z-index: 2;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+    .dashboard-header {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        gap: 2rem;
+        color: var(--ubelt-navy);
+        padding: 3rem 0 2rem 0;
+        flex-wrap: wrap;
+    }
+    .dashboard-header-content {
+        flex: 1;
+        min-width: 250px;
+    }
+    .dashboard-title {
+        font-size: 2rem;
+        font-weight: 800;
+        margin: 0 0 0.5rem 0;
+        letter-spacing: -0.02em;
+    }
+    .dashboard-header-info {
+        font-size: 0.95rem;
+        opacity: 0.95;
+        line-height: 1.6;
+    }
+    .dashboard-avatar {
+        width: 140px;
+        height: 140px;
+        border-radius: 50%;
+        border: 5px solid var(--ubelt-navy);
+        object-fit: cover;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        flex-shrink: 0;
+    }
+    .dashboard-avatar-placeholder {
+        width: 140px;
+        height: 140px;
+        border-radius: 50%;
+        border: 5px solid var(--ubelt-navy);
+        background: linear-gradient(135deg, var(--ubelt-gold) 0%, #a67e1f 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3.5rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        flex-shrink: 0;
+    }
+    
+    .profile-edit-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        background: var(--ubelt-navy);
+        color: white;
+        border-radius: 50%;
+        border: 2px solid var(--ubelt-navy);
+        cursor: pointer;
+        text-decoration: none;
+        margin-top: 0.5rem;
+        transition: all 0.3s;
+        font-size: 1.2rem;
+    }
+    .profile-edit-btn:hover {
+        background: #2d4a6f;
+        transform: scale(1.1);
+    }
+    
+    /* Logo styling with white background removal */
+    .school-logo-img, img[src*="UNIV LOGOS"] {
+        background: white;
+        padding: 2px;
+        border-radius: 4px;
+    }
+    
+    /* Inline post form styling */
+    .new-post-form {
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e5e5e5;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    
+    .new-post-form textarea {
+        width: 100%;
+        padding: 1rem;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.95rem;
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    .new-post-form textarea:focus {
+        outline: none;
+        border-color: var(--ubelt-gold);
+        box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.1);
+    }
+    
+    .post-form-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+        justify-content: flex-end;
+    }
+    
+    .post-form-actions button, .post-form-actions a {
+        padding: 0.7rem 1.5rem;
+        border-radius: 8px;
+        border: none;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .post-submit-btn {
+        background: linear-gradient(135deg, var(--ubelt-navy) 0%, #2d4a6f 100%);
+        color: white;
+    }
+    
+    .post-submit-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(26, 43, 74, 0.3);
+    }
+    
+    .post-cancel-btn {
+        background: #f0f0f0;
+        color: #666;
+    }
+    
+    .post-cancel-btn:hover {
+        background: #e0e0e0;
+    }
+
+    /* Metrics Card Grid */
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .metric-card {
+        background: transparent;
+        padding: 1rem;
+        border-radius: 12px;
+        border: none;
+        text-align: center;
+        box-shadow: none;
+        transition: all 0.3s ease;
+    }
+    .metric-card:hover {
+        transform: none;
+    }
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--ubelt-navy);
+        margin-bottom: 0.5rem;
+    }
+    .metric-label {
+        font-size: 0.75rem;
+        color: #666666;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 500;
+    }
+
+    /* Tabs Navigation */
+    .dashboard-tabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 2rem;
+        border-bottom: 2px solid #e5e5e5;
+    }
+    .tab-button {
+        padding: 1rem 1.5rem;
+        background: transparent;
+        border: none;
+        color: #666;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 0.95rem;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+        position: relative;
+        bottom: -2px;
+    }
+    .tab-button:hover {
+        color: var(--ubelt-navy);
+    }
+    .tab-button.active {
+        color: var(--ubelt-navy);
+        border-bottom-color: var(--ubelt-navy);
+    }
+
+    /* Tab Content */
+    .tab-content {
+        display: none;
+    }
+    .tab-content.active {
+        display: block;
+    }
+
+    /* Profile Section */
+    .profile-edit-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+    .profile-section {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        border: 1px solid #e5e5e5;
+    }
+    .profile-section-title {
+        font-weight: 700;
+        color: var(--ubelt-navy);
+        margin-bottom: 1.5rem;
+        font-size: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--ubelt-gold);
+    }
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--ubelt-navy);
+        font-size: 0.9rem;
+    }
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: var(--ubelt-gold);
+        box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.1);
+    }
+    .form-group textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+    .form-group small {
+        display: block;
+        font-size: 0.85rem;
+        color: #999;
+        margin-top: 0.5rem;
+    }
+
+    /* School selector styling */
+    #id_school {
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 1.25rem;
+        padding-right: 2.5rem;
+    }
+
+    .school-selector-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+    }
+
+    .school-option {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 0.75rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: center;
+    }
+
+    .school-option:hover {
+        border-color: var(--ubelt-gold);
+        background-color: #fff8f0;
+    }
+
+    .school-option.selected {
+        border-color: var(--ubelt-navy);
+        background-color: #f0f4f8;
+    }
+
+    .school-logo-img {
+        height: 40px;
+        width: auto;
+        max-width: 100%;
+        object-fit: contain;
+        margin-bottom: 0.5rem;
+    }
+
+    .school-option-name {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--ubelt-navy);
+        line-height: 1;
+    }
+
+    .btn-save {
+        background: linear-gradient(135deg, var(--ubelt-navy) 0%, #2d4a6f 100%);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(26, 43, 74, 0.3);
+    }
+
+    /* Listings Grid */
+    .listings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1.25rem;
+    }
+    .listing-card {
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e5e5e5;
+        overflow: hidden;
+        transition: all 0.3s;
+        text-decoration: none;
+        color: inherit;
+        display: flex;
+        flex-direction: column;
+    }
+    .listing-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        border-color: var(--ubelt-gold);
+    }
+    .listing-image {
+        width: 100%;
+        height: 140px;
+        background: linear-gradient(135deg, #f0f0f0 0%, #e5e5e5 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .listing-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .listing-body {
+        padding: 1rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    .listing-title {
+        font-weight: 600;
+        color: var(--ubelt-navy);
+        margin-bottom: 0.5rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    .listing-price {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--ubelt-teal);
+        margin-bottom: 0.75rem;
+    }
+    .listing-meta {
+        font-size: 0.8rem;
+        color: #999;
+        margin-top: auto;
+        padding-top: 0.75rem;
+        border-top: 1px solid #f0f0f0;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #999;
+    }
+    .empty-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    .empty-text {
+        font-size: 0.95rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Transactions Table */
+    .transactions-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e5e5e5;
+        overflow: hidden;
+    }
+    .transactions-table th {
+        background: #f8f9fa;
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--ubelt-navy);
+        border-bottom: 2px solid #e5e5e5;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .transactions-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 0.9rem;
+    }
+    .transactions-table tr:hover {
+        background: #f8f9fa;
+    }
+    .txn-item {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .txn-amount {
+        font-weight: 700;
+        color: var(--ubelt-teal);
+    }
+    .txn-status {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .txn-pending {
+        background: #fff3cd;
+        color: #856404;
+    }
+    .txn-confirmed {
+        background: #e7f3ff;
+        color: #004085;
+    }
+    .txn-completed {
+        background: #d4edda;
+        color: #155724;
+    }
+    .txn-cancelled {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    /* Posts Section Styles */
+    .post-item {
+        padding: 1.5rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+        border-left: 4px solid var(--ubelt-navy);
+        margin-bottom: 1rem;
+        position: relative;
+    }
+    
+    .post-item.pinned {
+        background: linear-gradient(135deg, #fff9e6 0%, #fffbf0 100%);
+        border-left-color: var(--ubelt-gold);
+        border: 2px solid var(--ubelt-gold);
+        margin-bottom: 2rem;
+    }
+    
+    .post-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+    
+    .post-author {
+        font-weight: 600;
+        color: var(--ubelt-navy);
+        margin-bottom: 0.25rem;
+    }
+    
+    .post-date {
+        font-size: 0.85rem;
+        color: #999;
+    }
+    
+    .post-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .post-action-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.75rem;
+        border: 1px solid #ddd;
+        background: white;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #666;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .post-action-btn:hover {
+        background: #f0f0f0;
+        border-color: #999;
+    }
+    
+    .post-action-btn.pin {
+        color: var(--ubelt-gold);
+        border-color: var(--ubelt-gold);
+    }
+    
+    .post-action-btn.pin:hover {
+        background: var(--ubelt-gold);
+        color: white;
+    }
+    
+    .post-action-btn.delete {
+        color: #d32f2f;
+        border-color: #d32f2f;
+    }
+    
+    .post-action-btn.delete:hover {
+        background: #d32f2f;
+        color: white;
+    }
+    
+    .post-content {
+        color: #333;
+        line-height: 1.6;
+        font-size: 0.95rem;
+        word-wrap: break-word;
+    }
+    
+    .pinned-badge {
+        display: inline-block;
+        background: var(--ubelt-gold);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        text-transform: uppercase;
+    }
+    
+    .new-post-button {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        background: linear-gradient(135deg, var(--ubelt-navy) 0%, #2d4a6f 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-decoration: none;
+        margin-bottom: 1.5rem;
+    }
+    
+    .new-post-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(26, 43, 74, 0.3);
+    }
+
+    @media (max-width: 768px) {
+        .dashboard-header {
+            flex-direction: column;
+            text-align: center;
+        }
+        .profile-edit-grid {
+            grid-template-columns: 1fr;
+        }
+        .metrics-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .listings-grid {
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        }
+        .dashboard-tabs {
+            overflow-x: auto;
+        }
+        .tab-button {
+            padding: 0.75rem 1rem;
+            white-space: nowrap;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-dashboard-hero" {% if user.profile.header_image %}style="background-image: url('{{ user.profile.header_image.url }}');"{% endif %}>
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <div>
+                {% if user.profile.avatar %}
+                    <img src="{{ user.profile.avatar.url }}" alt="Profile" class="dashboard-avatar">
+                {% elif user.profile.google_avatar_url %}
+                    <img src="{{ user.profile.google_avatar_url }}" alt="Profile" class="dashboard-avatar">
+                {% else %}
+                    <div class="dashboard-avatar-placeholder">👤</div>
+                {% endif %}
+                <a href="#profile" onclick="switchTab('profile', event); return false;" class="profile-edit-btn" title="Edit profile"><i class="bi bi-pencil"></i></a>
+            </div>
+            <div class="dashboard-header-content">
+                <h1 class="dashboard-title">{{ user.get_full_name|default:user.username }}</h1>
+                <div class="dashboard-header-info">
+                    <strong>{{ user.email }}</strong><br>
+                    {{ user.profile.display_name }}<br>
+                    {% if user.profile.school %}
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+                        {% if user.profile.school.logo_url %}
+                        <img src="{{ user.profile.school.logo_url }}" alt="{{ user.profile.school.name }}" style="height: 28px; width: auto; object-fit: contain; background: white; padding: 2px; border-radius: 4px;">
+                        {% endif %}
+                        <span>📍 {{ user.profile.school.name }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Cards -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value">{{ listings.count }}</div>
+                <div class="metric-label">Active Listings</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ user.profile.total_bought }}</div>
+                <div class="metric-label">Items Bought</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ user.profile.total_sold }}</div>
+                <div class="metric-label">Items Sold</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">₱{{ user.profile.total_spent|floatformat:0 }}</div>
+                <div class="metric-label">Total Spent</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">₱{{ user.profile.total_earned|floatformat:0 }}</div>
+                <div class="metric-label">Total Earned</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ user.profile.reputation_score|floatformat:1 }}/5</div>
+                <div class="metric-label">Reputation</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-container">
+    <!-- Tabs Navigation -->
+    <div class="dashboard-tabs">
+        <button class="tab-button active" onclick="switchTab('profile', event)">Profile Settings</button>
+        <button class="tab-button" onclick="switchTab('listings', event)">My Listings</button>
+        <button class="tab-button" onclick="switchTab('transactions', event)">My Transactions</button>
+        <button class="tab-button" onclick="switchTab('posts', event)">My Posts</button>
+    </div>
+
+    <!-- Profile Tab -->
+    <div id="profile" class="tab-content active">
+        <div class="profile-edit-grid">
+            <div class="profile-section">
+                <h3 class="profile-section-title">Personal Information</h3>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="{{ form.full_name.id_for_label }}">Full Name</label>
+                        {{ form.full_name }}
+                        <small>Your display name visible to other users</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.school.id_for_label }}">School</label>
+                        {{ form.school }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.year_level.id_for_label }}">Academic Level</label>
+                        {{ form.year_level }}
+                        <small>Your current year or grade level</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.birthday.id_for_label }}">Birthday</label>
+                        {{ form.birthday }}
+                        <small>Optional - helps build trust in our student community</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.age.id_for_label }}">Age</label>
+                        {{ form.age }}
+                        <small>Optional - keep it blank if you prefer not to share</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.phone.id_for_label }}">Phone Number</label>
+                        {{ form.phone }}
+                        <small>Optional - helps buyers contact you</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.avatar.id_for_label }}">Avatar</label>
+                        {{ form.avatar }}
+                        <small>JPG or PNG, max 2MB</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.header_image.id_for_label }}">Profile Header Image</label>
+                        {{ form.header_image }}
+                        <small>The banner image shown at the top of your profile. JPG or PNG, max 5MB</small>
+                    </div>
+
+                    <button type="submit" class="btn-save"><i class="bi bi-check-lg"></i> Save Changes</button>
+                </form>
+            </div>
+
+            <div class="profile-section">
+                <h3 class="profile-section-title">About You</h3>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="{{ form.bio.id_for_label }}">Bio</label>
+                        {{ form.bio }}
+                        <small>Tell other students about yourself</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.address.id_for_label }}">Location / Meetup Area</label>
+                        {{ form.address }}
+                        <small>Where you usually meet for transactions</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.contact_info.id_for_label }}">Contact Info</label>
+                        {{ form.contact_info }}
+                        <small>Facebook, Instagram, Viber, etc.</small>
+                    </div>
+
+                    <button type="submit" class="btn-save"><i class="bi bi-check-lg"></i> Save Changes</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Posts Tab -->
+    <div id="posts" class="tab-content">
+        <div style="margin-bottom: 1.5rem;">
+            <button onclick="togglePostForm()" class="new-post-button">
+                <i class="bi bi-pencil-square"></i> Create New Post
+            </button>
+        </div>
+        
+        <!-- Inline Post Form -->
+        <div id="post-form-container" style="display: none;">
+            <form id="inline-post-form" class="new-post-form" method="post" action="{% url 'marketplace:create_profile_post' %}">
+                {% csrf_token %}
+                <textarea name="content" id="id_post_content" placeholder="Share something with your profile visitors..." maxlength="1000" required></textarea>
+                <div class="post-form-actions">
+                    <button type="submit" class="post-submit-btn"><i class="bi bi-check-lg"></i> Post</button>
+                    <button type="button" class="post-cancel-btn" onclick="togglePostForm()"><i class="bi bi-x-lg"></i> Cancel</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Current Listings Section -->
+        <div style="margin-bottom: 3rem;">
+            <h3 style="color: var(--ubelt-navy); font-weight: 700; margin-bottom: 1rem;">Current Listings ({{ listings.count }})</h3>
+            {% if listings %}
+                <div class="listings-grid">
+                    {% for listing in listings %}
+                    <a href="{% url 'marketplace:listing_detail' listing.pk %}" class="listing-card">
+                        <div class="listing-image">
+                            {% if listing.image %}
+                                <img src="{{ listing.image.url }}" alt="{{ listing.title }}">
+                            {% else %}
+                                <i class="bi bi-image" style="font-size: 2rem; color: #ddd;"></i>
+                            {% endif %}
+                        </div>
+                        <div class="listing-body">
+                            <div class="listing-title">{{ listing.title }}</div>
+                            <div class="listing-price">₱{{ listing.price|floatformat:0 }}</div>
+                            <div class="listing-meta">
+                                {% if listing.is_sold %}<span style="color: #dc2626; font-weight: 600;"><i class="bi bi-x-circle-fill"></i> SOLD</span>{% else %}<span style="color: #16a34a;"><i class="bi bi-check-circle-fill"></i> ACTIVE</span>{% endif %} · 
+                                {{ listing.created_at|timesince }} ago
+                            </div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon"><i class="bi bi-box"></i></div>
+                    <div class="empty-text">You haven't posted any listings yet.</div>
+                    <a href="{% url 'marketplace:listing_create' %}" class="btn-save" style="display: inline-block; padding: 0.7rem 1.5rem; text-decoration: none; color: white;"><i class="bi bi-plus-circle"></i> Create Listing</a>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Pinned Post Section -->
+        {% if profile.pinned_post %}
+        <div style="margin-bottom: 2rem;">
+            <h3 style="color: var(--ubelt-navy); font-weight: 700; margin-bottom: 1rem;"><i class="bi bi-pin-fill" style="margin-right: 0.5rem; color: var(--ubelt-gold);"></i>Featured Post</h3>
+            <div class="post-item pinned">
+                <div class="pinned-badge">Featured</div>
+                <div class="post-header">
+                    <div>
+                        <div class="post-author">Your Featured Post</div>
+                        <div class="post-date">Posted on {{ profile.pinned_post.created_at|date:"M d, Y" }}</div>
+                    </div>
+                    <div class="post-actions">
+                        <a href="{% url 'marketplace:pin_profile_post' profile.pinned_post.id %}" class="post-action-btn pin">Unpin</a>
+                        <a href="{% url 'marketplace:delete_profile_post' profile.pinned_post.id %}" class="post-action-btn delete">Delete</a>
+                    </div>
+                </div>
+                <p class="post-content">{{ profile.pinned_post.content }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- All Posts Section -->
+        <div>
+            <h3 style="color: var(--ubelt-navy); font-weight: 700; margin-bottom: 1rem;">All Posts ({{ profile_posts.count }})</h3>
+            {% if profile_posts %}
+                {% for post in profile_posts %}
+                    {% if post != profile.pinned_post %}
+                    <div class="post-item">
+                        <div class="post-header">
+                            <div>
+                                <div class="post-author">Your Post</div>
+                                <div class="post-date">{{ post.created_at|date:"M d, Y" }}</div>
+                            </div>
+                            <div class="post-actions">
+                                <a href="{% url 'marketplace:pin_profile_post' post.id %}" class="post-action-btn pin" title="Pin this post to feature it"><i class="bi bi-pin"></i> Pin</a>
+                                <a href="{% url 'marketplace:delete_profile_post' post.id %}" class="post-action-btn delete">Delete</a>
+                            </div>
+                        </div>
+                        <p class="post-content">{{ post.content }}</p>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">💭</div>
+                    <div class="empty-text">You haven't shared any posts yet.</div>
+                    <a href="{% url 'marketplace:create_profile_post' %}" class="btn-save" style="display: inline-block; padding: 0.7rem 1.5rem; text-decoration: none; color: white;">✍️ Share Your First Post</a>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Forum Activity Section -->
+        {% if forum_posts %}
+        <div style="margin-top: 3rem;">
+            <h3 style="color: var(--ubelt-navy); font-weight: 700; margin-bottom: 1rem;">Forum Activity ({{ forum_posts.count }})</h3>
+            {% for forum_post in forum_posts %}
+            <div class="post-item">
+                <div class="post-header">
+                    <div>
+                        <div class="post-author">{{ forum_post.title }}</div>
+                        <div class="post-date">{{ forum_post.created_at|date:"M d, Y" }}</div>
+                    </div>
+                </div>
+                <p class="post-content">{{ forum_post.body|truncatewords:30 }}</p>
+                <a href="{% url 'marketplace:forum_post' forum_post.id %}" style="color: var(--ubelt-navy); text-decoration: none; font-weight: 600; margin-top: 0.75rem; display: inline-block;">
+                    Read more →
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- My Listings Tab -->
+    <div id="listings" class="tab-content">
+        {% if listings %}
+            <div class="listings-grid">
+                {% for listing in listings %}
+                <a href="{% url 'marketplace:listing_detail' listing.pk %}" class="listing-card">
+                    <div class="listing-image">
+                        {% if listing.image %}
+                            <img src="{{ listing.image.url }}" alt="{{ listing.title }}">
+                        {% else %}
+                            <i class="bi bi-image" style="font-size: 2rem; color: #ddd;"></i>
+                        {% endif %}
+                    </div>
+                    <div class="listing-body">
+                        <div class="listing-title">{{ listing.title }}</div>
+                        <div class="listing-price">₱{{ listing.price|floatformat:0 }}</div>
+                        <div class="listing-meta">
+                            {% if listing.is_sold %}<span style="color: #dc2626; font-weight: 600;">❌ SOLD</span>{% else %}<span style="color: #16a34a;">✓ ACTIVE</span>{% endif %} · 
+                            {{ listing.created_at|timesince }} ago
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📦</div>
+                <div class="empty-text">You haven't posted any listings yet.</div>
+                <a href="{% url 'marketplace:listing_create' %}" class="btn-save" style="display: inline-block; padding: 0.7rem 1.5rem; text-decoration: none; color: white;">+ Create Listing</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- My Transactions Tab -->
+    <div id="transactions" class="tab-content">
+        <div style="margin-bottom: 2rem;">
+            <h3 style="color: var(--ubelt-navy); font-weight: 700; margin-bottom: 1rem;">Purchases (as Buyer)</h3>
+            {% if buyer_transactions %}
+                <table class="transactions-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Seller</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for txn in buyer_transactions %}
+                        <tr>
+                            <td class="txn-item">
+                                {% if txn.listing %}
+                                    <a href="{% url 'marketplace:listing_detail' txn.listing.pk %}" style="color: inherit; text-decoration: none;">{{ txn.listing.title }}</a>
+                                {% else %}
+                                    <em>Item no longer available</em>
+                                {% endif %}
+                            </td>
+                            <td>{{ txn.seller.username }}</td>
+                            <td class="txn-amount">₱{{ txn.price|floatformat:2 }}</td>
+                            <td>
+                                <span class="txn-status txn-{{ txn.status }}">{{ txn.get_status_display }}</span>
+                            </td>
+                            <td>{{ txn.created_at|date:"M d, Y" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon"><i class="bi bi-bag"></i></div>
+                    <div class="empty-text">You haven't purchased anything yet.</div>
+                </div>
+            {% endif %}
+        </div>
+
+        <div>
+            <h3 style="color: var(--ubelt-navy); font-weight: 700; margin-bottom: 1rem;">Sales (as Seller)</h3>
+            {% if seller_transactions %}
+                <table class="transactions-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Buyer</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for txn in seller_transactions %}
+                        <tr>
+                            <td class="txn-item">
+                                {% if txn.listing %}
+                                    <a href="{% url 'marketplace:listing_detail' txn.listing.pk %}" style="color: inherit; text-decoration: none;">{{ txn.listing.title }}</a>
+                                {% else %}
+                                    <em>Item no longer available</em>
+                                {% endif %}
+                            </td>
+                            <td>{{ txn.buyer.username }}</td>
+                            <td class="txn-amount">₱{{ txn.price|floatformat:2 }}</td>
+                            <td>
+                                <span class="txn-status txn-{{ txn.status }}">{{ txn.get_status_display }}</span>
+                            </td>
+                            <td>{{ txn.created_at|date:"M d, Y" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">📊</div>
+                    <div class="empty-text">You haven't made any sales yet.</div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function switchTab(tabName, event) {
+    event.preventDefault();
+    
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Remove active class from all buttons
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected tab
+    document.getElementById(tabName).classList.add('active');
+    
+    // Mark button as active
+    event.target.classList.add('active');
+}
+
+// Initialize school selector
+document.addEventListener('DOMContentLoaded', function() {
+    const schoolSelect = document.getElementById('id_school');
+    if (schoolSelect) {
+        initializeSchoolSelector();
+    }
+});
+
+function initializeSchoolSelector() {
+    const schoolSelect = document.getElementById('id_school');
+    if (!schoolSelect) return;
+    
+    // Get all school options
+    const schoolOptions = Array.from(schoolSelect.options).slice(1); // Skip the empty option
+    
+    // Create a grid-based selector
+    const selectionContainer = document.createElement('div');
+    selectionContainer.className = 'school-selector-grid';
+    selectionContainer.style.display = 'none';
+    
+    schoolOptions.forEach(option => {
+        if (!option.value) return;
+        
+        const optionDiv = document.createElement('div');
+        optionDiv.className = 'school-option';
+        optionDiv.dataset.schoolId = option.value;
+        optionDiv.dataset.schoolName = option.textContent.trim();
+        
+        // Get logo URL from data attribute or construct it
+        const logoUrl = option.dataset.logo || '';
+        
+        let html = '';
+        if (logoUrl) {
+            html += `<img src="${logoUrl}" alt="${option.textContent}" class="school-logo-img">`;
+        }
+        html += `<span class="school-option-name">${option.textContent.trim()}</span>`;
+        
+        optionDiv.innerHTML = html;
+        
+        // Toggle selection on click
+        optionDiv.addEventListener('click', function() {
+            schoolSelect.value = option.value;
+            
+            // Update visual selection
+            document.querySelectorAll('.school-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            optionDiv.classList.add('selected');
+            
+            // Trigger change event
+            schoolSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        
+        selectionContainer.appendChild(optionDiv);
+    });
+    
+    // Insert after the school select element
+    schoolSelect.parentNode.insertBefore(selectionContainer, schoolSelect.nextSibling);
+    
+    // Toggle visibility when select is focused
+    const originalDisplay = 'grid';
+    schoolSelect.addEventListener('focus', function() {
+        selectionContainer.style.display = originalDisplay;
+    });
+    
+    // Hide grid when not focused
+    document.addEventListener('click', function(e) {
+        if (e.target !== schoolSelect && !selectionContainer.contains(e.target)) {
+            selectionContainer.style.display = 'none';
+        }
+    });
+    
+    // Update selection on change
+    schoolSelect.addEventListener('change', function() {
+        document.querySelectorAll('.school-option').forEach(opt => {
+            if (opt.dataset.schoolId === schoolSelect.value) {
+                opt.classList.add('selected');
+            } else {
+                opt.classList.remove('selected');
+            }
+        });
+        selectionContainer.style.display = 'none';
+        // Don't hide original select for better UX
+    });
+    
+    // Initial state
+    if (schoolSelect.value) {
+        const selected = document.querySelector(`.school-option[data-school-id="${schoolSelect.value}"]`);
+        if (selected) selected.classList.add('selected');
+    }
+}
+
+// Toggle inline post form visibility
+function togglePostForm() {
+    const container = document.getElementById('post-form-container');
+    const textarea = document.getElementById('id_post_content');
+    
+    if (container.style.display === 'none') {
+        container.style.display = 'block';
+        // Auto-focus the textarea for better UX
+        setTimeout(() => textarea.focus(), 100);
+    } else {
+        container.style.display = 'none';
+        textarea.value = ''; // Clear the form when closing
+    }
+}
+
+// Handle inline post form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const inlineForm = document.getElementById('inline-post-form');
+    if (inlineForm) {
+        inlineForm.addEventListener('submit', function(e) {
+            // Allow normal form submission for now
+            // In a production app, you could make this AJAX
+        });
+    }
+});
+</script>
+{% endblock %}

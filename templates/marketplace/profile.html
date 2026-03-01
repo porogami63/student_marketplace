@@ -1,0 +1,428 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% block title %}Profile{% endblock %}
+{% block extra_css %}
+<style>
+    .profile-edit-container {
+        max-width: 900px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+    .profile-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+    .profile-header h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--ubelt-navy);
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.02em;
+    }
+    .profile-header p {
+        color: #666;
+        font-size: 0.95rem;
+    }
+
+    .avatar-section {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 2rem;
+        background: linear-gradient(135deg, #f8f9fa 0%, white 100%);
+        padding: 2rem;
+        border-radius: 16px;
+        border: 1px solid #e0e0e0;
+        margin-bottom: 2rem;
+    }
+    .avatar-display {
+        position: relative;
+        flex-shrink: 0;
+    }
+    .avatar-image {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        border: 5px solid white;
+        object-fit: cover;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+    .avatar-placeholder {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        border: 5px solid white;
+        background: linear-gradient(135deg, var(--ubelt-gold) 0%, #a67e1f 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+    .google-badge {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        background: white;
+        border: 2px solid #4285F4;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    .avatar-info {
+        flex: 1;
+    }
+    .avatar-info h2 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: var(--ubelt-navy);
+        margin-bottom: 0.5rem;
+    }
+    .avatar-info .username {
+        color: #666;
+        font-size: 0.95rem;
+        margin-bottom: 1rem;
+    }
+    .avatar-info p {
+        color: #666;
+        font-size: 0.9rem;
+        margin: 0;
+        line-height: 1.6;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .form-section {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        border: 1px solid #e0e0e0;
+    }
+    .form-section-title {
+        font-weight: 700;
+        color: var(--ubelt-navy);
+        margin-bottom: 1.5rem;
+        font-size: 1.1rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--ubelt-gold);
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--ubelt-navy);
+        font-size: 0.9rem;
+    }
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.95rem;
+        transition: all 0.3s;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: var(--ubelt-gold);
+        box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.1);
+    }
+    .form-group textarea {
+        min-height: 120px;
+        resize: vertical;
+    }
+    .form-group .help-text {
+        font-size: 0.85rem;
+        color: #999;
+        margin-top: 0.5rem;
+    }
+    .form-group small {
+        display: block;
+        font-size: 0.85rem;
+        color: #999;
+        margin-top: 0.5rem;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+    .btn {
+        flex: 1;
+        padding: 1rem;
+        border: none;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-decoration: none;
+    }
+    .btn-save {
+        background: linear-gradient(135deg, var(--ubelt-navy) 0%, #2d4a6f 100%);
+        color: white;
+    }
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(26, 43, 74, 0.3);
+    }
+    .btn-secondary {
+        background: #f0f0f0;
+        color: var(--ubelt-navy);
+    }
+    .btn-secondary:hover {
+        background: #e0e0e0;
+        transform: translateY(-2px);
+    }
+
+    .reputation-display {
+        background: linear-gradient(135deg, #fffcf0 0%, #fff8f0 100%);
+        border-left: 4px solid var(--ubelt-gold);
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.1);
+    }
+    .reputation-display .label {
+        font-size: 0.75rem;
+        color: #b45309;
+        text-transform: uppercase;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.75rem;
+    }
+    .reputation-display .value {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #b45309;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .alert {
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
+    .alert-info {
+        background: #e3f2fd;
+        border-left: 4px solid #2196F3;
+        color: #1565c0;
+    }
+
+    @media (max-width: 768px) {
+        .avatar-section {
+            flex-direction: column;
+            text-align: center;
+        }
+        .form-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        .button-group {
+            flex-direction: column;
+        }
+        .profile-header h1 {
+            font-size: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-edit-container">
+    <div class="profile-header">
+        <h1>Edit Your Profile</h1>
+        <p>Manage your profile information and visibility</p>
+    </div>
+
+    <div class="avatar-section">
+        <div class="avatar-display">
+            {% if user.profile.avatar %}
+                <img src="{{ user.profile.avatar.url }}" alt="" class="avatar-image">
+            {% elif user.profile.google_avatar_url %}
+                <img src="{{ user.profile.google_avatar_url }}" alt="" class="avatar-image">
+                <div class="google-badge">🔵</div>
+            {% else %}
+                <div class="avatar-placeholder">👤</div>
+            {% endif %}
+        </div>
+        <div class="avatar-info">
+            <h2>{{ user.profile.display_name }}</h2>
+            <div class="username">@{{ user.username }}</div>
+            <p>
+                {% if user.profile.google_avatar_url %}
+                    ✅ Using your Google profile picture. You can upload a custom avatar below if you'd like.
+                {% else %}
+                    Add a profile picture to build trust with other students.
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    {% if user.profile.reputation_score > 0 %}
+    <div class="reputation-display">
+        <div class="label">✨ Your Reputation Score</div>
+        <div class="value">
+            {% for i in "12345" %}
+                {% if i|add:"0" <= user.profile.reputation_score %}⭐{% else %}☆{% endif %}
+            {% endfor %}
+            <span>{{ user.profile.reputation_score|floatformat:1 }}/5.0 ({{ user.profile.review_count }} review{{ user.profile.review_count|pluralize }})</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="alert alert-info">
+        ℹ️ This information is displayed on your listings and public profile. Keep it accurate so buyers can contact you easily.
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="form-grid">
+            <div class="form-section">
+                <h3 class="form-section-title">Personal Info</h3>
+                
+                <div class="form-group">
+                    <label for="{{ form.full_name.id_for_label }}">Full Name</label>
+                    {{ form.full_name }}
+                    <small>Your display name visible to other users</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.school.id_for_label }}">School</label>
+                    {{ form.school }}
+                    <small>Your university or school</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.year_level.id_for_label }}">Year Level</label>
+                    {{ form.year_level }}
+                    <small>Your current educational level</small>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3 class="form-section-title">Additional Details</h3>
+                
+                <div class="form-group">
+                    <label for="{{ form.age.id_for_label }}">Age</label>
+                    {{ form.age }}
+                    <small>Your age (optional)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.birthday.id_for_label }}">Birthday</label>
+                    {{ form.birthday }}
+                    <small>Your birthdate (optional)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.phone.id_for_label }}">Phone Number</label>
+                    {{ form.phone }}
+                    <small>Optional - helps buyers contact you</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3 class="form-section-title">📸 Avatar & Photo</h3>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="{{ form.avatar.id_for_label }}">Upload Avatar (Optional)</label>
+                    {{ form.avatar }}
+                    <small>JPG or PNG, max 2MB. If you leave this empty, your Google profile picture will be used.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.header_image.id_for_label }}">Header/Cover Image (Optional)</label>
+                    {{ form.header_image }}
+                    <small>JPG or PNG, max 5MB. This will be displayed at the top of your public profile.</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3 class="form-section-title">About You & Contact</h3>
+            
+            <div class="form-group">
+                <label for="{{ form.bio.id_for_label }}">Bio</label>
+                {{ form.bio }}
+                <small>Tell other students about yourself or your selling practice</small>
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.address.id_for_label }}">Location / Meetup Area</label>
+                {{ form.address }}
+                <small>General area where you can meet to do transactions</small>
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.contact_info.id_for_label }}">Contact Info</label>
+                {{ form.contact_info }}
+                <small>Facebook, Instagram, Viber, Discord, or other preferred contact method (e.g., facebook.com/yourname)</small>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3 class="form-section-title">🔗 Social Media Links</h3>
+            <p style="color: #666; margin-bottom: 1.5rem; font-size: 0.95rem;">Add your social media handles so others can connect with you. You can include them in the "Contact Info" field above or paste full profile links below:</p>
+            
+            <div class="social-media-guide">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                    <div style="padding: 1rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3b5998;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">📘 Facebook</div>
+                        <small style="color: #666;">facebook.com/yourname</small>
+                    </div>
+                    <div style="padding: 1rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #E1306C;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">📷 Instagram</div>
+                        <small style="color: #666;">@instagram_handle</small>
+                    </div>
+                    <div style="padding: 1rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #1DA1F2;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">𝕏 Twitter</div>
+                        <small style="color: #666;">@twitter_handle</small>
+                    </div>
+                    <div style="padding: 1rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #5865F2;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">🎮 Discord</div>
+                        <small style="color: #666;">username#0000</small>
+                    </div>
+                    <div style="padding: 1rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #0077b5;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">💼 LinkedIn</div>
+                        <small style="color: #666;">linkedin.com/in/yourname</small>
+                    </div>
+                    <div style="padding: 1rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #25C059;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">💬 WhatsApp</div>
+                        <small style="color: #666;">+63XXXXXXXXX</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <a href="{% url 'marketplace:home' %}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-save">Save Changes</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

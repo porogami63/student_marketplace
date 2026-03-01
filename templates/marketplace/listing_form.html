@@ -1,0 +1,326 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .product-fields-section {
+        background: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-top: 1rem;
+    }
+    
+    .product-fields-section h5 {
+        color: var(--ubelt-navy);
+        margin-bottom: 1rem;
+        font-weight: 700;
+    }
+
+    .product-field {
+        margin-bottom: 1rem;
+    }
+
+    .category-select {
+        font-weight: 600;
+    }
+
+    .helpful-tip {
+        background: #e7f3ff;
+        border-left: 4px solid var(--ubelt-gold);
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+        color: #0c4a6e;
+    }
+
+    .helpful-tip i {
+        color: var(--ubelt-gold);
+        margin-right: 0.5rem;
+    }
+
+    /* School selector styling */
+    #id_school {
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 1.25rem;
+        padding-right: 2.5rem;
+    }
+
+    .school-selector-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+    }
+
+    .school-option {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 0.75rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: center;
+    }
+
+    .school-option:hover {
+        border-color: var(--ubelt-gold);
+        background-color: #fff8f0;
+    }
+
+    .school-option.selected {
+        border-color: var(--ubelt-navy);
+        background-color: #f0f4f8;
+    }
+
+    .school-logo-img {
+        height: 60px;
+        width: auto;
+        max-width: 100%;
+        object-fit: contain;
+        margin-bottom: 0.5rem;
+        background: white;
+        padding: 4px;
+        border-radius: 6px;
+    }
+
+    .school-option-name {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--ubelt-navy);
+        line-height: 1.2;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <h1 class="font-display fw-bold mb-4" style="color: var(--ubelt-navy);">{{ title }}</h1>
+        
+        <div class="helpful-tip">
+            <i class="bi bi-lightbulb"></i>
+            <strong>Tip:</strong> Fill in product details like Category, Brand, Size, and Material. These details help buyers find exactly what they're looking for!
+        </div>
+
+        <div class="card p-4">
+            <form method="post" enctype="multipart/form-data" id="listing-form">
+                {% csrf_token %}
+                
+                <!-- Basic fields -->
+                {% for field in form %}
+                    {% if field.name not in 'product_author,product_edition,product_isbn,product_subject,product_brand,product_model,product_storage,product_ram,product_color,product_year_purchased,product_school_college,product_uniform_type,product_gender,product_size,product_material,product_type,product_quantity,product_semester,product_professor,product_item_type,product_dimensions,product_delivery_available' %}
+                        {{ field|as_crispy_field }}
+                    {% endif %}
+                {% endfor %}
+
+                <!-- Product Details Section -->
+                <div id="product-details-container">
+                    {% include 'marketplace/_product_fields.html' %}
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-ubelt">Save Listing</button>
+                    {% if listing %}
+                    <a href="{% url 'marketplace:listing_detail' listing.pk %}" class="btn btn-outline-secondary">Cancel</a>
+                    {% else %}
+                    <a href="{% url 'marketplace:listing_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Handle dynamic product field display based on category
+    document.addEventListener('DOMContentLoaded', function() {
+        const titleInput = document.getElementById('id_title');
+        const categorySelect = document.getElementById('id_category');
+        const schoolSelect = document.getElementById('id_school');
+        const container = document.getElementById('product-details-container');
+        const listingId = '{{ listing.id|default:"" }}';
+        
+        // Enhanced school selector with logos
+        if (schoolSelect) {
+            initializeSchoolSelector();
+        }
+        
+        function initializeSchoolSelector() {
+            // Get all school options
+            const schoolOptions = Array.from(schoolSelect.options).slice(1); // Skip the empty option
+            
+            // Create a grid-based selector
+            const selectionContainer = document.createElement('div');
+            selectionContainer.className = 'school-selector-grid';
+            selectionContainer.style.display = 'none';
+            
+            schoolOptions.forEach(option => {
+                if (!option.value) return;
+                
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'school-option';
+                optionDiv.dataset.schoolId = option.value;
+                optionDiv.dataset.schoolName = option.textContent.trim();
+                
+                // Get logo URL from data attribute or construct it
+                const logoUrl = option.dataset.logo || '';
+                
+                let html = '';
+                if (logoUrl) {
+                    html += `<img src="${logoUrl}" alt="${option.textContent}" class="school-logo-img">`;
+                }
+                html += `<span class="school-option-name">${option.textContent.trim()}</span>`;
+                
+                optionDiv.innerHTML = html;
+                
+                // Toggle selection on click
+                optionDiv.addEventListener('click', function() {
+                    schoolSelect.value = option.value;
+                    
+                    // Update visual selection
+                    document.querySelectorAll('.school-option').forEach(opt => {
+                        opt.classList.remove('selected');
+                    });
+                    optionDiv.classList.add('selected');
+                    
+                    // Trigger change event
+                    schoolSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+                
+                selectionContainer.appendChild(optionDiv);
+            });
+            
+            // Insert after the school select element
+            schoolSelect.parentNode.insertBefore(selectionContainer, schoolSelect.nextSibling);
+            
+            // Toggle visibility when select is focused
+            const originalDisplay = 'grid';
+            schoolSelect.addEventListener('focus', function() {
+                selectionContainer.style.display = originalDisplay;
+            });
+            
+            // Hide grid when not focused
+            document.addEventListener('click', function(e) {
+                if (e.target !== schoolSelect && !selectionContainer.contains(e.target)) {
+                    selectionContainer.style.display = 'none';
+                }
+            });
+            
+            // Update selection on change
+            schoolSelect.addEventListener('change', function() {
+                document.querySelectorAll('.school-option').forEach(opt => {
+                    if (opt.dataset.schoolId === schoolSelect.value) {
+                        opt.classList.add('selected');
+                    } else {
+                        opt.classList.remove('selected');
+                    }
+                });
+                selectionContainer.style.display = 'none';
+                schoolSelect.style.display = 'none'; // Hide original select when value is set
+            });
+            
+            // Initial state
+            if (schoolSelect.value) {
+                schoolSelect.style.display = 'none';
+                selectionContainer.style.display = 'grid';
+                const selected = document.querySelector(`.school-option[data-school-id="${schoolSelect.value}"]`);
+                if (selected) selected.classList.add('selected');
+            }
+        }
+        
+        // Simple keyword-based category mapping
+        const categoryKeywords = {
+            'textbooks': ['book', 'textbook', 'read', 'hardbound', 'reference'],
+            'electronics': ['phone', 'laptop', 'tablet', 'gadget', 'apple', 'samsung', 'charging', 'monitor', 'keyboard', 'mouse'],
+            'clothing': ['shirt', 'pe', 'uniform', 'lab coat', 'dress', 'pants', 'shoes', 'jacket', 'hoodie', 'size'],
+            'supplies': ['pen', 'pencil', 'notebook', 'paper', 'binder', 'ruler', 'eraser', 'color', 'marker'],
+            'notes': ['notes', 'study guide', 'reviewer', 'lecture', 'handout', 'compiled'],
+            'furniture': ['table', 'chair', 'lamp', 'desk', 'cabinet', 'shelf', 'mirrors', 'drawer', 'rack']
+        };
+
+        function suggestCategory() {
+            if (categorySelect && categorySelect.value) return; // Don't override if already selected
+
+            const title = titleInput ? titleInput.value.toLowerCase() : '';
+            if (!title) return;
+
+            for (const [slug, keywords] of Object.entries(categoryKeywords)) {
+                if (keywords.some(k => title.includes(k))) {
+                    // Find the option with this value/slug and select it
+                    if (categorySelect) {
+                        const options = categorySelect.options;
+                        for (let i = 0; i < options.length; i++) {
+                            // Assuming the text or value matches or we can find it by some means
+                            // We'll try to find a match where the option's slug/text contains our slug
+                            if (options[i].text.toLowerCase().includes(slug.replace('-', ' '))) {
+                                categorySelect.selectedIndex = i;
+                                toggleProductFields();
+                                
+                                // Show a small toast or message
+                                const tip = document.querySelector('.helpful-tip');
+                                if (tip) {
+                                    tip.innerHTML = `<i class="bi bi-magic"></i> <strong>Magic:</strong> We suggested the category <strong>${options[i].text}</strong> based on your title!`;
+                                    tip.style.backgroundColor = '#f0fdf4';
+                                    tip.style.borderLeftColor = '#22c55e';
+                                }
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function toggleProductFields() {
+            if (!categorySelect) return;
+            const categoryId = categorySelect.value;
+            if (!categoryId) {
+                container.innerHTML = '';
+                return;
+            }
+
+            // Show loading state
+            container.style.opacity = '0.5';
+            
+            // Build URL with parameters
+            let url = '{% url "marketplace:get_category_fields" %}?category_id=' + categoryId;
+            if (listingId) {
+                url += '&listing_id=' + listingId;
+            }
+
+            fetch(url)
+                .then(response => response.text())
+                .then(html => {
+                    container.innerHTML = html;
+                    container.style.opacity = '1';
+                })
+                .catch(error => {
+                    console.error('Error fetching category fields:', error);
+                    container.style.opacity = '1';
+                });
+        }
+        
+        if (titleInput && !listingId) {
+            titleInput.addEventListener('blur', suggestCategory);
+        }
+
+        if (categorySelect) {
+            categorySelect.addEventListener('change', toggleProductFields);
+            // Don't call on load if we already have content from server-side render
+            // or if it's a new form with no category selected.
+            if (!categorySelect.value) {
+                container.innerHTML = '';
+            }
+        }
+    });
+</script>
+{% endblock %}

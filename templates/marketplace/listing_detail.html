@@ -1,0 +1,445 @@
+{% extends 'base.html' %}
+{% block title %}{{ listing.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .listing-hero {
+        background: linear-gradient(135deg, #1F1F1F, #2D2D2D);
+        border-radius: 18px;
+        padding: 1.5rem 1.75rem;
+        margin-bottom: 1.75rem;
+        color: #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1.5rem;
+    }
+    .listing-hero-title {
+        font-size: 1.7rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+    .listing-hero-meta {
+        font-size: 0.85rem;
+        color: #9ca3af;
+    }
+    .listing-tag-pill {
+        border-radius: 999px;
+        padding: 0.25rem 0.7rem;
+        font-size: 0.75rem;
+        border: 1px solid #97C2EC;
+        color: #e5e7eb;
+    }
+    .listing-main {
+        display: grid;
+        grid-template-columns: minmax(0, 3fr) minmax(0, 2.5fr);
+        gap: 1.75rem;
+    }
+    .listing-media {
+        background: var(--color-bg);
+        border-radius: 16px;
+        padding: 0.75rem;
+        border: 1px solid #E5E5E5;
+    }
+    .listing-media-inner {
+        border-radius: 14px;
+        overflow: hidden;
+        background: linear-gradient(135deg, #F5F5F5, #E5E5E5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 320px;
+    }
+    .listing-media-inner img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background: #F5F5F5;
+    }
+    .listing-info-card {
+        background: var(--color-bg);
+        border-radius: 16px;
+        border: 1px solid #E5E5E5;
+        padding: 1.25rem 1.5rem;
+    }
+    .listing-price-main {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 2rem;
+        font-weight: 800;
+        color: #97C2EC;
+        margin-bottom: 0.25rem;
+    }
+    .listing-meta-inline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        font-size: 0.8rem;
+        color: #999;
+    }
+    .listing-description {
+        font-size: 0.95rem;
+        margin-top: 0.75rem;
+        white-space: pre-line;
+    }
+    .listing-seller-card {
+        background: var(--color-bg);
+        border-radius: 16px;
+        border: 1px solid #E5E5E5;
+        padding: 1rem 1.25rem;
+        margin-top: 1rem;
+    }
+    .listing-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: linear-gradient(135deg, #97C2EC, #D6D0C2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 700;
+    }
+    .listing-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .listing-actions-primary .btn {
+        font-weight: 600;
+    }
+    .listing-more-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 1rem;
+    }
+    .listing-more-card {
+        border-radius: 14px;
+        border: 1px solid #E5E5E5;
+        background: var(--color-bg);
+        overflow: hidden;
+        text-decoration: none;
+        color: inherit;
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+    .listing-more-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 24px rgba(151, 194, 236, 0.15);
+        border-color: #97C2EC;
+    }
+    .listing-more-img {
+        height: 140px;
+        background: linear-gradient(135deg, #F5F5F5, #E5E5E5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .listing-more-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .listing-more-body {
+        padding: 0.6rem 0.8rem 0.7rem;
+    }
+    .listing-more-price {
+        font-family: 'Space Grotesk', sans-serif;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: #97C2EC;
+    }
+    .listing-more-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-top: 0.1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    @media (max-width: 992px) {
+        .listing-main {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="listing-hero">
+    <div>
+        <div class="listing-hero-title">{{ listing.title }}</div>
+        <div class="listing-hero-meta">
+            {% if listing.category %}{{ listing.category.name }} • {% endif %}{{ listing.get_condition_display }} • {{ listing.view_count }} views
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2 justify-content-end">
+        {% if listing.school %}
+        <span class="listing-tag-pill">
+            <i class="bi bi-mortarboard me-1"></i>
+            {{ listing.school.short_name|default:listing.school.name }}
+        </span>
+        {% endif %}
+        <span class="listing-tag-pill">
+            <i class="bi bi-clock me-1"></i>{{ listing.created_at|timesince }} ago
+        </span>
+        {% if user.is_authenticated and user != listing.seller %}
+        <form action="{% url 'marketplace:favorite_toggle' listing.pk %}" method="post" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-light border-0">
+                <i class="bi bi-heart{% if is_favorited %}-fill{% endif %}"></i>
+                {% if is_favorited %}Saved{% else %}Save{% endif %}
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="listing-main">
+    <div class="listing-media">
+        <div class="listing-media-inner">
+            {% if listing.image %}
+            <img src="{{ listing.image.url }}" alt="{{ listing.title }}" loading="lazy">
+            {% else %}
+            <i class="bi bi-image text-white-50" style="font-size: 4rem;"></i>
+            {% endif %}
+        </div>
+    </div>
+
+    <div>
+        <div class="listing-info-card">
+            {% if listing.school %}
+            <!-- School Badge Section -->
+            <div class="mb-3 p-3" style="background: linear-gradient(135deg, {{ listing.school.primary_color }}08 0%, {{ listing.school.primary_color }}04 100%); border-radius: 12px; border: 2px solid {{ listing.school.primary_color }}30;">
+                <div class="d-flex align-items-center gap-2" style="color: {{ listing.school.primary_color }};">
+                    {% if listing.school.logo_url %}
+                    <img src="{{ listing.school.logo_url }}" alt="{{ listing.school.name }}" style="height: 40px; width: auto; object-fit: contain; background: white; padding: 2px; border-radius: 4px;">
+                    {% endif %}
+                    <div>
+                        <div style="font-size: 0.75rem; opacity: 0.8; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">From</div>
+                        <div style="font-size: 1rem; font-weight: 700; color: {{ listing.school.primary_color }};" title="{{ listing.school.name }}">{{ listing.school.short_name|default:listing.school.name }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="d-flex align-items-center justify-content-between mb-1">
+                <div class="listing-price-main">₱{{ listing.price|floatformat:2 }}</div>
+                <div class="text-end">
+                    {% if listing.pending_offers_count > 0 %}
+                    <div class="fw-bold mb-1" style="color: #f59e0b; font-size: 0.9rem;">
+                        <i class="bi bi-fire"></i> This item currently has {{ listing.pending_offers_count }} offers!
+                    </div>
+                    {% endif %}
+                    <div class="d-flex gap-2 justify-content-end">
+                        {% if listing.campus %}
+                        <span class="badge bg-ubelt-dark">{{ listing.get_campus_display }}</span>
+                        {% endif %}
+                        <span class="badge bg-secondary">{{ listing.get_condition_display }}</span>
+                    </div>
+                </div>
+            </div>
+            {% if price_stats %}
+            <div class="rounded-3 py-2 px-3 mb-2" style="font-size: 0.9rem; {% if price_stats.tip == 'overpriced' %}background-color: #fef2f2; color: #991b1b;{% elif price_stats.tip == 'great_deal' %}background-color: #f0fdf4; color: #166534;{% else %}background-color: #f0f9ff; color: #0369a1;{% endif %}">
+                <i class="bi bi-graph-up me-1"></i>
+                {% if price_stats.tip == 'overpriced' %}Overpriced — {% elif price_stats.tip == 'great_deal' %}Great deal — {% else %}Fair price — {% endif %}
+                Average similar listings: <strong>₱{{ price_stats.avg_price|floatformat:0 }}</strong> ({{ price_stats.count }} items)
+            </div>
+            {% endif %}
+            <div class="listing-meta-inline mb-1">
+                {% if listing.category %}
+                <span><i class="bi bi-tag me-1"></i>{{ listing.category.name }}</span>
+                {% endif %}
+                <span><i class="bi bi-eye me-1"></i>{{ listing.view_count }} views</span>
+            </div>
+            <div class="listing-description">
+                {{ listing.description|default:"No additional details provided." }}
+            </div>
+
+            <!-- Product Details Section -->
+            {% if listing.product_details %}
+            <div class="mt-3 pt-3" style="border-top: 1px solid var(--color-border);">
+                <h6 class="fw-semibold mb-2" style="color: var(--ubelt-navy);">Product Details</h6>
+                <div class="row g-2">
+                    {% for key, value in listing.product_details.items %}
+                        {% if value and value != '--' %}
+                        <div class="col-12 col-sm-6">
+                            <div style="font-size: 0.85rem;">
+                                <span class="text-muted">{{ key|title }}</span>
+                                <div class="fw-semibold text-reset">{{ value }}</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="listing-seller-card">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="listing-avatar">
+                        {% if seller_profile.avatar %}
+                        <img src="{{ seller_profile.avatar.url }}" alt="">
+                        {% elif seller_profile.google_avatar_url %}
+                        <img src="{{ seller_profile.google_avatar_url }}" alt="">
+                        {% else %}
+                        {{ seller_profile.display_name|first|upper }}
+                        {% endif %}
+                    </div>
+                    <div class="small">
+                        <a href="{% url 'marketplace:public_profile' listing.seller.username %}" class="text-decoration-none text-reset">
+                            <div class="fw-semibold d-flex align-items-center gap-1">
+                                {{ seller_profile.display_name }}
+                                {% if seller_profile.is_verified %}
+                                <i class="bi bi-check-circle-fill" style="color: #97C2EC;" title="Verified seller"></i>
+                                {% endif %}
+                            </div>
+                            <div class="text-muted">@{{ listing.seller.username }}</div>
+                        </a>
+                        {% if seller_profile.school %}
+                        <div class="text-muted"><i class="bi bi-mortarboard me-1"></i>{{ seller_profile.school.name }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if seller_profile.average_rating > 0 %}
+                <div class="text-end small">
+                    <div style="color: var(--ubelt-gold);">★ {{ seller_profile.average_rating|floatformat:1 }}</div>
+                    <div class="text-muted">{{ seller_profile.review_count }} review{{ seller_profile.review_count|pluralize }}</div>
+                </div>
+                {% endif %}
+            </div>
+            {% with contact=listing.contact_info|default:seller_profile.phone|default:seller_profile.contact_info %}
+            {% if contact or seller_profile.address %}
+            <div class="small text-muted mb-2">
+                {% if contact %}
+                <div><i class="bi bi-telephone me-1"></i>{{ contact }}</div>
+                {% endif %}
+                {% if seller_profile.address %}
+                <div><i class="bi bi-geo-alt me-1"></i>{{ seller_profile.address }}</div>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endwith %}
+            {% if seller_profile.total_sold > 0 %}
+            <div class="small mb-2" style="padding: 0.5rem; background: rgba(151, 194, 236, 0.1); border-radius: 8px; color: #97C2EC;">
+                <i class="bi bi-bag-check me-1"></i><strong>{{ seller_profile.total_sold }}</strong> item{{ seller_profile.total_sold|pluralize }} sold
+            </div>
+            {% endif %}
+            <a href="{% url 'marketplace:public_profile' listing.seller.username %}" class="btn btn-sm btn-outline-ubelt w-100 mb-2">View full profile</a>
+
+            <div class="listing-actions-primary">
+                {% if user == listing.seller %}
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="{% url 'marketplace:listing_edit' listing.pk %}" class="btn btn-ubelt flex-grow-1">Edit listing</a>
+                    {% if not listing.is_sold %}
+                    <form action="{% url 'marketplace:listing_mark_sold' listing.pk %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-secondary btn-sm">Mark as sold</button>
+                    </form>
+                    {% endif %}
+                    <a href="{% url 'marketplace:listing_delete' listing.pk %}" class="btn btn-outline-danger btn-sm">Delete</a>
+                </div>
+                {% elif not listing.is_sold %}
+                    {% if user.is_authenticated %}
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="{% url 'marketplace:initiate_purchase' listing.pk %}" class="btn btn-success flex-grow-1">
+                            <i class="bi bi-cart-check me-1"></i> Buy now
+                        </a>
+                        <a href="{% url 'marketplace:message_send' listing.pk %}?initial_offer=1" class="btn btn-offer flex-grow-1">
+                            <i class="bi bi-tag me-1"></i> Make an Offer
+                        </a>
+                        <div class="w-100 d-flex gap-2">
+                            <a href="{% url 'marketplace:message_send' listing.pk %}" class="btn btn-outline-ubelt flex-grow-1">
+                                <i class="bi bi-chat-dots me-1"></i> Message
+                            </a>
+                            {% with contact=listing.contact_info|default:seller_profile.phone|default:seller_profile.contact_info %}
+                            {% if contact %}
+                            <a href="tel:{{ contact }}" class="btn btn-outline-ubelt flex-grow-1">
+                                <i class="bi bi-telephone me-1"></i> Call
+                            </a>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info small mb-2">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <a href="{% url 'marketplace:register' %}" class="alert-link">Sign up</a> or
+                        <a href="{% url 'account_login' %}" class="alert-link">log in</a> to buy this item.
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="{% url 'marketplace:message_send' listing.pk %}" class="btn btn-outline-ubelt flex-grow-1">
+                            <i class="bi bi-chat-dots me-1"></i> Message seller
+                        </a>
+                        {% with contact=listing.contact_info|default:seller_profile.phone|default:seller_profile.contact_info %}
+                        {% if contact %}
+                        <a href="tel:{{ contact }}" class="btn btn-outline-ubelt flex-grow-1">
+                            <i class="bi bi-telephone me-1"></i> Call
+                        </a>
+                        {% endif %}
+                        {% endwith %}
+                    </div>
+                    {% endif %}
+                {% elif listing.is_sold %}
+                <div class="alert alert-secondary small mb-0">
+                    <i class="bi bi-check2-circle me-1"></i>This item has been marked as sold.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if other_listings %}
+<div class="mt-5">
+    <h5 class="font-display fw-bold mb-3" style="color: var(--color-text);">More from this seller</h5>
+    <div class="listing-more-grid">
+        {% for item in other_listings %}
+        <a href="{% url 'marketplace:listing_detail' item.pk %}" class="listing-more-card">
+            <div class="listing-more-img">
+                {% if item.image %}
+                <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy">
+                {% else %}
+                <i class="bi bi-image text-white-50" style="font-size: 1.6rem;"></i>
+                {% endif %}
+            </div>
+            <div class="listing-more-body">
+                <div class="listing-more-price">₱{{ item.price|floatformat:0 }}</div>
+                <div class="listing-more-title">{{ item.title }}</div>
+                {% if item.school %}
+                <div class="small text-muted">{{ item.school.short_name|default:item.school.name }}</div>
+                {% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if related_listings %}
+<div class="mt-5 pb-3">
+    <h5 class="font-display fw-bold mb-3" style="color: var(--color-text);"><i class="bi bi-box" style="color: #97C2EC; margin-right: 0.5rem;"></i>Similar {{ listing.category.name }}</h5>
+    <div class="listing-more-grid">
+        {% for item in related_listings %}
+        <a href="{% url 'marketplace:listing_detail' item.pk %}" class="listing-more-card">
+            <div class="listing-more-img">
+                {% if item.image %}
+                <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy">
+                {% else %}
+                <i class="bi bi-image text-white-50" style="font-size: 1.6rem;"></i>
+                {% endif %}
+            </div>
+            <div class="listing-more-body">
+                <div class="listing-more-price">₱{{ item.price|floatformat:0 }}</div>
+                <div class="listing-more-title">{{ item.title }}</div>
+                <div class="small text-muted">
+                    {% if item.school %}{{ item.school.short_name|default:item.school.name }}{% else %}{{ item.get_condition_display }}{% endif %}
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

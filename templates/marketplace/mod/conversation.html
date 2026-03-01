@@ -1,0 +1,44 @@
+{% extends 'marketplace/mod/base.html' %}
+{% block title %}Conversation #{{ conversation.pk }}{% endblock %}
+{% block mod_content %}
+<h2 class="font-display fw-bold mb-4">
+    <i class="bi bi-envelope me-2"></i>Conversation #{{ conversation.pk }}
+    <a href="{% url 'marketplace:mod_chat' %}" class="btn btn-sm btn-outline-secondary ms-2">← Back</a>
+</h2>
+
+<p class="text-muted">Participants: {% for u in participants %}{{ u.username }}{% if not forloop.last %}, {% endif %}{% endfor %}
+{% if conversation.listing %} · Listing: <a href="{% url 'marketplace:listing_detail' conversation.listing.pk %}">{{ conversation.listing.title }}</a>{% endif %}
+</p>
+
+<div class="card">
+    <div class="card-body">
+        {% for msg in messages %}
+        <div class="mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <strong>{{ msg.sender.username }}</strong>
+                    <span class="text-muted small">{{ msg.created_at }}</span>
+                    {% if msg.is_hidden %}<span class="badge bg-danger ms-2">Hidden</span>{% endif %}
+                    <p class="mb-0 mt-1">{{ msg.body|linebreaks }}</p>
+                </div>
+                <div>
+                    <form method="post" action="{% url 'marketplace:mod_message_action' msg.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        {% if msg.is_hidden %}
+                        <input type="hidden" name="action" value="restore">
+                        <button type="submit" class="btn btn-sm btn-success">Restore</button>
+                        {% else %}
+                        <input type="hidden" name="action" value="hide">
+                        <input type="text" name="reason" placeholder="Reason" class="form-control form-control-sm d-inline-block w-auto mb-1" maxlength="200">
+                        <button type="submit" class="btn btn-sm btn-danger">Hide</button>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <p class="text-muted">No messages.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

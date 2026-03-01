@@ -1,0 +1,889 @@
+{% extends 'base.html' %}
+{% block title %}{{ profile_user.get_full_name|default:profile_user.username }}'s Profile{% endblock %}
+{% block extra_css %}
+<style>
+    .profile-hero {
+        background: linear-gradient(135deg, var(--ubelt-navy) 0%, #2d4a6f 100%);
+        padding: 3rem 0;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+        background-size: cover;
+        background-position: center;
+    }
+    .profile-hero::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 1;
+    }
+    .profile-container {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: flex-end;
+        gap: 2rem;
+        padding: 0 1rem;
+    }
+    .profile-avatar {
+        width: 140px;
+        height: 140px;
+        border-radius: 50%;
+        border: 5px solid white;
+        object-fit: cover;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        flex-shrink: 0;
+    }
+    .profile-avatar-placeholder {
+        width: 140px;
+        height: 140px;
+        border-radius: 50%;
+        border: 5px solid white;
+        background: linear-gradient(135deg, var(--ubelt-gold) 0%, #a67e1f 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 4rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        flex-shrink: 0;
+    }
+    .profile-info {
+        color: white;
+        padding-bottom: 0.5rem;
+    }
+    .profile-name {
+        font-size: 2rem;
+        font-weight: 800;
+        margin: 0 0 0.5rem 0;
+        letter-spacing: -0.02em;
+    }
+    .profile-school {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0 0 1rem 0;
+    }
+    .school-logo {
+        width: 48px;
+        height: 48px;
+        object-fit: contain;
+        background: white;
+        padding: 4px;
+        border-radius: 6px;
+    }
+    .school-name {
+        font-size: 0.95rem;
+        opacity: 0.95;
+    }
+    .reputation-display {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+    .reputation-stars {
+        font-size: 1.2rem;
+        color: var(--ubelt-gold);
+        letter-spacing: 2px;
+        font-weight: 700;
+    }
+    .reputation-score {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--ubelt-gold);
+    }
+    .reputation-text {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        font-weight: 500;
+    }
+    .review-count {
+        font-size: 0.85rem;
+        opacity: 0.85;
+    }
+
+    .content-wrapper {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+    
+    .profile-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 3rem;
+    }
+    .stat-card {
+        background: linear-gradient(135deg, #FFFFFF 0%, #F5F5F5 100%);
+        padding: 1.5rem;
+        border-radius: 12px;
+        border: 2px solid #E5E5E5;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        border-color: #97C2EC;
+    }
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #97C2EC;
+        margin-bottom: 0.5rem;
+    }
+    .stat-label {
+        font-size: 0.85rem;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+    }
+
+    .sections {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 2rem;
+    }
+    .section {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        border: 1px solid #e0e0e0;
+    }
+    .section-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        color: var(--ubelt-navy);
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--ubelt-gold);
+    }
+    
+    .listings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 1.5rem;
+    }
+    .listing-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        overflow: hidden;
+        transition: all 0.3s;
+        border: 1px solid #e9ecef;
+    }
+    .listing-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    }
+    .listing-image {
+        width: 100%;
+        height: 180px;
+        object-fit: cover;
+        background: #e9ecef;
+    }
+    .listing-info {
+        padding: 1rem;
+    }
+    .listing-title {
+        font-weight: 600;
+        margin: 0 0 0.5rem 0;
+        font-size: 0.95rem;
+        color: var(--ubelt-navy);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    .listing-price {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--ubelt-gold);
+    }
+
+    /* Horizontal scroll container for listings */
+    .listings-scroll-container {
+        position: relative;
+        overflow-x: auto;
+        scroll-behavior: smooth;
+        padding: 1rem 0;
+        margin-bottom: 1rem;
+    }
+    
+    .listings-scroll-container::-webkit-scrollbar {
+        height: 6px;
+    }
+    
+    .listings-scroll-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    
+    .listings-scroll-container::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 10px;
+    }
+    
+    .listings-scroll-container::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+    
+    .listings-horizontal {
+        display: flex;
+        gap: 1.5rem;
+        padding-bottom: 1rem;
+        min-width: min-content;
+    }
+    
+    .listings-horizontal .listing-card {
+        min-width: 220px;
+        max-width: 220px;
+    }
+    
+    .scroll-arrow {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(26, 43, 74, 0.8);
+        color: white;
+        border: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        transition: all 0.3s;
+        z-index: 2;
+    }
+    
+    .scroll-arrow:hover {
+        background: rgba(26, 43, 74, 1);
+        transform: translateY(-50%) scale(1.1);
+    }
+    
+    .scroll-arrow.hidden {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+    
+    .scroll-arrow.left {
+        left: -20px;
+    }
+    
+    .scroll-arrow.right {
+        right: -20px;
+    }
+
+    /* Posts styling */
+    .post-item {
+        padding: 1.5rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+        border-left: 4px solid var(--ubelt-navy);
+        margin-bottom: 1rem;
+        position: relative;
+    }
+    
+    .post-item.pinned {
+        background: linear-gradient(135deg, #fff9e6 0%, #fffbf0 100%);
+        border-left-color: var(--ubelt-gold);
+        border: 2px solid var(--ubelt-gold);
+        margin-bottom: 2rem;
+    }
+    
+    .post-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+    
+    .post-author {
+        font-weight: 600;
+        color: var(--ubelt-navy);
+        margin-bottom: 0.25rem;
+    }
+    
+    .post-date {
+        font-size: 0.85rem;
+        color: #999;
+    }
+    
+    .post-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .post-action-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.75rem;
+        border: 1px solid #ddd;
+        background: white;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #666;
+    }
+    
+    .post-action-btn:hover {
+        background: #f0f0f0;
+        border-color: #999;
+    }
+    
+    .post-action-btn.pin {
+        color: var(--ubelt-gold);
+        border-color: var(--ubelt-gold);
+    }
+    
+    .post-action-btn.pin:hover {
+        background: var(--ubelt-gold);
+        color: white;
+    }
+    
+    .post-action-btn.delete {
+        color: #d32f2f;
+        border-color: #d32f2f;
+    }
+    
+    .post-action-btn.delete:hover {
+        background: #d32f2f;
+        color: white;
+    }
+    
+    .post-content {
+        color: #333;
+        line-height: 1.6;
+        font-size: 0.95rem;
+        word-wrap: break-word;
+    }
+    
+    .pinned-badge {
+        display: inline-block;
+        background: var(--ubelt-gold);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        text-transform: uppercase;
+    }
+    
+    .post-section {
+        margin-bottom: 3rem;
+    }
+    
+    .new-post-button {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        background: linear-gradient(135deg, var(--ubelt-navy) 0%, #2d4a6f 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-decoration: none;
+        margin-bottom: 1.5rem;
+    }
+    
+    .new-post-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(26, 43, 74, 0.3);
+    }
+
+    .reviews-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    .review-item {
+        padding: 1.5rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+        border-left: 4px solid var(--ubelt-gold);
+    }
+    .review-header {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+    }
+    .review-rating {
+        font-size: 1.1rem;
+        color: var(--ubelt-gold);
+        letter-spacing: 2px;
+    }
+    .review-author {
+        font-weight: 600;
+        color: var(--ubelt-navy);
+        margin-bottom: 0.25rem;
+    }
+    .review-date {
+        font-size: 0.85rem;
+        color: #999;
+    }
+    .review-comment {
+        color: #555;
+        line-height: 1.6;
+        font-size: 0.95rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .btn-primary {
+        flex: 1;
+        padding: 1rem;
+        background: linear-gradient(135deg, var(--ubelt-navy) 0%, #2d4a6f 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(26, 43, 74, 0.3);
+    }
+    .btn-secondary {
+        flex: 1;
+        padding: 1rem;
+        background: white;
+        color: var(--ubelt-navy);
+        border: 2px solid var(--ubelt-gold);
+        border-radius: 10px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+    .btn-secondary:hover {
+        background: var(--ubelt-gold);
+        color: white;
+        transform: translateY(-2px);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2rem;
+        color: #999;
+    }
+    .empty-state-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .profile-bio {
+        color: #666;
+        line-height: 1.6;
+        margin-bottom: 1.5rem;
+    }
+    
+    .sidebar-section {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid var(--ubelt-gold);
+    }
+    .sidebar-label {
+        font-weight: 600;
+        color: var(--ubelt-navy);
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .sidebar-value {
+        font-size: 1rem;
+        color: #333;
+    }
+
+    @media (max-width: 768px) {
+        .profile-container {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .profile-info {
+            padding-bottom: 0;
+        }
+        .section {
+            grid-column: 1 / -1;
+        }
+        .sections {
+            grid-template-columns: 1fr;
+        }
+        .listings-grid {
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        }
+        .action-buttons {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-hero" {% if profile.header_image %}style="background-image: url('{{ profile.header_image.url }}');"{% endif %}>
+    <div class="content-wrapper">
+        <div class="profile-container">
+            {% if profile.google_avatar_url %}
+                <img src="{{ profile.google_avatar_url }}" alt="Profile" class="profile-avatar">
+            {% elif profile.avatar %}
+                <img src="{{ profile.avatar.url }}" alt="Profile" class="profile-avatar">
+            {% else %}
+                <div class="profile-avatar-placeholder"></div>
+            {% endif %}
+            <div class="profile-info">
+                <h1 class="profile-name">
+                    {{ profile.display_name }}
+                    {% if profile.is_verified %}
+                    <i class="bi bi-check-circle-fill" style="color: #97C2EC; font-size: 0.8em; margin-left: 0.5rem;" title="Verified seller"></i>
+                    {% endif %}
+                </h1>
+                {% if profile.school %}
+                <div class="profile-school">
+                    {% if profile.school.logo_url %}
+                    <img src="{{ profile.school.logo_url }}" alt="{{ profile.school.name }}" class="school-logo" title="{{ profile.school.name }}">
+                    {% endif %}
+                    <span class="school-name">{{ profile.school.name }}</span>
+                </div>
+                {% endif %}
+                {% if profile.year_level %}
+                <div style="color: white; opacity: 0.95; font-size: 0.95rem; margin-bottom: 0.5rem;">📚 {{ profile.get_year_level_display }}</div>
+                {% endif %}
+                <div class="reputation-display">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <div>
+                            <span class="reputation-stars">
+                                {% if profile.reputation_score >= 4.5 %}⭐⭐⭐⭐⭐{% elif profile.reputation_score >= 3.5 %}⭐⭐⭐⭐{% elif profile.reputation_score >= 2.5 %}⭐⭐⭐{% elif profile.reputation_score >= 1.5 %}⭐⭐{% else %}⭐{% endif %}
+                            </span>
+                            <div class="reputation-score">{{ profile.reputation_score|floatformat:1 }}/5.0</div>
+                        </div>
+                        <div class="reputation-text">
+                            <strong>{{ profile.review_count }}</strong> review{{ profile.review_count|pluralize }}<br>
+                            Member since {{ profile_user.date_joined|date:"b Y" }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="content-wrapper">
+    {% if request.user != profile_user %}
+    <div class="action-buttons">
+        {% if profile_user.listings.first %}
+            <a href="{% url 'marketplace:message_send' profile_user.listings.first.id %}" class="btn-primary">
+                Message Seller
+            </a>
+        {% else %}
+            <button class="btn-primary" disabled style="opacity: 0.6; cursor: not-allowed;">
+                No Listings Available
+            </button>
+        {% endif %}
+        {% if not has_reviewed %}
+            <a href="{% url 'marketplace:leave_review' profile_user.username %}" class="btn-secondary">
+                Rate Seller
+            </a>
+        {% else %}
+            <a href="{% url 'marketplace:leave_review' profile_user.username %}" class="btn-secondary">
+                Edit Rating
+            </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="profile-stats">
+        <div class="stat-card">
+            <div class="stat-number">{{ listings.count }}</div>
+            <div class="stat-label">Active Listings</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ profile.total_sold }}</div>
+            <div class="stat-label">Items Sold</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ profile.total_bought }}</div>
+            <div class="stat-label">Items Bought</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">₱{{ profile.total_earned|floatformat:0 }}</div>
+            <div class="stat-label">Total Earned</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ profile.reputation_score|floatformat:1 }}/5</div>
+            <div class="stat-label">Reputation Score</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ profile.review_count }}</div>
+            <div class="stat-label">Total Reviews</div>
+        </div>
+    </div>
+
+    <div class="sections">
+        <div class="section">
+            {% if profile.bio %}
+                <div class="profile-bio">
+                    <br><strong>About:</strong><br>{{ profile.bio }}
+                </div>
+            {% endif %}
+
+            <!-- PINNED POST SECTION -->
+            {% if pinned_post %}
+            <div class="post-section">
+                <div class="post-item pinned">
+                    <div class="pinned-badge">📌 Featured Post</div>
+                    <div class="post-header">
+                        <div>
+                            <div class="post-author">{{ pinned_post.author.get_full_name|default:pinned_post.author.username }}</div>
+                            <div class="post-date">{{ pinned_post.created_at|date:"M d, Y" }}</div>
+                        </div>
+                        {% if request.user == profile_user %}
+                        <div class="post-actions">
+                            <a href="{% url 'marketplace:pin_profile_post' pinned_post.id %}" class="post-action-btn pin">Unpin</a>
+                            <a href="{% url 'marketplace:delete_profile_post' pinned_post.id %}" class="post-action-btn delete">Delete</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <p class="post-content">{{ pinned_post.content }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- PROFILE POSTS SECTION -->
+            <div class="post-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h2 class="section-title">Posts ({{ profile_posts.count }})</h2>
+                    {% if request.user == profile_user %}
+                    <a href="{% url 'marketplace:create_profile_post' %}" class="new-post-button">
+                        + New Post
+                    </a>
+                    {% endif %}
+                </div>
+                
+                {% if profile_posts %}
+                    {% for post in profile_posts %}
+                        {% if post != pinned_post %}
+                        <div class="post-item">
+                            <div class="post-header">
+                                <div>
+                                    <div class="post-author">{{ post.author.get_full_name|default:post.author.username }}</div>
+                                    <div class="post-date">{{ post.created_at|date:"M d, Y" }}</div>
+                                </div>
+                                {% if request.user == profile_user %}
+                                <div class="post-actions">
+                                    <a href="{% url 'marketplace:pin_profile_post' post.id %}" class="post-action-btn pin" title="Pin this post to your profile">📌 Pin</a>
+                                    <a href="{% url 'marketplace:delete_profile_post' post.id %}" class="post-action-btn delete">Delete</a>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <p class="post-content">{{ post.content }}</p>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>No posts yet. {% if request.user == profile_user %}<a href="{% url 'marketplace:create_profile_post' %}">Share your first thought!</a>{% endif %}</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- FORUM POSTS SECTION -->
+            <div class="post-section">
+                <h2 class="section-title">Forum Activity ({{ forum_posts.count }})</h2>
+                {% if forum_posts %}
+                    {% for forum_post in forum_posts %}
+                    <div class="post-item">
+                        <div class="post-header">
+                            <div>
+                                <div class="post-author">{{ forum_post.title }}</div>
+                                <div class="post-date">{{ forum_post.created_at|date:"M d, Y" }}</div>
+                            </div>
+                        </div>
+                        <p class="post-content">{{ forum_post.body|truncatewords:30 }}</p>
+                        <a href="{% url 'marketplace:forum_post' forum_post.id %}" style="color: var(--ubelt-navy); text-decoration: none; font-weight: 600; margin-top: 0.75rem; display: inline-block;">
+                            Read more →
+                        </a>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>No forum posts yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <h2 class="section-title">Current Listings ({{ listings.count }})</h2>
+            {% if listings %}
+                <div style="position: relative; margin-bottom: 1rem;">
+                    <button class="scroll-arrow left" onclick="scrollListings(-1);" title="Previous">
+                        <i class="bi bi-chevron-left"></i> ◀
+                    </button>
+                    <div class="listings-scroll-container" id="listingsContainer">
+                        <div class="listings-horizontal">
+                            {% for listing in listings %}
+                                <a href="{{ listing.get_absolute_url }}" class="listing-card">
+                                    {% if listing.image %}
+                                        <img src="{{ listing.image.url }}" alt="{{ listing.title }}" class="listing-image">
+                                    {% else %}
+                                        <div class="listing-image" style="background: linear-gradient(135deg, var(--ubelt-navy), var(--ubelt-gold)); display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem;"></div>
+                                    {% endif %}
+                                    <div class="listing-info">
+                                        <h3 class="listing-title">{{ listing.title }}</h3>
+                                        <div class="listing-price">₱{{ listing.price }}</div>
+                                    </div>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <button class="scroll-arrow right" onclick="scrollListings(1);" title="Next">
+                        ▶ <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+                <script>
+                    function scrollListings(direction) {
+                        const container = document.getElementById('listingsContainer');
+                        const scrollAmount = 250;
+                        if (direction === 1) {
+                            container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+                        } else {
+                            container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+                        }
+                    }
+                </script>
+            {% else %}
+                <div class="empty-state">
+                    <p>No active listings at the moment.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <div>
+            <!-- Profile Info Sidebar -->
+            <div class="sidebar-section">
+                <div class="sidebar-label">Academic Info</div>
+                {% if profile.year_level %}
+                    <div class="sidebar-value" style="margin-bottom: 0.75rem;"><strong>Year Level:</strong> {{ profile.get_year_level_display }}</div>
+                {% endif %}
+                {% if profile.age %}
+                    <div class="sidebar-value" style="margin-bottom: 0.75rem;"><strong>Age:</strong> {{ profile.age }} years</div>
+                {% endif %}
+                {% if profile.birthday %}
+                    <div class="sidebar-value"><strong>Birthday:</strong> {{ profile.birthday|date:"F j" }}</div>
+                {% endif %}
+                {% if not profile.year_level and not profile.age and not profile.birthday %}
+                    <div class="sidebar-value" style="color: #999; font-size: 0.9rem;">Not provided</div>
+                {% endif %}
+            </div>
+
+            <!-- Contact Info Sidebar -->
+            {% if profile.contact_info or profile.address or profile.phone %}
+            <div class="sidebar-section">
+                <div class="sidebar-label">Contact Info</div>
+                {% if profile.phone %}
+                    <div class="sidebar-value" style="margin-bottom: 0.75rem;">
+                        <strong>Phone:</strong><br>{{ profile.phone }}
+                    </div>
+                {% endif %}
+                {% if profile.address %}
+                    <div class="sidebar-value" style="margin-bottom: 0.75rem;">
+                        <strong>Location:</strong><br>{{ profile.address }}
+                    </div>
+                {% endif %}
+                {% if profile.contact_info %}
+                    <div class="sidebar-value">
+                        <strong>Social Media:</strong><br>{{ profile.contact_info }}
+                    </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Social Media Links Display -->
+            {% if profile.contact_info %}
+            <div class="sidebar-section">
+                <div class="sidebar-label">Connect</div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    {% if 'facebook' in profile.contact_info|lower %}
+                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: #3b5998; color: white; border-radius: 50%; font-size: 0.85rem; font-weight: 700;" title="Facebook">f</div>
+                    {% endif %}
+                    {% if 'instagram' in profile.contact_info|lower %}
+                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: #E1306C; color: white; border-radius: 50%; font-size: 0.85rem; font-weight: 700;" title="Instagram">in</div>
+                    {% endif %}
+                    {% if 'twitter' in profile.contact_info|lower %}
+                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: #1DA1F2; color: white; border-radius: 50%; font-size: 0.85rem; font-weight: 700;" title="Twitter">𝕏</div>
+                    {% endif %}
+                    {% if 'discord' in profile.contact_info|lower %}
+                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: #5865F2; color: white; border-radius: 50%; font-size: 0.85rem; font-weight: 700;" title="Discord">D</div>
+                    {% endif %}
+                    {% if 'whatsapp' in profile.contact_info|lower %}
+                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: #25C059; color: white; border-radius: 50%; font-size: 0.85rem; font-weight: 700;" title="WhatsApp">W</div>
+                    {% endif %}
+                    {% if 'linkedin' in profile.contact_info|lower %}
+                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: #0077b5; color: white; border-radius: 50%; font-size: 0.85rem; font-weight: 700;" title="LinkedIn">in</div>
+                    {% endif %}
+                    {% if 'viber' in profile.contact_info|lower %}
+                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: #665CAC; color: white; border-radius: 50%; font-size: 0.85rem; font-weight: 700;" title="Viber">V</div>
+                    {% endif %}
+                    {% if 'telegram' in profile.contact_info|lower %}
+                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: #0088cc; color: white; border-radius: 50%; font-size: 0.85rem; font-weight: 700;" title="Telegram">T</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <h2 class="section-title">Reviews ({{ profile.review_count }})</h2>
+            {% if reviews %}
+                <div class="reviews-container">
+                    {% for review in reviews %}
+                        <div class="review-item">
+                            <div class="review-header">
+                                <div>
+                                    <div class="review-author">{{ review.reviewer.get_full_name|default:review.reviewer.username }}</div>
+                                    <div class="review-date">{{ review.created_at|date:"M d, Y" }}</div>
+                                </div>
+                                <div class="review-rating">
+                                    {% for star in "12345" %}
+                                        {% if star|add:"0" <= review.rating %}⭐{% else %}☆{% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% if review.comment %}
+                                <p class="review-comment">{{ review.comment }}</p>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p>No reviews yet.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

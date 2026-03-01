@@ -1,0 +1,64 @@
+{% extends 'marketplace/mod/base.html' %}
+{% block title %}User Analytics{% endblock %}
+{% block mod_content %}
+<h2 class="font-display fw-bold mb-4"><i class="bi bi-people me-2"></i>User Analytics</h2>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="text-muted small">Total Users</h6>
+                <h3 class="mb-0">{{ total_users }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="text-muted small">Users with Listings</h6>
+                <h3 class="mb-0">{{ users_with_listings }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="text-muted small">Users with Completed Purchases</h6>
+                <h3 class="mb-0">{{ users_with_purchases }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header font-display fw-bold">New Registrations (Last 30 Days)</div>
+    <div class="card-body">
+        <canvas id="signupChart" height="80"></canvas>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const signupData = {{ signup_data_json|safe }};
+    new Chart(document.getElementById('signupChart'), {
+        type: 'bar',
+        data: {
+            labels: signupData.map(d => d.date),
+            datasets: [{
+                label: 'New Users',
+                data: signupData.map(d => d.count),
+                backgroundColor: '#22D3EE',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+});
+</script>
+{% endblock %}

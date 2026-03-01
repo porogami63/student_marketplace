@@ -1,0 +1,9 @@
+{% comment %}Use: {% include 'marketplace/_school_badge.html' with school=listing.school %}{% endcomment %}
+{% if school %}
+<span class="badge badge-school d-inline-flex align-items-center gap-2" style="background-color: {{ school.primary_color }}20; color: {{ school.primary_color }}; border: 1px solid {{ school.primary_color }}60; padding: 0.35rem 0.6rem;">
+    {% if school.logo_url %}
+    <img src="{{ school.logo_url }}" alt="{{ school.short_name }}" style="height: 20px; width: auto; object-fit: contain; background: white; padding: 1px; border-radius: 3px;" title="{{ school.name }}">
+    {% endif %}
+    <span>{{ school.short_name|default:school.name }}</span>
+</span>
+{% endif %}

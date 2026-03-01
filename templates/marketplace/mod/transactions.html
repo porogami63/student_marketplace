@@ -1,0 +1,52 @@
+{% extends 'marketplace/mod/base.html' %}
+{% block title %}Transaction Oversight{% endblock %}
+{% block mod_content %}
+<h2 class="font-display fw-bold mb-4"><i class="bi bi-receipt me-2"></i>Transaction Oversight</h2>
+
+<p class="text-muted">View transactions, add internal notes, flag for follow-up, or cancel with documented reason (audit trail). No approval required—users control their flow.</p>
+
+<p>
+    <a href="?status=" class="btn btn-sm {% if not status_filter %}btn-ubelt{% else %}btn-outline-secondary{% endif %}">All</a>
+    <a href="?status=pending" class="btn btn-sm {% if status_filter == 'pending' %}btn-ubelt{% else %}btn-outline-secondary{% endif %}">Pending</a>
+    <a href="?status=confirmed" class="btn btn-sm {% if status_filter == 'confirmed' %}btn-ubelt{% else %}btn-outline-secondary{% endif %}">Confirmed</a>
+    <a href="?status=completed" class="btn btn-sm {% if status_filter == 'completed' %}btn-ubelt{% else %}btn-outline-secondary{% endif %}">Completed</a>
+    <a href="?status=cancelled" class="btn btn-sm {% if status_filter == 'cancelled' %}btn-ubelt{% else %}btn-outline-secondary{% endif %}">Cancelled</a>
+    <a href="?flagged=1{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn btn-sm {% if flagged_filter %}btn-warning{% else %}btn-outline-warning{% endif %}"><i class="bi bi-flag me-1"></i>Flagged</a>
+</p>
+
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Buyer</th>
+                <th>Seller</th>
+                <th>Listing</th>
+                <th>Price</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for txn in transactions %}
+            <tr>
+                <td>{{ txn.pk }}</td>
+                <td>{{ txn.buyer.username }}</td>
+                <td>{{ txn.seller.username }}</td>
+                <td>{% if txn.listing %}{{ txn.listing.title|truncatechars:30 }}{% else %}—{% endif %}</td>
+                <td>₱{{ txn.price|floatformat:0 }}</td>
+                <td>
+                    {{ txn.get_status_display|truncatechars:20 }}
+                    {% if txn.flagged_for_review %}<span class="badge bg-warning text-dark">Flagged</span>{% endif %}
+                </td>
+                <td>{{ txn.created_at|date:"M d, H:i" }}</td>
+                <td><a href="{% url 'marketplace:mod_transaction_detail' txn.pk %}" class="btn btn-sm btn-outline-ubelt">View</a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" class="text-muted">No transactions.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,761 @@
+{% extends 'base.html' %}
+{% block title %}Student Marketplace - U-Belt{% endblock %}
+{% block extra_css %}
+<style>
+    body > main { padding: 0 !important; }
+    body > main > .container { max-width: 100% !important; padding: 0 !important; }
+
+    .safety-wrapper {
+        width: 100%;
+        padding: 0;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+        max-height: 200px;
+        background: transparent; /* Remove the white background frame */
+    }
+
+    .safety-alert {
+        max-width: 1160px;
+        margin: 1.25rem auto 0.5rem; /* Adjusted margins to prevent extra gap */
+        border-radius: 14px;
+        padding: 1.25rem 1.5rem;
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        border-left: 4px solid #f59e0b;
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        position: relative;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .safety-alert .alert-content h5 {
+        margin: 0 0 0.4rem 0;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: #92400e;
+    }
+
+    .safety-dismiss {
+        position: absolute;
+        top: 0.6rem;
+        right: 0.6rem;
+        border: none;
+        background: none;
+        color: #92400e;
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 0;
+        z-index: 10;
+        transition: transform 0.2s;
+    }
+
+    .safety-dismiss:hover {
+        transform: scale(1.15);
+    }
+
+    .hero-slider {
+        position: relative;
+        width: 100%;
+        height: clamp(320px, 42vw, 420px);
+    }
+
+    .hero-slide {
+        position: absolute;
+        inset: 0;
+        background-size: cover;
+        background-position: center;
+        opacity: 0;
+        transition: opacity 0.8s ease;
+        z-index: 0;
+    }
+
+    .hero-slide.is-active {
+        opacity: 1;
+    }
+
+    .hero-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.35); /* Increased opacity for better text contrast */
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .hero-content {
+        position: absolute;
+        inset: 0;
+        padding: 2rem 2.5rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 5; /* Ensure it's above everything */
+        color: #ffffff;
+        text-shadow: 0 4px 20px rgba(0,0,0,0.7); /* Strengthened drop shadow */
+        pointer-events: none; /* Allow clicks to pass through to buttons underneath */
+    }
+
+    .hero-kicker {
+        text-transform: uppercase;
+        letter-spacing: 0.3em;
+        font-size: 0.85rem;
+        font-weight: 700;
+        opacity: 1;
+        margin-bottom: 1rem;
+        pointer-events: auto;
+    }
+
+    .hero-content h1 {
+        font-size: clamp(2.3rem, 4vw, 3.4rem);
+        font-weight: 800;
+        margin-bottom: 0.9rem;
+        line-height: 1.2;
+        pointer-events: auto;
+    }
+
+    .hero-content p {
+        font-size: 1.15rem;
+        max-width: 650px;
+        opacity: 1;
+        margin-bottom: 2rem;
+        font-weight: 500;
+        pointer-events: auto;
+    }
+
+    .hero-search {
+        width: 100%;
+        max-width: 740px;
+        display: flex;
+        gap: 0.65rem;
+        align-items: stretch;
+        position: relative;
+        z-index: 10;
+        pointer-events: auto; /* Enable search bar interaction */
+    }
+
+    .hero-search input {
+        flex: 1;
+        border-radius: 999px;
+        border: 2px solid transparent;
+        padding: 1rem 1.75rem;
+        font-size: 1.1rem;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        transition: all 0.3s;
+        pointer-events: auto;
+    }
+
+    .hero-search input:focus {
+        outline: none;
+        border-color: #38bdf8;
+        box-shadow: 0 10px 30px rgba(56, 189, 248, 0.2);
+    }
+
+    .hero-search button {
+        border-radius: 999px;
+        border: none;
+        background: #38bdf8;
+        color: white;
+        padding: 0 2.2rem;
+        font-weight: 700;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+        pointer-events: auto;
+    }
+
+    .hero-search button:hover {
+        background: #0ea5e9;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(56, 189, 248, 0.4);
+    }
+
+    .hero-search button:active {
+        transform: translateY(0);
+    }
+
+    .hero-trending {
+        margin-top: 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+        align-items: center;
+        font-size: 0.9rem;
+        opacity: 0.85;
+        pointer-events: auto;
+    }
+
+    .hero-trending span {
+        font-weight: 600;
+    }
+
+    .hero-trend-tag {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 999px;
+        padding: 0.25rem 0.8rem;
+        color: white;
+        text-decoration: none;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: background 0.2s;
+    }
+
+    .hero-trend-tag:hover {
+        background: rgba(56, 189, 248, 0.2);
+    }
+
+    .hero-section {
+        padding: 0 1rem;
+        margin-top: 0;
+    }
+
+    .hero-frame {
+        position: relative;
+        max-width: 1160px;
+        margin: 0.75rem auto 0; /* Reduced margin to bring hero closer to notice */
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .hero-controls {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 1.5rem;
+        z-index: 15; /* Higher than content to ensure clicks work */
+        pointer-events: none;
+    }
+
+    .hero-control {
+        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        color: #0f172a;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        cursor: pointer;
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: auto;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .hero-control:hover {
+        background: #ffffff;
+        transform: scale(1.1);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+    }
+
+    .hero-frame:hover .hero-control {
+        opacity: 1;
+    }
+
+    .home-main {
+        background: transparent;
+        padding: 4rem 0 5rem;
+    }
+
+    .home-container {
+        max-width: 1160px;
+        margin: 0 auto;
+        padding: 0 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 3.5rem;
+    }
+
+    .section-title {
+        font-size: 1.8rem;
+        font-weight: 800;
+        margin-bottom: 1rem;
+        letter-spacing: -0.01em;
+        color: #0f172a;
+    }
+
+    .section-view-all {
+        padding: 0.45rem 1rem;
+        background: #38bdf8;
+        color: white;
+        border-radius: 999px;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .featured-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .category-card {
+        position: relative;
+        border-radius: 18px;
+        overflow: hidden;
+        min-height: 210px;
+        text-decoration: none;
+        color: white;
+        display: flex;
+        align-items: flex-end;
+        padding: 1.5rem;
+        background: linear-gradient(180deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.95)), #0f172a;
+        transition: transform 0.3s;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .category-card:hover { transform: translateY(-6px); }
+
+    .category-card::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.2);
+    }
+
+    .category-card-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .category-card h3 {
+        margin: 0 0 0.25rem 0;
+        font-size: 1.4rem;
+        font-weight: 700;
+    }
+
+    .category-card p {
+        margin: 0;
+        opacity: 0.85;
+        font-size: 0.9rem;
+    }
+
+    .category-image {
+        position: absolute;
+        inset: 0;
+        background-size: cover;
+        background-position: center;
+        filter: saturate(1.1);
+        opacity: 0.55;
+    }
+
+    .category-image.placeholder {
+        background: linear-gradient(145deg, #1e293b, #0f172a);
+        opacity: 0.3;
+    }
+
+    .listing-carousel-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0 1rem;
+    }
+
+    .listing-carousel-track {
+        flex: 1;
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(280px, 1fr); /* Increased min-width for more focus on items */
+        gap: 2.5rem; /* Significant breathing room */
+        overflow-x: auto;
+        padding: 0 4rem 1.5rem;
+        scroll-behavior: smooth;
+        scrollbar-width: none; /* Hide scrollbar for cleaner look */
+    }
+
+    .listing-carousel-track::-webkit-scrollbar {
+        display: none;
+    }
+
+    .listing-card {
+        border-radius: 16px;
+        overflow: hidden;
+        text-decoration: none;
+        color: inherit;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        background: white;
+        transition: transform 0.3s, border-color 0.3s;
+        display: flex;
+        flex-direction: column;
+        min-width: 220px;
+    }
+
+    .listing-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(56, 189, 248, 0.5);
+    }
+
+    .listing-carousel-control {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: 1px solid rgba(15, 23, 42, 0.2);
+        background: white;
+        color: #0f172a;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.15);
+        z-index: 10; /* Increased to ensure it's not blocked */
+        transition: all 0.2s;
+    }
+
+    .listing-carousel-control.prev { left: 0; }
+    .listing-carousel-control.next { right: 0; }
+
+    .listing-carousel-control:hover {
+        background: #f8fafc;
+        transform: translateY(-50%) scale(1.1);
+    }
+
+    /* School Badge styling override for home page cards if needed */
+    .badge-school {
+        display: inline-block !important;
+        font-size: 0.72rem !important;
+        padding: 0.25rem 0.6rem !important;
+        border-radius: 6px !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.03em !important;
+        border: 1.5px solid rgba(0, 0, 0, 0.08) !important;
+        margin-right: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .listing-image {
+        width: 100%;
+        height: 190px;
+        object-fit: cover;
+    }
+
+    .listing-body {
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .listing-price {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #38bdf8;
+    }
+
+    .listing-meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.85rem;
+        color: #475569;
+    }
+
+    .forum-preview-section {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .forum-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1rem;
+    }
+
+    .forum-card {
+        border-radius: 16px;
+        background: white;
+        padding: 1.5rem;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        min-height: 200px;
+    }
+
+    .forum-card h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .forum-card p {
+        margin: 0;
+        color: #475569;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    .forum-meta {
+        font-size: 0.8rem;
+        color: #94a3b8;
+    }
+
+    .forum-empty {
+        padding: 2rem;
+        border-radius: 12px;
+        background: #e0f2fe;
+        color: #0c4a6e;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    .forum-card a {
+        color: #38bdf8;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    @media (max-width: 768px) {
+        .hero-search { flex-direction: column; }
+        .hero-search button { width: 100%; }
+        .hero-trending { flex-direction: column; gap: 0.35rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="safety-wrapper">
+    <div id="safetyAlert" class="safety-alert" role="alert">
+        <div class="alert-icon" aria-hidden="true">
+            <i class="bi bi-shield-exclamation"></i>
+        </div>
+        <div class="alert-content">
+            <h5>Safety First</h5>
+            <p><strong>Perform due diligence before every transaction.</strong> Meet in safe public places on campus, verify product condition and seller identity in person, use secure payment methods, trust your instincts, and report suspicious activity to the moderation team.</p>
+        </div>
+        <button type="button" class="safety-dismiss" aria-label="Dismiss safety notice" onclick="dismissSafetyAlert()"><i class="bi bi-x-lg"></i></button>
+    </div>
+</div>
+
+<section class="hero-section">
+    <div class="hero-frame">
+        <div class="hero-slider">
+            {% for image in hero_images %}
+                <div class="hero-slide {% if forloop.first %}is-active{% endif %}" style="background-image: url('{{ image }}');"></div>
+            {% endfor %}
+        </div>
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <div class="hero-kicker">UBXChange</div>
+            <h1>Every kinda find, for every kinda student</h1>
+            <p>Shop with confidence inside the University Belt community. Sell textbooks, gadgets, dorm essentials, and more directly to fellow students.</p>
+            <form class="hero-search" action="{% url 'marketplace:listing_list' %}" method="get">
+                <input type="search" name="q" placeholder="Search textbooks, gadgets, or course codes (e.g. IT-2104)..." value="{{ query }}">
+                <button type="submit">Search</button>
+            </form>
+            <div class="hero-trending">
+                <span>Trending:</span>
+                {% for item in trending|slice:":8" %}
+                    {% if item.slug %}
+                        <a href="{% url 'marketplace:listing_list' %}?category={{ item.slug }}" class="hero-trend-tag">{{ item.name }}</a>
+                    {% else %}
+                        <a href="{% url 'marketplace:listing_list' %}?q={{ item.name|urlencode }}" class="hero-trend-tag">{{ item.name }}</a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        <div class="hero-controls">
+            <button class="hero-control" data-direction="prev" type="button" aria-label="Previous slide"><i class="bi bi-chevron-left"></i></button>
+            <button class="hero-control" data-direction="next" type="button" aria-label="Next slide"><i class="bi bi-chevron-right"></i></button>
+        </div>
+    </div>
+</section>
+
+<div class="home-main">
+    <div class="home-container">
+        <section class="featured-categories-section">
+            <div class="section-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <h2 class="section-title">Popular Categories</h2>
+                <a href="{% url 'marketplace:listing_list' %}" class="section-view-all">Browse all</a>
+            </div>
+            <div class="featured-grid">
+                {% for card in category_cards %}
+                    <a href="{% url 'marketplace:listing_list' %}?category={{ card.slug }}" class="category-card">
+                        {% if card.image %}
+                            <span class="category-image" style="background-image: url('{{ card.image }}');"></span>
+                        {% else %}
+                            <span class="category-image placeholder"></span>
+                        {% endif %}
+                        <div class="category-card-content">
+                            <h3>{{ card.name }}</h3>
+                            <p>{{ card.subtitle }}</p>
+                        </div>
+                    </a>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="listings-section">
+            <div class="section-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <h2 class="section-title">Recent listings</h2>
+                <a href="{% url 'marketplace:listing_list' %}" class="section-view-all">View all listings</a>
+            </div>
+            {% if listings %}
+                <div class="listing-carousel-wrapper">
+                    <button class="listing-carousel-control prev" type="button" data-direction="prev" aria-label="Previous listings"><i class="bi bi-chevron-left"></i></button>
+                    <div class="listing-carousel-track">
+                        {% for listing in listings %}
+                            <a href="{{ listing.get_absolute_url }}" class="listing-card">
+                                {% if listing.image %}
+                                    <img src="{{ listing.image.url }}" alt="{{ listing.title }}" class="listing-image" loading="lazy">
+                                {% else %}
+                                    <div class="listing-image" style="display:flex; align-items:center; justify-content:center;"><i class="bi bi-box2" style="font-size:2rem; color:#94a3b8;"></i></div>
+                                {% endif %}
+                                <div class="listing-body">
+                                    <h3 class="listing-title">{{ listing.title }}</h3>
+                                    {% if listing.product_details %}
+                                        <div class="listing-details">
+                                            {% for key, value in listing.product_details.items %}
+                                                {% if value and value != '--' %}
+                                                    <div class="listing-detail-item" style="font-size:0.8rem; justify-content:space-between;">
+                                                        <span class="listing-detail-label">{{ key|title }}:</span>
+                                                        <span class="listing-detail-value">{{ value }}</span>
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="listing-price">₱{{ listing.price|floatformat:0 }}</div>
+                                    <div class="listing-meta" style="align-items:center;">
+                                        {% if listing.school %}
+                                            {% include 'marketplace/_school_badge.html' with school=listing.school %}
+                                        {% endif %}
+                                        <span style="opacity: 0.7;">{{ listing.view_count }} views</span>
+                                    </div>
+                                </div>
+                            </a>
+                        {% endfor %}
+                    </div>
+                    <button class="listing-carousel-control next" type="button" data-direction="next" aria-label="Next listings"><i class="bi bi-chevron-right"></i></button>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon"><i class="bi bi-inbox"></i></div>
+                    <p class="empty-text">No listings yet. Be the first to sell!</p>
+                    {% if user.is_authenticated %}
+                        <a href="{% url 'marketplace:listing_create' %}" class="btn-hero btn-hero-primary">Post your first listing</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="forum-preview-section">
+            <div class="section-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <h2 class="section-title">Community forum highlights</h2>
+                <a href="{% url 'marketplace:forum' %}" class="section-view-all">Visit forum</a>
+            </div>
+            <div class="forum-grid">
+                {% for post in forum_posts %}
+                    <article class="forum-card">
+                        <div class="forum-meta">{{ post.author.username }} · {{ post.created_at|date:"M j" }}</div>
+                        <h3>{{ post.title }}</h3>
+                        <p>{{ post.body|truncatechars:160 }}</p>
+                        {% if post.listing %}
+                            <a href="{{ post.listing.get_absolute_url }}">View related listing</a>
+                        {% endif %}
+                    </article>
+                {% empty %}
+                    <div class="forum-empty">No forum posts yet. Start a conversation and promote your listing.</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        {% if not user.is_authenticated %}
+        <section class="cta-section">
+            <h2>Join the student marketplace</h2>
+            <p>Connect with fellow U-Belt students, buy the things you need, and sell items you no longer use.</p>
+            <div class="cta-buttons">
+                <a href="{% url 'marketplace:register' %}" class="cta-btn cta-btn-primary">Create account</a>
+                <a href="{% url 'marketplace:listing_list' %}" class="cta-btn cta-btn-secondary">Browse as guest</a>
+            </div>
+        </section>
+        {% endif %}
+
+    </div>
+</div>
+
+<script>
+// Safety alert helper
+function dismissSafetyAlert() {
+    const wrapper = document.querySelector('.safety-wrapper');
+    if (wrapper) {
+        wrapper.style.maxHeight = '0';
+        wrapper.style.opacity = '0';
+        wrapper.style.border = '0';
+        setTimeout(() => wrapper.remove(), 400);
+    }
+}
+
+(function () {
+    const slides = document.querySelectorAll('.hero-slide');
+    if (slides.length === 0) return;
+    
+    const total = slides.length;
+    let current = 0;
+    let timer;
+
+    const showSlide = (index) => {
+        const nextIndex = (index + total) % total;
+        slides.forEach((slide, i) => {
+            slide.classList.toggle('is-active', i === nextIndex);
+        });
+        current = nextIndex;
+    };
+
+    const next = () => showSlide(current + 1);
+    const prev = () => showSlide(current - 1);
+
+    document.querySelectorAll('.hero-control').forEach(btn => {
+        btn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (btn.dataset.direction === 'prev') {
+                prev();
+            } else {
+                next();
+            }
+            resetTimer();
+        };
+    });
+
+    const resetTimer = () => {
+        clearInterval(timer);
+        if (total > 1) {
+            timer = setInterval(next, 8000);
+        }
+    };
+
+    showSlide(0);
+    resetTimer();
+})();
+
+(function () {
+    const wrappers = document.querySelectorAll('.listing-carousel-wrapper');
+    wrappers.forEach(wrapper => {
+        const track = wrapper.querySelector('.listing-carousel-track');
+        if (!track) return;
+        wrapper.querySelectorAll('.listing-carousel-control').forEach(btn => {
+            btn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const direction = btn.dataset.direction;
+                const distance = track.clientWidth * 0.8;
+                track.scrollBy({ left: direction === 'prev' ? -distance : distance, behavior: 'smooth' });
+            };
+        });
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% block title %}Sign Out{% endblock %}
+{% block extra_css %}
+<style>
+    .modal-container {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        background: linear-gradient(135deg, rgba(26, 43, 74, 0.02) 0%, rgba(13, 148, 136, 0.02) 100%);
+    }
+    .modal-card {
+        width: 100%;
+        max-width: 450px;
+        border-radius: 20px;
+        border: 1px solid rgba(0,0,0,0.08);
+        box-shadow: 0 25px 50px rgba(0,0,0,0.1), 0 0 1px rgba(0,0,0,0.1);
+    }
+    .modal-icon {
+        text-align: center;
+        padding: 2.5rem 0 1rem 0;
+        font-size: 3.5rem;
+    }
+    .modal-header {
+        text-align: center;
+        padding: 0 1.5rem;
+    }
+    .modal-header h1 {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.85rem;
+        font-weight: 800;
+        color: var(--ubelt-navy);
+        margin: 0 0 0.3rem 0;
+        letter-spacing: -0.02em;
+    }
+    .modal-header p {
+        color: #666;
+        font-size: 0.95rem;
+        margin: 0;
+        font-weight: 500;
+    }
+    .modal-content {
+        padding: 2rem 1.5rem;
+        text-align: center;
+    }
+    .modal-actions {
+        display: flex;
+        gap: 1rem;
+        padding: 0 1.5rem 1.5rem 1.5rem;
+    }
+    .btn-cancel {
+        flex: 1;
+        padding: 0.85rem 1.25rem;
+        border: none;
+        background: #f5f5f5;
+        color: var(--ubelt-navy);
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+    }
+    .btn-cancel:hover {
+        background: #e8e8e8;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(26, 43, 74, 0.15);
+    }
+    .btn-danger {
+        flex: 1;
+        padding: 0.85rem 1.25rem;
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .btn-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+    }
+    .btn-danger:active {
+        transform: translateY(0);
+    }
+    .warning-box {
+        background: linear-gradient(135deg, #ffeaa7 0%, #ffdd59 100%);
+        border: none;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.95rem;
+        color: #5a4a00;
+    }
+    .warning-box strong {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #4a3a00;
+        font-weight: 700;
+    }
+    .modal-card {
+        background: linear-gradient(to bottom, #fafaf9 0%, white 100%);
+        border: none;
+    }
+    .modal-icon {
+        animation: float 2s ease-in-out infinite;
+    }
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-8px); }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="modal-container">
+    <div class="modal-card">
+        <div class="modal-icon">
+        </div>
+        
+        <div class="modal-header">
+            <h1>Sign Out?</h1>
+            <p>You'll be logged out of your account</p>
+        </div>
+
+        <div class="modal-content">
+            <div class="warning-box">
+                <strong>Remember:</strong>
+                You'll need to sign in again to manage your listings, messages, and favorites.
+            </div>
+        </div>
+
+        <form method="post" style="width: 100%;">
+            {% csrf_token %}
+            <div class="modal-actions">
+                <a href="{% url 'marketplace:home' %}" class="btn-cancel">
+                    ← Keep Browsing
+                </a>
+                <button type="submit" class="btn-danger">
+                    Sign Out
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

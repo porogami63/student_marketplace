@@ -1,0 +1,81 @@
+{% extends 'marketplace/mod/base.html' %}
+{% block title %}Transaction #{{ transaction.pk }}{% endblock %}
+{% block mod_content %}
+<h2 class="font-display fw-bold mb-4">
+    <i class="bi bi-receipt me-2"></i>Transaction #{{ transaction.pk }}
+    <a href="{% url 'marketplace:mod_transactions' %}" class="btn btn-sm btn-outline-secondary ms-2">← Back</a>
+</h2>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-body">
+                <p><strong>Status:</strong> {{ transaction.get_status_display }}{% if transaction.flagged_for_review %} <span class="badge bg-warning text-dark">Flagged for review</span>{% endif %}</p>
+                <p><strong>Buyer:</strong> <a href="{% url 'marketplace:public_profile' transaction.buyer.username %}">{{ transaction.buyer.username }}</a></p>
+                <p><strong>Seller:</strong> <a href="{% url 'marketplace:public_profile' transaction.seller.username %}">{{ transaction.seller.username }}</a></p>
+                <p><strong>Price:</strong> ₱{{ transaction.price|floatformat:0 }}</p>
+                <p><strong>Exchange:</strong> {{ transaction.get_exchange_method_display }}</p>
+                {% if transaction.listing %}<p><strong>Listing:</strong> <a href="{% url 'marketplace:listing_detail' transaction.listing.pk %}">{{ transaction.listing.title }}</a></p>{% endif %}
+                {% if transaction.admin_cancelled_by %}<p class="text-danger"><strong>Admin cancelled</strong> by {{ transaction.admin_cancelled_by.username }} on {{ transaction.admin_cancelled_at|date }} — {{ transaction.admin_cancel_reason }}</p>{% endif %}
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header font-display fw-bold">Messages</div>
+            <div class="card-body">
+                {% for msg in txn_messages %}
+                <div class="mb-2">
+                    <strong>{{ msg.sender.username }}</strong> <span class="text-muted small">{{ msg.created_at }}</span><br>
+                    {{ msg.body|linebreaks }}
+                </div>
+                {% empty %}
+                <p class="text-muted">No messages.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header font-display fw-bold">Admin Notes (internal)</div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_note">
+                    <textarea name="admin_notes" class="form-control mb-2" rows="3">{{ transaction.admin_notes }}</textarea>
+                    <button type="submit" class="btn btn-sm btn-ubelt">Save Note</button>
+                </form>
+            </div>
+        </div>
+
+        {% if transaction.status == 'pending' or transaction.status == 'confirmed' %}
+        <div class="card mb-4">
+            <div class="card-header font-display fw-bold">Actions</div>
+            <div class="card-body">
+                {% if transaction.flagged_for_review %}
+                <form method="post" class="mb-2">
+                    {% csrf_token %}<input type="hidden" name="action" value="unflag">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Unflag</button>
+                </form>
+                {% else %}
+                <form method="post" class="mb-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="flag">
+                    <input type="text" name="reason" placeholder="Reason for flagging" class="form-control form-control-sm mb-1" maxlength="200">
+                    <button type="submit" class="btn btn-sm btn-warning">Flag for review</button>
+                </form>
+                {% endif %}
+
+                <hr>
+                <form method="post" onsubmit="return confirm('Cancel this transaction? Reason will be logged for audit.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="admin_cancel">
+                    <textarea name="admin_cancel_reason" class="form-control form-control-sm mb-1" placeholder="Reason (required for audit)" rows="2" required></textarea>
+                    <button type="submit" class="btn btn-sm btn-danger">Admin Cancel</button>
+                </form>
+                <p class="small text-muted mt-2">Use only for fraud/disputes. Reason is logged.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
