@@ -230,6 +230,7 @@ class ProfileForm(forms.ModelForm):
             'school': SchoolSelect(attrs={'id': 'id_school'}),
             'birthday': forms.DateInput(attrs={'type': 'date'}),
             'age': forms.NumberInput(attrs={'min': 10, 'max': 80}),
+            'contact_info': forms.TextInput(attrs={'placeholder': 'facebook.com/username, instagram.com/username, discord: username#1234, twitter.com/username, etc.'}),
         }
 
 

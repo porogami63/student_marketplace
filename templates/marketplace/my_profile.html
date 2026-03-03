@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
+{% load utils %}
 {% block title %}My Profile{% endblock %}
 
 {% block extra_css %}
@@ -627,6 +628,183 @@
         box-shadow: 0 8px 20px rgba(26, 43, 74, 0.3);
     }
 
+    /* Trust & Verification Section */
+    .trust-section {
+        background: linear-gradient(135deg, #f0f8ff 0%, #e8f4fb 100%);
+        border: 2px solid #97C2EC;
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+    }
+
+    .trust-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .trust-icon {
+        font-size: 2.5rem;
+    }
+
+    .trust-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--ubelt-navy);
+        margin: 0;
+    }
+
+    .trust-content {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .trust-stat {
+        text-align: center;
+        padding: 1rem;
+        background: white;
+        border-radius: 10px;
+        border: 1px solid #e0e0e0;
+    }
+
+    .trust-stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--ubelt-teal);
+        margin-bottom: 0.5rem;
+    }
+
+    .trust-stat-label {
+        font-size: 0.9rem;
+        color: #666;
+        font-weight: 600;
+    }
+
+    .verification-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: #e8f5e9;
+        color: #2e7d32;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .verification-badge i {
+        font-size: 1.1rem;
+    }
+
+    .unverified-prompt {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: #fff3e0;
+        color: #e65100;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    /* Social Media Icons Style */
+    .social-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        color: white;
+        font-size: 0.9rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .social-icon:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .social-icon.facebook { background: #3b5998; }
+    .social-icon.instagram { background: #E1306C; }
+    .social-icon.twitter { background: #1DA1F2; }
+    .social-icon.discord { background: #5865F2; }
+    .social-icon.whatsapp { background: #25C059; }
+    .social-icon.linkedin { background: #0077b5; }
+    .social-icon.viber { background: #665CAC; }
+    .social-icon.telegram { background: #0088cc; }
+
+    /* Reviews Section */
+    .reviews-section {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        border: 1px solid #e0e0e0;
+        margin-bottom: 2rem;
+    }
+
+    .reviews-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--ubelt-gold);
+    }
+
+    .reviews-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--ubelt-navy);
+        margin: 0;
+    }
+
+    .review-item-compact {
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+        border-left: 4px solid var(--ubelt-gold);
+        margin-bottom: 1rem;
+    }
+
+    .review-item-compact:last-child {
+        margin-bottom: 0;
+    }
+
+    .review-compact-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 0.5rem;
+    }
+
+    .review-compact-author {
+        font-weight: 600;
+        color: var(--ubelt-navy);
+    }
+
+    .review-compact-rating {
+        color: var(--ubelt-gold);
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+
+    .review-compact-date {
+        font-size: 0.85rem;
+        color: #999;
+    }
+
+    .review-compact-comment {
+        color: #666;
+        line-height: 1.5;
+        font-size: 0.95rem;
+    }
+
     @media (max-width: 768px) {
         .dashboard-header {
             flex-direction: column;
@@ -648,7 +826,11 @@
             padding: 0.75rem 1rem;
             white-space: nowrap;
         }
+        .trust-content {
+            grid-template-columns: 1fr;
+        }
     }
+
 </style>
 {% endblock %}
 
@@ -667,7 +849,11 @@
                 <a href="#profile" onclick="switchTab('profile', event); return false;" class="profile-edit-btn" title="Edit profile"><i class="bi bi-pencil"></i></a>
             </div>
             <div class="dashboard-header-content">
-                <h1 class="dashboard-title">{{ user.get_full_name|default:user.username }}</h1>
+                <h1 class="dashboard-title">{{ user.get_full_name|default:user.username }}
+                    {% if user.profile.is_verified %}
+                    <i class="bi bi-check-circle-fill" style="color: #97C2EC; font-size: 0.7em; margin-left: 0.5rem;" title="Verified seller"></i>
+                    {% endif %}
+                </h1>
                 <div class="dashboard-header-info">
                     <strong>{{ user.email }}</strong><br>
                     {{ user.profile.display_name }}<br>
@@ -714,6 +900,149 @@
 </div>
 
 <div class="dashboard-container">
+    <!-- Trust & Verification Section -->
+    <div class="trust-section">
+        <div class="trust-header">
+            <div class="trust-icon">🛡️</div>
+            <div>
+                <h2 class="trust-title">Your Trust Profile</h2>
+                <p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.95rem;">Reputation metrics and verification status</p>
+            </div>
+        </div>
+
+        <div class="trust-content">
+            <!-- Verification Status -->
+            <div class="trust-stat">
+                {% if user.profile.is_verified %}
+                    <div style="margin-bottom: 0.75rem;">
+                        <span class="verification-badge">
+                            <i class="bi bi-check-circle-fill"></i> Verified
+                        </span>
+                    </div>
+                    <div class="trust-stat-label">Your account is verified</div>
+                {% else %}
+                    <div style="margin-bottom: 0.75rem;">
+                        <span class="unverified-prompt">
+                            <i class="bi bi-exclamation-circle"></i> Not Verified
+                        </span>
+                    </div>
+                    <div class="trust-stat-label">Complete your profile to earn verification</div>
+                {% endif %}
+            </div>
+
+            <!-- Reputation Score -->
+            <div class="trust-stat">
+                <div class="trust-stat-value">
+                    {% if user.profile.reputation_score >= 4.5 %}⭐⭐⭐⭐⭐{% elif user.profile.reputation_score >= 3.5 %}⭐⭐⭐⭐{% elif user.profile.reputation_score >= 2.5 %}⭐⭐⭐{% elif user.profile.reputation_score >= 1.5 %}⭐⭐{% else %}⭐{% endif %}
+                </div>
+                <div style="font-size: 1.3rem; font-weight: 700; color: var(--ubelt-navy); margin-bottom: 0.5rem;">{{ user.profile.reputation_score|floatformat:1 }}/5</div>
+                <div class="trust-stat-label">Average Rating</div>
+            </div>
+
+            <!-- Total Reviews -->
+            <div class="trust-stat">
+                <div class="trust-stat-value">{{ user.profile.review_count }}</div>
+                <div class="trust-stat-label">Review{{ user.profile.review_count|pluralize }}</div>
+            </div>
+
+            <!-- Transaction Reliability -->
+            <div class="trust-stat">
+                <div class="trust-stat-value">{{ buyer_transactions.count|add:seller_transactions.count }}</div>
+                <div class="trust-stat-label">Successful Exchange{{ buyer_transactions.count|add:seller_transactions.count|pluralize }}</div>
+            </div>
+        </div>
+
+        <!-- Social Media Display -->
+        {% if user.profile.contact_info %}
+        <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #97C2EC;">
+            <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--ubelt-navy); margin-bottom: 1rem;">Your social media accounts:</h4>
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;" id="social-icons-display">
+                {% if 'facebook' in user.profile.contact_info|lower %}
+                    <a href="{{ user.profile.contact_info|extract_social_url:'facebook' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: #3b5998; opacity: 0.8; transition: opacity 0.2s;" title="Facebook" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    </a>
+                {% endif %}
+                {% if 'instagram' in user.profile.contact_info|lower %}
+                    <a href="{{ user.profile.contact_info|extract_social_url:'instagram' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: #E1306C; opacity: 0.8; transition: opacity 0.2s;" title="Instagram" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor"/></svg>
+                    </a>
+                {% endif %}
+                {% if 'twitter' in user.profile.contact_info|lower %}
+                    <a href="{{ user.profile.contact_info|extract_social_url:'twitter' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: #1DA1F2; opacity: 0.8; transition: opacity 0.2s;" title="Twitter" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M23 3a10.9 10.9 0 11-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2s9 5 20 5a9.5 9.5 0 00-9-5.5c4.75 2.25 7-7 7-7s1.1 5.2-5.2 7.14"/></svg>
+                    </a>
+                {% endif %}
+                {% if 'discord' in user.profile.contact_info|lower %}
+                    <a href="{{ user.profile.contact_info|extract_social_url:'discord' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: #5865F2; opacity: 0.8; transition: opacity 0.2s;" title="Discord" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.49c-1.717-.804-3.547-1.303-5.468-1.559a.075.075 0 00-.079.037c-.237.416-.498.957-.683 1.386-2.045-.305-4.074-.305-6.089 0-.186-.43-.458-.97-.696-1.386a.075.075 0 00-.079-.036c-1.921.256-3.751.755-5.468 1.559a.074.074 0 00-.036.026C1.08 7.294.27 10.017 1.618 12.533a.08.08 0 00.03.055c1.733 1.325 3.413 2.132 5.064 2.662a.075.075 0 00.082-.027c.516-.715.978-1.47 1.372-2.265a.075.075 0 00-.041-.105c-.748-.227-1.461-.503-2.137-.823a.075.075 0 01-.008-.125c.143-.11.286-.225.425-.344a.075.075 0 01.078-.01c4.482 2.044 9.331 2.044 13.765 0a.075.075 0 01.079.01c.139.119.282.234.425.344a.075.075 0 01-.006.125c-.675.32-1.388.596-2.137.823a.074.074 0 00-.041.105c.394.795.856 1.55 1.371 2.265a.075.075 0 00.082.027c1.651-.53 3.332-1.337 5.064-2.662a.075.075 0 00.031-.054c1.362-2.591.534-5.227-.898-6.944a.074.074 0 00-.035-.026z"/></svg>
+                    </a>
+                {% endif %}
+                {% if 'whatsapp' in user.profile.contact_info|lower %}
+                    <a href="{{ user.profile.contact_info|extract_social_url:'whatsapp' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: #25C059; opacity: 0.8; transition: opacity 0.2s;" title="WhatsApp" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-9.746 9.798c0 2.718.732 5.355 2.124 7.684L2.51 22.898l8.32-2.184c2.203 1.202 4.686 1.836 7.231 1.836 5.414 0 9.859-4.4 9.868-9.8.009-2.624-.753-5.195-2.177-7.38-1.425-2.186-3.42-3.414-5.691-3.414zm0 0"/></svg>
+                    </a>
+                {% endif %}
+                {% if 'linkedin' in user.profile.contact_info|lower %}
+                    <a href="{{ user.profile.contact_info|extract_social_url:'linkedin' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: #0077b5; opacity: 0.8; transition: opacity 0.2s;" title="LinkedIn" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.475-2.236-1.986-2.236-1.081 0-1.722.731-2.004 1.438-.103.249-.129.597-.129.946v5.421h-3.554s.045-8.789 0-9.708h3.554v1.375c.481-.742 1.337-1.8 3.27-1.8 2.391 0 4.185 1.562 4.185 4.911l.005 5.222zM5.337 8.855c-1.144 0-1.915-.762-1.915-1.715 0-.955.77-1.715 1.916-1.715.99 0 1.9.76 1.923 1.715 0 .953-.768 1.715-1.924 1.715zm1.6 11.597H3.736V9.644h3.201v10.808zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg>
+                    </a>
+                {% endif %}
+                {% if 'viber' in user.profile.contact_info|lower %}
+                    <a href="{{ user.profile.contact_info|extract_social_url:'viber' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: #665CAC; opacity: 0.8; transition: opacity 0.2s;" title="Viber" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M11.918 3c3.804 0 6.917 2.773 6.917 6.185v4.63c0 3.412-3.113 6.185-6.917 6.185H6.54v2.817L2.17 19.2V9.185C2.17 5.773 5.283 3 9.087 3h2.831m.018 1.5H9.087c-2.934 0-5.317 2.134-5.317 4.685v8.015l2.77-1.865h5.278c2.934 0 5.317-2.134 5.317-4.685v-4.63c0-2.551-2.383-4.685-5.317-4.685z"/></svg>
+                    </a>
+                {% endif %}
+                {% if 'telegram' in user.profile.contact_info|lower %}
+                    <a href="{{ user.profile.contact_info|extract_social_url:'telegram' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: #0088cc; opacity: 0.8; transition: opacity 0.2s;" title="Telegram" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.879-.456 1.08-.745 1.11-.578.05-1.016-.369-1.576-.722-.875-.561-1.369-.906-2.222-1.44-.974-.624-1.084-1.569-.237-2.5.818-.85 1.697-1.755 2.528-2.61.113-.12.053-.278-.042-.353l-.022-.02z"/></svg>
+                    </a>
+                {% endif %}
+            </div>
+            <p style="margin: 1rem 0 0 0; font-size: 0.85rem; color: #999;">These icons appear on your public profile and listing cards</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Recent Reviews Section -->
+    {% if buyer_transactions.count|add:seller_transactions.count > 0 %}
+    <div class="reviews-section">
+        <div class="reviews-header">
+            <h3 class="reviews-title">Recent Reviews ({{ user.profile.review_count }})</h3>
+            {% if user.profile.review_count > 0 %}
+            <a href="{% url 'marketplace:public_profile' user.username %}" style="font-size: 0.9rem; color: var(--ubelt-navy); text-decoration: none; font-weight: 600;">View all →</a>
+            {% endif %}
+        </div>
+
+        {% if user.reviews_received.all|slice:":3" %}
+            {% for review in user.reviews_received.all|slice:":3" %}
+            <div class="review-item-compact">
+                <div class="review-compact-header">
+                    <div>
+                        <div class="review-compact-author">{{ review.reviewer.get_full_name|default:review.reviewer.username }}</div>
+                        <div class="review-compact-date">{{ review.created_at|date:"M d, Y" }}</div>
+                    </div>
+                    <div class="review-compact-rating">
+                        {% for star in "12345" %}
+                            {% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% if review.comment %}
+                <div class="review-compact-comment">{{ review.comment|truncatewords:20 }}</div>
+                {% else %}
+                <div class="review-compact-comment" style="color: #999; font-style: italic;">No comment provided</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+        <div style="text-align: center; padding: 2rem 1rem; color: #999;">
+            <i class="bi bi-stars" style="font-size: 2rem; margin-bottom: 1rem; display: block; opacity: 0.5;"></i>
+            <p>No reviews yet. Complete successful transactions to earn reviews from buyers!</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Tabs Navigation -->
     <div class="dashboard-tabs">
         <button class="tab-button active" onclick="switchTab('profile', event)">Profile Settings</button>
@@ -724,43 +1053,62 @@
 
     <!-- Profile Tab -->
     <div id="profile" class="tab-content active">
-        <div class="profile-edit-grid">
-            <div class="profile-section">
-                <h3 class="profile-section-title">Personal Information</h3>
-                <form method="post">
-                    {% csrf_token %}
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="profile-edit-grid">
+                <div class="profile-section">
+                    <h3 class="profile-section-title">Personal Information</h3>
+                    
                     <div class="form-group">
                         <label for="{{ form.full_name.id_for_label }}">Full Name</label>
-                        {{ form.full_name }}
+                        <div style="position: relative;">
+                            {{ form.full_name }}
+                            {% if form.full_name.value %}<span style="position: absolute; top: 35px; right: 10px; font-size: 0.75rem; background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 3px;">Current</span>{% endif %}
+                        </div>
                         <small>Your display name visible to other users</small>
                     </div>
 
                     <div class="form-group">
                         <label for="{{ form.school.id_for_label }}">School</label>
-                        {{ form.school }}
+                        <div style="position: relative;">
+                            {{ form.school }}
+                            {% if form.school.value %}<span style="position: absolute; top: 35px; right: 10px; font-size: 0.75rem; background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 3px;">Current</span>{% endif %}
+                        </div>
                     </div>
 
                     <div class="form-group">
                         <label for="{{ form.year_level.id_for_label }}">Academic Level</label>
-                        {{ form.year_level }}
+                        <div style="position: relative;">
+                            {{ form.year_level }}
+                            {% if form.year_level.value %}<span style="position: absolute; top: 35px; right: 10px; font-size: 0.75rem; background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 3px;">Current</span>{% endif %}
+                        </div>
                         <small>Your current year or grade level</small>
                     </div>
 
                     <div class="form-group">
                         <label for="{{ form.birthday.id_for_label }}">Birthday</label>
-                        {{ form.birthday }}
+                        <div style="position: relative;">
+                            {{ form.birthday }}
+                            {% if form.birthday.value %}<span style="position: absolute; top: 35px; right: 10px; font-size: 0.75rem; background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 3px;">Current</span>{% endif %}
+                        </div>
                         <small>Optional - helps build trust in our student community</small>
                     </div>
 
                     <div class="form-group">
                         <label for="{{ form.age.id_for_label }}">Age</label>
-                        {{ form.age }}
+                        <div style="position: relative;">
+                            {{ form.age }}
+                            {% if form.age.value %}<span style="position: absolute; top: 35px; right: 10px; font-size: 0.75rem; background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 3px;">Current</span>{% endif %}
+                        </div>
                         <small>Optional - keep it blank if you prefer not to share</small>
                     </div>
 
                     <div class="form-group">
                         <label for="{{ form.phone.id_for_label }}">Phone Number</label>
-                        {{ form.phone }}
+                        <div style="position: relative;">
+                            {{ form.phone }}
+                            {% if form.phone.value %}<span style="position: absolute; top: 35px; right: 10px; font-size: 0.75rem; background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 3px;">Current</span>{% endif %}
+                        </div>
                         <small>Optional - helps buyers contact you</small>
                     </div>
 
@@ -775,37 +1123,293 @@
                         {{ form.header_image }}
                         <small>The banner image shown at the top of your profile. JPG or PNG, max 5MB</small>
                     </div>
+                </div>
 
-                    <button type="submit" class="btn-save"><i class="bi bi-check-lg"></i> Save Changes</button>
-                </form>
-            </div>
-
-            <div class="profile-section">
-                <h3 class="profile-section-title">About You</h3>
-                <form method="post">
-                    {% csrf_token %}
+                <div class="profile-section">
+                    <h3 class="profile-section-title">About You</h3>
+                    
                     <div class="form-group">
                         <label for="{{ form.bio.id_for_label }}">Bio</label>
-                        {{ form.bio }}
+                        <div style="position: relative;">
+                            {{ form.bio }}
+                            {% if form.bio.value %}<span style="position: absolute; top: 10px; right: 10px; font-size: 0.75rem; background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 3px;">Current</span>{% endif %}
+                        </div>
                         <small>Tell other students about yourself</small>
                     </div>
 
                     <div class="form-group">
                         <label for="{{ form.address.id_for_label }}">Location / Meetup Area</label>
-                        {{ form.address }}
+                        <div style="position: relative;">
+                            {{ form.address }}
+                            {% if form.address.value %}<span style="position: absolute; top: 35px; right: 10px; font-size: 0.75rem; background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 3px;">Current</span>{% endif %}
+                        </div>
                         <small>Where you usually meet for transactions</small>
                     </div>
 
                     <div class="form-group">
-                        <label for="{{ form.contact_info.id_for_label }}">Contact Info</label>
-                        {{ form.contact_info }}
-                        <small>Facebook, Instagram, Viber, etc.</small>
+                        <label>Social Media Accounts</label>
+                        
+                        <!-- Add Social Media Section -->
+                        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: flex-end;">
+                            <div style="flex: 1; min-width: 200px;">
+                                <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 0.4rem;">Select Platform</label>
+                                <select id="social-platform-select" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; background: white;">
+                                    <option value="">-- Choose a platform --</option>
+                                    <option value="facebook">Facebook</option>
+                                    <option value="instagram">Instagram</option>
+                                    <option value="twitter">Twitter</option>
+                                    <option value="discord">Discord</option>
+                                    <option value="whatsapp">WhatsApp</option>
+                                    <option value="linkedin">LinkedIn</option>
+                                    <option value="viber">Viber</option>
+                                    <option value="telegram">Telegram</option>
+                                </select>
+                            </div>
+                            <div style="flex: 2; min-width: 250px;">
+                                <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 0.4rem;">Handle / URL</label>
+                                <input type="text" id="social-input" placeholder="Enter your handle or profile URL" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;">
+                            </div>
+                            <button type="button" onclick="addSocialMedia()" style="padding: 0.5rem 1.25rem; background: #97C2EC; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; white-space: nowrap;">+ Add</button>
+                        </div>
+                        
+                        <!-- Display Added Social Media -->
+                        <div id="social-display-container" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
+                            <!-- Added platforms will be displayed here -->
+                        </div>
+
+                        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center;">
+                            <button type="button" onclick="saveSocialMediaToDB()" style="padding: 0.6rem 1.5rem; background: var(--ubelt-navy); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; white-space: nowrap;">💾 Save Social Media</button>
+                            <span id="save-feedback" style="color: #28a745; font-weight: 600; display: none;">✓ Saved successfully!</span>
+                        </div>
+                        
+                        <small style="display: block; margin-top: 0.75rem; line-height: 1.6; color: #666;">
+                            <strong>Add your social media accounts</strong> so buyers can connect with you. Select a platform above, enter your handle or URL, click Add, then click "Save Social Media" to publish them on your profile.
+                        </small>
                     </div>
 
-                    <button type="submit" class="btn-save"><i class="bi bi-check-lg"></i> Save Changes</button>
-                </form>
+                    <!-- Hidden input to store all social media data - outside form-group -->
+                    {{ form.contact_info }}
+
+                    <script>
+                        const SOCIAL_PLATFORMS = {
+                            facebook: { name: 'Facebook', placeholder: 'facebook.com/yourname', color: '#3b5998', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>' },
+                            instagram: { name: 'Instagram', placeholder: '@yourhandle or instagram.com/yourhandle', color: '#E1306C', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor"/></svg>' },
+                            twitter: { name: 'Twitter', placeholder: '@yourhandle or twitter.com/yourhandle', color: '#1DA1F2', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M23 3a10.9 10.9 0 11-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2s9 5 20 5a9.5 9.5 0 00-9-5.5c4.75 2.25 7-7 7-7s1.1 5.2-5.2 7.14"/></svg>' },
+                            discord: { name: 'Discord', placeholder: 'username#1234', color: '#5865F2', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.49c-1.717-.804-3.547-1.303-5.468-1.559a.075.075 0 00-.079.037c-.237.416-.498.957-.683 1.386-2.045-.305-4.074-.305-6.089 0-.186-.43-.458-.97-.696-1.386a.075.075 0 00-.079-.036c-1.921.256-3.751.755-5.468 1.559a.074.074 0 00-.036.026C1.08 7.294.27 10.017 1.618 12.533a.08.08 0 00.03.055c1.733 1.325 3.413 2.132 5.064 2.662a.075.075 0 00.082-.027c.516-.715.978-1.47 1.372-2.265a.075.075 0 00-.041-.105c-.748-.227-1.461-.503-2.137-.823a.075.075 0 01-.008-.125c.143-.11.286-.225.425-.344a.075.075 0 01.078-.01c4.482 2.044 9.331 2.044 13.765 0a.075.075 0 01.079.01c.139.119.282.234.425.344a.075.075 0 01-.006.125c-.675.32-1.388.596-2.137.823a.074.074 0 00-.041.105c.394.795.856 1.55 1.371 2.265a.075.075 0 00.082.027c1.651-.53 3.332-1.337 5.064-2.662a.075.075 0 00.031-.054c1.362-2.591.534-5.227-.898-6.944a.074.074 0 00-.035-.026z"/></svg>' },
+                            whatsapp: { name: 'WhatsApp', placeholder: '+1234567890 or link', color: '#25C059', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-9.746 9.798c0 2.718.732 5.355 2.124 7.684L2.51 22.898l8.32-2.184c2.203 1.202 4.686 1.836 7.231 1.836 5.414 0 9.859-4.4 9.868-9.8.009-2.624-.753-5.195-2.177-7.38-1.425-2.186-3.42-3.414-5.691-3.414zm0 0"/></svg>' },
+                            linkedin: { name: 'LinkedIn', placeholder: 'linkedin.com/in/yourname', color: '#0077b5', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.475-2.236-1.986-2.236-1.081 0-1.722.731-2.004 1.438-.103.249-.129.597-.129.946v5.421h-3.554s.045-8.789 0-9.708h3.554v1.375c.481-.742 1.337-1.8 3.27-1.8 2.391 0 4.185 1.562 4.185 4.911l.005 5.222zM5.337 8.855c-1.144 0-1.915-.762-1.915-1.715 0-.955.77-1.715 1.916-1.715.99 0 1.9.76 1.923 1.715 0 .953-.768 1.715-1.924 1.715zm1.6 11.597H3.736V9.644h3.201v10.808zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg>' },
+                            viber: { name: 'Viber', placeholder: '+1234567890 or link', color: '#665CAC', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M11.918 3c3.804 0 6.917 2.773 6.917 6.185v4.63c0 3.412-3.113 6.185-6.917 6.185H6.54v2.817L2.17 19.2V9.185C2.17 5.773 5.283 3 9.087 3h2.831m.018 1.5H9.087c-2.934 0-5.317 2.134-5.317 4.685v8.015l2.77-1.865h5.278c2.934 0 5.317-2.134 5.317-4.685v-4.63c0-2.551-2.383-4.685-5.317-4.685z"/></svg>' },
+                            telegram: { name: 'Telegram', placeholder: '@yourhandle or link', color: '#0088cc', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.879-.456 1.08-.745 1.11-.578.05-1.016-.369-1.576-.722-.875-.561-1.369-.906-2.222-1.44-.974-.624-1.084-1.569-.237-2.5.818-.85 1.697-1.755 2.528-2.61.113-.12.053-.278-.042-.353l-.022-.02z"/></svg>' }
+                        };
+
+                        const STORAGE_KEY = 'social_media_data';
+
+                        function loadSocialMediaData() {
+                            const stored = localStorage.getItem(STORAGE_KEY);
+                            if (stored) {
+                                return JSON.parse(stored);
+                            }
+                            // Fall back to parsing form field if no localStorage data
+                            const contactInfo = document.getElementById('id_contact_info').value;
+                            return parseSocialMediaData(contactInfo);
+                        }
+
+                        function saveSocialMediaData(data) {
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                            // Also update the form field
+                            const lines = Object.keys(data).map(key => key + ':' + data[key]);
+                            document.getElementById('id_contact_info').value = lines.join('\n');
+                        }
+
+                        function parseSocialMediaData(contactInfo) {
+                            const data = {};
+                            if (contactInfo && contactInfo.trim()) {
+                                const lines = contactInfo.split('\n');
+                                lines.forEach(line => {
+                                    line = line.trim();
+                                    if (line) {
+                                        const colonIndex = line.indexOf(':');
+                                        if (colonIndex !== -1) {
+                                            const platform = line.substring(0, colonIndex).toLowerCase().trim();
+                                            const value = line.substring(colonIndex + 1).trim();
+                                            if (platform && value && SOCIAL_PLATFORMS[platform]) {
+                                                const platformKeys = Object.keys(SOCIAL_PLATFORMS);
+                                                const hasCorruption = platformKeys.some(key => value.includes(key + ':'));
+                                                if (!hasCorruption) {
+                                                    data[platform] = value;
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                            return data;
+                        }
+
+                        function constructSocialUrl(platform, value) {
+                            platform = platform.toLowerCase();
+                            value = value.trim();
+                            
+                            if (!value) return '#';
+                            
+                            // If already a URL, return as-is
+                            if (value.startsWith('http://') || value.startsWith('https://')) {
+                                return value;
+                            }
+                            
+                            // Remove leading @ if present
+                            let cleanValue = value;
+                            if (cleanValue.startsWith('@')) {
+                                cleanValue = cleanValue.substring(1);
+                            }
+                            
+                            const urls = {
+                                facebook: (v) => `https://www.facebook.com/${v}`,
+                                instagram: (v) => `https://www.instagram.com/${v}`,
+                                twitter: (v) => `https://www.twitter.com/${v}`,
+                                x: (v) => `https://www.x.com/${v}`,
+                                linkedin: (v) => v.includes('/in/') ? `https://www.linkedin.com/${v}` : `https://www.linkedin.com/in/${v}`,
+                                discord: (v) => `https://discordapp.com/users/${v}`,
+                                whatsapp: (v) => `https://wa.me/${v.replace('+', '')}`,
+                                telegram: (v) => `https://t.me/${v}`,
+                                viber: (v) => v.startsWith('+') ? `viber://contact?number=${v}` : `viber://chat?number=${v}`,
+                            };
+                            
+                            if (urls[platform]) {
+                                try {
+                                    return urls[platform](cleanValue);
+                                } catch(e) {
+                                    return '#';
+                                }
+                            }
+                            
+                            return '#';
+                        }
+
+                        function renderSocialMedia() {
+                            const data = loadSocialMediaData();
+                            const container = document.getElementById('social-display-container');
+                            container.innerHTML = '';
+
+                            Object.keys(data).forEach(key => {
+                                const platform = SOCIAL_PLATFORMS[key];
+                                if (platform) {
+                                    const url = constructSocialUrl(key, data[key]);
+                                    const itemHTML = `
+                                        <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid ${platform.color};">
+                                            <a href="${url}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: ${platform.color}; font-weight: 600; min-width: fit-content; text-decoration: none; cursor: pointer; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                                                ${platform.icon}
+                                                <span>${platform.name}</span>
+                                            </a>
+                                            <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">${data[key]}</span>
+                                            <button type="button" onclick="removeSocialMedia('${key}')" style="padding: 0.3rem 0.6rem; background: #ff6b6b; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: 600; min-width: fit-content;">Remove</button>
+                                        </div>
+                                    `;
+                                    container.innerHTML += itemHTML;
+                                }
+                            });
+                        }
+
+                        function addSocialMedia() {
+                            const platformSelect = document.getElementById('social-platform-select');
+                            const input = document.getElementById('social-input');
+                            const platform = platformSelect.value;
+                            const value = input.value.trim();
+
+                            if (!platform) {
+                                alert('Please select a platform');
+                                return;
+                            }
+
+                            if (!value) {
+                                alert('Please enter a handle or URL');
+                                return;
+                            }
+
+                            const data = loadSocialMediaData();
+
+                            if (data[platform]) {
+                                alert('You have already added ' + SOCIAL_PLATFORMS[platform].name);
+                                return;
+                            }
+
+                            data[platform] = value;
+                            saveSocialMediaData(data);
+                            renderSocialMedia();
+                            platformSelect.value = '';
+                            input.value = '';
+                            input.focus();
+                        }
+
+                        function removeSocialMedia(platform) {
+                            const data = loadSocialMediaData();
+                            delete data[platform];
+                            saveSocialMediaData(data);
+                            renderSocialMedia();
+                        }
+
+                        function saveSocialMediaToDB() {
+                            const data = loadSocialMediaData();
+                            const lines = Object.keys(data).map(key => key + ':' + data[key]);
+                            const finalValue = lines.join('\n');
+                            
+                            console.log('Saving social media data:', finalValue);
+                            
+                            // Find and update the contact_info field
+                            const contactInfoField = document.getElementById('id_contact_info');
+                            if (contactInfoField) {
+                                contactInfoField.value = finalValue;
+                                console.log('Form field value set to:', contactInfoField.value);
+                                // Make sure the field is included in submission by ensuring it's not in a display:none parent
+                                contactInfoField.style.display = 'block';
+                                contactInfoField.style.visibility = 'hidden';
+                                contactInfoField.style.height = '0';
+                                contactInfoField.style.width = '0';
+                                contactInfoField.style.border = 'none';
+                                contactInfoField.style.margin = '0';
+                                contactInfoField.style.padding = '0';
+                            }
+                            
+                            // Clear localStorage so we reload from database on next page load
+                            localStorage.removeItem(STORAGE_KEY);
+                            
+                            // Submit the form
+                            const form = document.querySelector('form');
+                            if (form) {
+                                form.submit();
+                            }
+                        }
+
+                        document.addEventListener('DOMContentLoaded', function() {
+                            renderSocialMedia();
+
+                            document.getElementById('social-input').addEventListener('keypress', function(e) {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    addSocialMedia();
+                                }
+                            });
+
+                            // Sync localStorage to form field before submission
+                            const form = document.querySelector('form');
+                            if (form) {
+                                form.addEventListener('submit', function() {
+                                    const data = loadSocialMediaData();
+                                    const lines = Object.keys(data).map(key => key + ':' + data[key]);
+                                    document.getElementById('id_contact_info').value = lines.join('\n');
+                                });
+                            }
+                        });
+                    </script>
+                </div>
             </div>
-        </div>
+
+            <!-- Single Save Button for entire form -->
+            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #e5e5e5; display: flex; gap: 1rem;">
+                <button type="submit" class="btn-save"><i class="bi bi-check-lg"></i> Save All Changes</button>
+                <a href="{% url 'marketplace:home' %}" class="btn-save" style="background: #999; text-decoration: none; display: inline-flex; align-items: center; justify-content: center;"><i class="bi bi-x-lg"></i> Cancel</a>
+            </div>
+        </form>
     </div>
 
     <!-- My Posts Tab -->

@@ -141,9 +141,10 @@
                     </div>
                     <div class="form-row form-row-full">
                         <div class="auth-form-group">
-                            <label for="id_contact_info">Other Contact Info / Social Media</label>
-                            <input type="text" name="contact_info" id="id_contact_info" placeholder="Facebook, Instagram, Discord, etc.">
+                            <label for="id_contact_info">Social Media Accounts</label>
+                            <input type="text" name="contact_info" id="id_contact_info" placeholder="facebook.com/username, instagram.com/username, discord: username#1234, etc.">
                             {% if profile_form.contact_info.errors %}<ul class="errorlist">{{ profile_form.contact_info.errors }}</ul>{% endif %}
+                            <small style="display: block; margin-top: 0.5rem; color: #666;">Optional - Add your social platforms so buyers can connect with you easily!</small>
                         </div>
                     </div>
                 </div>

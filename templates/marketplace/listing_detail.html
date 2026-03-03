@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load utils %}
 {% block title %}{{ listing.title }}{% endblock %}
 
 {% block extra_css %}
@@ -156,6 +157,39 @@
         overflow: hidden;
         text-overflow: ellipsis;
     }
+    .school-badge {
+        padding: 1rem;
+        border-radius: 12px;
+        border: 2px solid transparent;
+        background: linear-gradient(135deg, rgba(31, 31, 31, 0.04) 0%, rgba(45, 45, 45, 0.02) 100%);
+        color: var(--school-color, var(--color-text));
+    }
+    .school-badge-inner {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .school-badge-label {
+        font-size: 0.75rem;
+        opacity: 0.8;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        color: rgba(156, 163, 175, 1);
+    }
+    .school-badge-name {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--school-color, var(--color-text));
+    }
+    .school-badge-logo {
+        height: 40px;
+        width: auto;
+        object-fit: contain;
+        background: white;
+        padding: 2px;
+        border-radius: 4px;
+    }
     @media (max-width: 992px) {
         .listing-main {
             grid-template-columns: 1fr;
@@ -209,14 +243,16 @@
         <div class="listing-info-card">
             {% if listing.school %}
             <!-- School Badge Section -->
-            <div class="mb-3 p-3" style="background: linear-gradient(135deg, {{ listing.school.primary_color }}08 0%, {{ listing.school.primary_color }}04 100%); border-radius: 12px; border: 2px solid {{ listing.school.primary_color }}30;">
-                <div class="d-flex align-items-center gap-2" style="color: {{ listing.school.primary_color }};">
-                    {% if listing.school.logo_url %}
-                    <img src="{{ listing.school.logo_url }}" alt="{{ listing.school.name }}" style="height: 40px; width: auto; object-fit: contain; background: white; padding: 2px; border-radius: 4px;">
-                    {% endif %}
-                    <div>
-                        <div style="font-size: 0.75rem; opacity: 0.8; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">From</div>
-                        <div style="font-size: 1rem; font-weight: 700; color: {{ listing.school.primary_color }};" title="{{ listing.school.name }}">{{ listing.school.short_name|default:listing.school.name }}</div>
+            <div class="mb-3">
+                <div class="school-badge" data-school-color="{{ listing.school.primary_color|default:'#97C2EC' }}">
+                    <div class="school-badge-inner">
+                        {% if listing.school.logo_url %}
+                        <img src="{{ listing.school.logo_url }}" alt="{{ listing.school.name }}" class="school-badge-logo">
+                        {% endif %}
+                        <div>
+                            <div class="school-badge-label">From</div>
+                            <div class="school-badge-name" title="{{ listing.school.name }}">{{ listing.school.short_name|default:listing.school.name }}</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -321,6 +357,52 @@
             </div>
             {% endif %}
             {% endwith %}
+
+            <!-- Social Media Icons -->
+            {% if seller_profile.contact_info %}
+            <div class="small mb-2" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                {% if 'facebook' in seller_profile.contact_info|lower %}
+                    <a href="{{ seller_profile.contact_info|extract_social_url:'facebook' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #3b5998; opacity: 0.8; transition: opacity 0.2s;" title="Facebook" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    </a>
+                {% endif %}
+                {% if 'instagram' in seller_profile.contact_info|lower %}
+                    <a href="{{ seller_profile.contact_info|extract_social_url:'instagram' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #E1306C; opacity: 0.8; transition: opacity 0.2s;" title="Instagram" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor"/></svg>
+                    </a>
+                {% endif %}
+                {% if 'twitter' in seller_profile.contact_info|lower %}
+                    <a href="{{ seller_profile.contact_info|extract_social_url:'twitter' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #1DA1F2; opacity: 0.8; transition: opacity 0.2s;" title="Twitter" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M23 3a10.9 10.9 0 11-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2s9 5 20 5a9.5 9.5 0 00-9-5.5c4.75 2.25 7-7 7-7s1.1 5.2-5.2 7.14"/></svg>
+                    </a>
+                {% endif %}
+                {% if 'discord' in seller_profile.contact_info|lower %}
+                    <a href="{{ seller_profile.contact_info|extract_social_url:'discord' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #5865F2; opacity: 0.8; transition: opacity 0.2s;" title="Discord" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.49c-1.717-.804-3.547-1.303-5.468-1.559a.075.075 0 00-.079.037c-.237.416-.498.957-.683 1.386-2.045-.305-4.074-.305-6.089 0-.186-.43-.458-.97-.696-1.386a.075.075 0 00-.079-.036c-1.921.256-3.751.755-5.468 1.559a.074.074 0 00-.036.026C1.08 7.294.27 10.017 1.618 12.533a.08.08 0 00.03.055c1.733 1.325 3.413 2.132 5.064 2.662a.075.075 0 00.082-.027c.516-.715.978-1.47 1.372-2.265a.075.075 0 00-.041-.105c-.748-.227-1.461-.503-2.137-.823a.075.075 0 01-.008-.125c.143-.11.286-.225.425-.344a.075.075 0 01.078-.01c4.482 2.044 9.331 2.044 13.765 0a.075.075 0 01.079.01c.139.119.282.234.425.344a.075.075 0 01-.006.125c-.675.32-1.388.596-2.137.823a.074.074 0 00-.041.105c.394.795.856 1.55 1.371 2.265a.075.075 0 00.082.027c1.651-.53 3.332-1.337 5.064-2.662a.075.075 0 00.031-.054c1.362-2.591.534-5.227-.898-6.944a.074.074 0 00-.035-.026z"/></svg>
+                    </a>
+                {% endif %}
+                {% if 'whatsapp' in seller_profile.contact_info|lower %}
+                    <a href="{{ seller_profile.contact_info|extract_social_url:'whatsapp' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #25C059; opacity: 0.8; transition: opacity 0.2s;" title="WhatsApp" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-9.746 9.798c0 2.718.732 5.355 2.124 7.684L2.51 22.898l8.32-2.184c2.203 1.202 4.686 1.836 7.231 1.836 5.414 0 9.859-4.4 9.868-9.8.009-2.624-.753-5.195-2.177-7.38-1.425-2.186-3.42-3.414-5.691-3.414zm0 0"/></svg>
+                    </a>
+                {% endif %}
+                {% if 'linkedin' in seller_profile.contact_info|lower %}
+                    <a href="{{ seller_profile.contact_info|extract_social_url:'linkedin' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #0077b5; opacity: 0.8; transition: opacity 0.2s;" title="LinkedIn" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.475-2.236-1.986-2.236-1.081 0-1.722.731-2.004 1.438-.103.249-.129.597-.129.946v5.421h-3.554s.045-8.789 0-9.708h3.554v1.375c.481-.742 1.337-1.8 3.27-1.8 2.391 0 4.185 1.562 4.185 4.911l.005 5.222zM5.337 8.855c-1.144 0-1.915-.762-1.915-1.715 0-.955.77-1.715 1.916-1.715.99 0 1.9.76 1.923 1.715 0 .953-.768 1.715-1.924 1.715zm1.6 11.597H3.736V9.644h3.201v10.808zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg>
+                    </a>
+                {% endif %}
+                {% if 'viber' in seller_profile.contact_info|lower %}
+                    <a href="{{ seller_profile.contact_info|extract_social_url:'viber' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #665CAC; opacity: 0.8; transition: opacity 0.2s;" title="Viber" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M11.918 3c3.804 0 6.917 2.773 6.917 6.185v4.63c0 3.412-3.113 6.185-6.917 6.185H6.54v2.817L2.17 19.2V9.185C2.17 5.773 5.283 3 9.087 3h2.831m.018 1.5H9.087c-2.934 0-5.317 2.134-5.317 4.685v8.015l2.77-1.865h5.278c2.934 0 5.317-2.134 5.317-4.685v-4.63c0-2.551-2.383-4.685-5.317-4.685z"/></svg>
+                    </a>
+                {% endif %}
+                {% if 'telegram' in seller_profile.contact_info|lower %}
+                    <a href="{{ seller_profile.contact_info|extract_social_url:'telegram' }}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #0088cc; opacity: 0.8; transition: opacity 0.2s;" title="Telegram" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.879-.456 1.08-.745 1.11-.578.05-1.016-.369-1.576-.722-.875-.561-1.369-.906-2.222-1.44-.974-.624-1.084-1.569-.237-2.5.818-.85 1.697-1.755 2.528-2.61.113-.12.053-.278-.042-.353l-.022-.02z"/></svg>
+                    </a>
+                {% endif %}
+            </div>
+            {% endif %}
             {% if seller_profile.total_sold > 0 %}
             <div class="small mb-2" style="padding: 0.5rem; background: rgba(151, 194, 236, 0.1); border-radius: 8px; color: #97C2EC;">
                 <i class="bi bi-bag-check me-1"></i><strong>{{ seller_profile.total_sold }}</strong> item{{ seller_profile.total_sold|pluralize }} sold
@@ -442,4 +524,19 @@
     </div>
 </div>
 {% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-school-color]').forEach(badge => {
+        const color = badge.dataset.schoolColor?.trim();
+        if (!color) {
+            return;
+        }
+        badge.style.background = `linear-gradient(135deg, ${color}08 0%, ${color}04 100%)`;
+        badge.style.borderColor = `${color}30`;
+        badge.style.setProperty('--school-color', color);
+    });
+});
+</script>
 {% endblock %}
