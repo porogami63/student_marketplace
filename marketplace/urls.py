@@ -41,6 +41,10 @@ urlpatterns = [
     path('profile/post/create/', views.create_profile_post, name='create_profile_post'),
     path('profile/post/<int:pk>/delete/', views.delete_profile_post, name='delete_profile_post'),
     path('profile/post/<int:pk>/pin/', views.pin_profile_post, name='pin_profile_post'),
+    # Social Media Management
+    path('api/social-media/add/', views.add_social_media, name='add_social_media'),
+    path('api/social-media/remove/<str:platform>/', views.remove_social_media, name='remove_social_media'),
+    path('api/social-media/get/', views.get_social_media, name='get_social_media'),
     # Moderation (superuser only)
     path('mod/', views.mod_dashboard, name='mod_dashboard'),
     path('mod/sales/', views.mod_sales_analytics, name='mod_sales'),

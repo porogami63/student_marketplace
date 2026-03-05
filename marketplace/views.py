@@ -4,6 +4,7 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.contrib import messages
+from django.http import JsonResponse
 import json
 from datetime import datetime, timedelta
 from django.db.models import Q, Count, Sum
@@ -25,6 +26,7 @@ from .models import (
     TransactionMessage,
     ModerationLog,
     ProfilePost,
+    SocialMedia,
 )
 from .forms import (
     CustomUserCreationForm,
@@ -474,51 +476,34 @@ def my_listings(request):
 
 @login_required
 def profile_view(request):
-    """Unified My Profile page with profile edit, listings, and transactions."""
-    profile, _ = Profile.objects.get_or_create(user=request.user)
-
-    if request.method == 'POST':
-        form = ProfileForm(request.POST, request.FILES, instance=profile)
-        if form.is_valid():
-            form.save()
-            # Update verification tier based on new profile information
-            profile.update_verification_tier()
-            profile.save()
-            messages.success(request, 'Profile updated.')
-            return redirect('marketplace:profile')
-    else:
-        form = ProfileForm(instance=profile)
-
-    # Fetch user's listings
-    listings = request.user.listings.select_related('category', 'school').order_by('-created_at')
-    
-    # Fetch user's transactions (both as buyer and seller)
-    buyer_transactions = request.user.purchases.select_related('seller', 'listing').order_by('-created_at')
-    seller_transactions = request.user.sales.select_related('buyer', 'listing').order_by('-created_at')
-    
-    # Fetch user's posts and forum activity
-    profile_posts = ProfilePost.objects.filter(author=request.user)
-    forum_posts = ForumPost.objects.filter(author=request.user)
-    
-    # Get recommended listings based on favorites
-    recommended_listings = _get_recommended_for_user(request.user)
-
-    return render(request, 'marketplace/my_profile.html', {
-        'form': form,
-        'profile': profile,
-        'listings': listings,
-        'buyer_transactions': buyer_transactions,
-        'seller_transactions': seller_transactions,
-        'profile_posts': profile_posts,
-        'forum_posts': forum_posts,
-        'recommended_listings': recommended_listings,
-    })
+    """Unified My Profile page - redirects to public profile with edit form."""
+    # When a user views their own profile, show them the public profile view
+    # This allows them to see their profile exactly as other users see it
+    return public_profile_view(request, request.user.username, is_owner=True)
 
 
-def public_profile_view(request, username):
-    """View another user's public profile."""
+def public_profile_view(request, username, is_owner=False):
+    """View another user's public profile, or your own when is_owner=True."""
     user = get_object_or_404(User, username=username)
     profile, _ = Profile.objects.get_or_create(user=user)
+    
+    # Determine if current user is the profile owner
+    is_profile_owner = request.user.is_authenticated and request.user == user
+    
+    # If viewing own profile through profile_view, get edit form
+    form = None
+    if is_profile_owner and is_owner:
+        if request.method == 'POST':
+            form = ProfileForm(request.POST, request.FILES, instance=profile)
+            if form.is_valid():
+                form.save()
+                profile.update_verification_tier()
+                profile.save()
+                messages.success(request, 'Profile updated.')
+                return redirect('marketplace:profile')
+        else:
+            form = ProfileForm(instance=profile)
+    
     listings = user.listings.filter(is_sold=False).select_related('category', 'school')
     reviews = Review.objects.filter(seller=user).select_related('reviewer').order_by('-created_at')[:10]
     profile_posts = ProfilePost.objects.filter(author=user)
@@ -535,7 +520,13 @@ def public_profile_view(request, username):
     if request.user.is_authenticated and request.user != user:
         has_reviewed = Review.objects.filter(reviewer=request.user, seller=user).exists()
 
-    return render(request, 'marketplace/public_profile.html', {
+    # Fetch transaction data for owner
+    buyer_transactions = seller_transactions = None
+    if is_profile_owner and is_owner:
+        buyer_transactions = user.purchases.select_related('seller', 'listing').order_by('-created_at')
+        seller_transactions = user.sales.select_related('buyer', 'listing').order_by('-created_at')
+
+    context = {
         'profile_user': user,
         'profile': profile,
         'listings': listings,
@@ -545,7 +536,14 @@ def public_profile_view(request, username):
         'profile_posts': profile_posts,
         'forum_posts': forum_posts,
         'pinned_post': pinned_post,
-    })
+        'is_profile_owner': is_profile_owner,
+        'is_owner_view': is_owner,
+        'form': form,
+        'buyer_transactions': buyer_transactions,
+        'seller_transactions': seller_transactions,
+    }
+    
+    return render(request, 'marketplace/public_profile.html', context)
 
 
 @login_required
@@ -1748,3 +1746,93 @@ def mod_log(request):
 
     logs = ModerationLog.objects.select_related('actor').order_by('-created_at')[:100]
     return render(request, 'marketplace/mod/mod_log.html', {'logs': logs})
+
+
+@login_required
+@login_required
+def add_social_media(request):
+    """Add a social media account to user's profile (AJAX)."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        platform = data.get('platform', '').lower().strip()
+        handle = data.get('handle', '').strip()
+        
+        if not platform or not handle:
+            return JsonResponse({'error': 'Platform and handle are required'}, status=400)
+        
+        profile = request.user.profile
+        
+        # Check if platform choice is valid
+        valid_platforms = [choice[0] for choice in SocialMedia.PLATFORM_CHOICES]
+        if platform not in valid_platforms:
+            return JsonResponse({'error': 'Invalid platform'}, status=400)
+        
+        # Create or update social media account
+        social_media, created = SocialMedia.objects.update_or_create(
+            profile=profile,
+            platform=platform,
+            defaults={'handle': handle}
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'platform': social_media.get_platform_display(),
+            'handle': social_media.handle,
+            'url': social_media.get_url(),
+            'is_new': created
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+
+@login_required
+def remove_social_media(request, platform):
+    """Remove a social media account from user's profile (AJAX)."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        profile = request.user.profile
+        platform = platform.lower().strip()
+        
+        # Delete the social media account
+        deleted, _ = SocialMedia.objects.filter(profile=profile, platform=platform).delete()
+        
+        if deleted:
+            return JsonResponse({'success': True, 'message': 'Removed successfully'})
+        else:
+            return JsonResponse({'error': 'Account not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def get_social_media(request):
+    """Get all social media accounts for current user (AJAX)."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        profile = request.user.profile
+        social_accounts = SocialMedia.objects.filter(profile=profile).values('platform', 'handle')
+        
+        accounts = []
+        for account in social_accounts:
+            platform = account['platform']
+            platform_display = dict(SocialMedia.PLATFORM_CHOICES).get(platform, platform)
+            social_obj = SocialMedia.objects.get(profile=profile, platform=platform)
+            accounts.append({
+                'platform': platform,
+                'platform_display': platform_display,
+                'handle': account['handle'],
+                'url': social_obj.get_url()
+            })
+        
+        return JsonResponse({'success': True, 'accounts': accounts})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+

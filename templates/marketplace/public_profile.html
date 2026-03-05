@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load utils %}
+{% load crispy_forms_tags %}
 {% block title %}{{ profile_user.get_full_name|default:profile_user.username }}'s Profile{% endblock %}
 {% block extra_css %}
 <style>
@@ -51,6 +52,28 @@
         font-size: 4rem;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         flex-shrink: 0;
+    }
+    .profile-edit-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border-radius: 50%;
+        border: 2px solid white;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.3s;
+        font-size: 1.2rem;
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+    }
+    .profile-edit-btn:hover {
+        background: rgba(255, 255, 255, 0.4);
+        transform: scale(1.1);
     }
     .profile-info {
         color: white;
@@ -522,6 +545,254 @@
         color: #333;
     }
 
+    /* Trust Profile Section */
+    .trust-section {
+        background: linear-gradient(135deg, #f0f8ff 0%, #e8f4fb 100%);
+        border: 2px solid #97C2EC;
+        padding: 2rem;
+        border-radius: 12px;
+        margin-top: 2.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .trust-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .trust-icon {
+        font-size: 2.5rem;
+    }
+
+    .trust-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--ubelt-navy);
+        margin: 0;
+    }
+
+    .trust-content {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .trust-stat {
+        text-align: center;
+        padding: 1rem;
+        background: white;
+        border-radius: 10px;
+        border: 1px solid #e0e0e0;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+
+    .trust-stat:hover {
+        background: linear-gradient(135deg, #f0f8ff 0%, #f8fbff 100%);
+        border-color: #97C2EC;
+        box-shadow: 0 8px 20px rgba(151, 194, 236, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .trust-stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--ubelt-teal);
+        margin-bottom: 0.5rem;
+    }
+
+    .trust-stat-label {
+        font-size: 0.9rem;
+        color: #666;
+        font-weight: 600;
+    }
+
+    .trust-stat .tier-tooltip {
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-bottom: 10px;
+        background: rgba(31, 31, 31, 0.95);
+        color: white;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 10;
+        pointer-events: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        white-space: normal;
+        width: max-content;
+        max-width: 200px;
+    }
+
+    .trust-stat:hover .tier-tooltip {
+        opacity: 1;
+        visibility: visible;
+        margin-bottom: 15px;
+    }
+
+    .verification-tier-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1.2rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: help;
+        position: relative;
+    }
+
+    .verification-tier-badge i {
+        font-size: 1.1rem;
+    }
+
+    /* Trust Info Icon */
+    .trust-header-with-popup {
+        position: relative;
+    }
+
+    .trust-info-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--ubelt-navy);
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 700;
+        cursor: help;
+        margin-left: 0.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .trust-info-icon:hover {
+        background: #005fa3;
+        transform: scale(1.1);
+    }
+
+    /* Detailed Trust Tiers Popup */
+    .trust-tiers-popup {
+        position: fixed;
+        top: auto;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        border: 2px solid var(--ubelt-navy);
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        pointer-events: none;
+        width: 400px;
+        max-width: 90vw;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    .trust-header-with-popup:hover .trust-tiers-popup {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        top: 50%;
+        transform: translateX(-50%) translateY(-50%);
+    }
+
+    .verification-tier-badge:hover + .trust-tiers-popup,
+    .trust-tiers-popup:hover {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    .trust-tiers-popup h4 {
+        margin: 0 0 1rem 0;
+        color: var(--ubelt-navy);
+        font-size: 1rem;
+        font-weight: 700;
+    }
+
+    .tier-item {
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .tier-item:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+
+    .tier-item-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+    }
+
+    .tier-item-requirements {
+        font-size: 0.85rem;
+        color: #666;
+        line-height: 1.5;
+        margin-left: 1.5rem;
+    }
+
+    .tier-item-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.2rem 0.6rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: white;
+    }
+
+    /* Verification Tier Badge Popup in Hero */
+    .tier-badge-with-popup {
+        position: relative;
+    }
+
+    .tier-popup {
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(31, 31, 31, 0.95);
+        color: white;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        margin-bottom: 8px;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 100;
+        pointer-events: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .tier-badge-with-popup:hover .tier-popup {
+        opacity: 1;
+        visibility: visible;
+    }
+
     @media (max-width: 768px) {
         .profile-container {
             flex-direction: column;
@@ -551,13 +822,18 @@
 <div class="profile-hero" {% if profile.header_image %}style="background-image: url('{{ profile.header_image.url }}');"{% endif %}>
     <div class="content-wrapper">
         <div class="profile-container">
-            {% if profile.google_avatar_url %}
-                <img src="{{ profile.google_avatar_url }}" alt="Profile" class="profile-avatar">
-            {% elif profile.avatar %}
-                <img src="{{ profile.avatar.url }}" alt="Profile" class="profile-avatar">
-            {% else %}
-                <div class="profile-avatar-placeholder"></div>
-            {% endif %}
+            <div style="position: relative;">
+                {% if profile.google_avatar_url %}
+                    <img src="{{ profile.google_avatar_url }}" alt="Profile" class="profile-avatar">
+                {% elif profile.avatar %}
+                    <img src="{{ profile.avatar.url }}" alt="Profile" class="profile-avatar">
+                {% else %}
+                    <div class="profile-avatar-placeholder"></div>
+                {% endif %}
+                {% if is_owner_view %}
+                <a href="#profile-edit" onclick="switchTab('profile-edit', event); return false;" class="profile-edit-btn" title="Edit profile"><i class="bi bi-pencil"></i></a>
+                {% endif %}
+            </div>
             <div class="profile-info">
                 <h1 class="profile-name">
                     {{ profile.display_name }}
@@ -580,20 +856,36 @@
                     <div style="display: flex; align-items: center; gap: 1rem;">
                         <div>
                             {% if profile.verification_tier == 'blue' %}
-                                <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: linear-gradient(135deg, #0066cc 0%, #004499 100%); color: white; padding: 0.4rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem;">
+                                <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: linear-gradient(135deg, #0066cc 0%, #004499 100%); color: white; padding: 0.4rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem; position: relative; cursor: help;" class="tier-badge-with-popup">
                                     <i class="bi bi-diamond-fill"></i> Blue
+                                    <div class="tier-popup">
+                                        <strong>Blue - Highly Trusted</strong><br>
+                                        ID verified + 20+ successful transactions. The highest trust level!
+                                    </div>
                                 </div>
                             {% elif profile.verification_tier == 'green' %}
-                                <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: #2e7d32; color: white; padding: 0.4rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem;">
+                                <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: #2e7d32; color: white; padding: 0.4rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem; position: relative; cursor: help;" class="tier-badge-with-popup">
                                     <i class="bi bi-check-circle-fill"></i> Green
+                                    <div class="tier-popup">
+                                        <strong>Green - Active Member</strong><br>
+                                        Profile complete + at least 1 successful transaction
+                                    </div>
                                 </div>
                             {% elif profile.verification_tier == 'yellow' %}
-                                <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: #f9a825; color: white; padding: 0.4rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem;">
+                                <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: #f9a825; color: white; padding: 0.4rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem; position: relative; cursor: help;" class="tier-badge-with-popup">
                                     <i class="bi bi-star-fill"></i> Yellow
+                                    <div class="tier-popup">
+                                        <strong>Yellow - Profile Complete</strong><br>
+                                        All profile information filled in
+                                    </div>
                                 </div>
                             {% else %}
-                                <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: #999; color: white; padding: 0.4rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem;">
+                                <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: #999; color: white; padding: 0.4rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem; position: relative; cursor: help;" class="tier-badge-with-popup">
                                     <i class="bi bi-circle"></i> Grey
+                                    <div class="tier-popup">
+                                        <strong>Grey - Unverified</strong><br>
+                                        Just created your account
+                                    </div>
                                 </div>
                             {% endif %}
                             <div class="reputation-score" style="margin-top: 0.5rem;"><i class="bi bi-hand-thumbs-up-fill" style="color: #f9a825;"></i> {{ profile.vouch_count }} Vouch{{ profile.vouch_count|pluralize }}</div>
@@ -654,6 +946,153 @@
             <div class="stat-label">Vouch{{ profile.vouch_count|pluralize }}</div>
         </div>
     </div>
+
+    <!-- Trust Profile Section - Only for Profile Owner -->
+    {% if is_owner_view %}
+    <div class="trust-section">
+        <div class="trust-header">
+            <div class="trust-icon"><i class="bi bi-shield-check" style="font-size: 2.5rem; color: var(--ubelt-navy);"></i></div>
+            <div class="trust-header-with-popup">
+                <h2 class="trust-title">
+                    Your Trust Profile
+                    <span class="trust-info-icon" title="Learn about verification tiers">i</span>
+                </h2>
+                <div class="trust-tiers-popup">
+                    <h4>Verification Tiers</h4>
+                    
+                    <div class="tier-item">
+                        <div class="tier-item-header">
+                            <span class="tier-item-badge" style="background: #999;">⭕</span>
+                            <span>Grey - Unverified</span>
+                        </div>
+                        <div class="tier-item-requirements">
+                            <strong>Your starting tier</strong><br>
+                            Just created your account
+                        </div>
+                    </div>
+
+                    <div class="tier-item">
+                        <div class="tier-item-header">
+                            <span class="tier-item-badge" style="background: #f9a825;">⭐</span>
+                            <span>Yellow - Profile Complete</span>
+                        </div>
+                        <div class="tier-item-requirements">
+                            <strong>Requirements:</strong><br>
+                            • Complete all profile information<br>
+                            • Add a profile picture<br>
+                            • Add school/university
+                        </div>
+                    </div>
+
+                    <div class="tier-item">
+                        <div class="tier-item-header">
+                            <span class="tier-item-badge" style="background: #2e7d32;">✓</span>
+                            <span>Green - Active Member</span>
+                        </div>
+                        <div class="tier-item-requirements">
+                            <strong>Requirements:</strong><br>
+                            • Complete Yellow tier requirements<br>
+                            • Have at least 1 successful transaction
+                        </div>
+                    </div>
+
+                    <div class="tier-item">
+                        <div class="tier-item-header">
+                            <span class="tier-item-badge" style="background: linear-gradient(135deg, #0066cc 0%, #004499 100%);">💎</span>
+                            <span>Blue - Highly Trusted</span>
+                        </div>
+                        <div class="tier-item-requirements">
+                            <strong>Requirements:</strong><br>
+                            • Complete Green tier requirements<br>
+                            • ID verification completed<br>
+                            • 20+ successful transactions
+                        </div>
+                    </div>
+                </div>
+                <p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.95rem;">Verification tier and community endorsements</p>
+            </div>
+        </div>
+
+        <div class="trust-content">
+            <!-- Verification Tier with Progress & Next Level Info -->
+            <div class="trust-stat trust-tier-card" style="position: relative; cursor: help; border: 2px solid transparent; transition: all 0.3s ease;">
+                <div style="margin-bottom: 0.75rem;">
+                    {% if profile.verification_tier == 'blue' %}
+                        <span class="verification-tier-badge" style="background: linear-gradient(135deg, #0066cc 0%, #004499 100%); color: white;">
+                            <i class="bi bi-diamond-fill"></i> Blue - Highly Trusted
+                        </span>
+                    {% elif profile.verification_tier == 'green' %}
+                        <span class="verification-tier-badge" style="background: #2e7d32; color: white;">
+                            <i class="bi bi-check-circle-fill"></i> Green - Active Member
+                        </span>
+                    {% elif profile.verification_tier == 'yellow' %}
+                        <span class="verification-tier-badge" style="background: #f9a825; color: white;">
+                            <i class="bi bi-star-fill"></i> Yellow - Profile Complete
+                        </span>
+                    {% else %}
+                        <span class="verification-tier-badge" style="background: #999; color: white;">
+                            <i class="bi bi-circle"></i> Grey - Unverified
+                        </span>
+                    {% endif %}
+                </div>
+                
+                <!-- Tier Progress Bar -->
+                <div style="margin: 1rem 0; background: #e0e0e0; border-radius: 8px; height: 8px; overflow: hidden;">
+                    {% if profile.verification_tier == 'blue' %}
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #0066cc 0%, #004499 100%); transition: width 0.3s;"></div>
+                    {% elif profile.verification_tier == 'green' %}
+                        <div style="width: 75%; height: 100%; background: #2e7d32; transition: width 0.3s;"></div>
+                    {% elif profile.verification_tier == 'yellow' %}
+                        <div style="width: 50%; height: 100%; background: #f9a825; transition: width 0.3s;"></div>
+                    {% else %}
+                        <div style="width: 25%; height: 100%; background: #999; transition: width 0.3s;"></div>
+                    {% endif %}
+                </div>
+                
+                <!-- Current Level Description -->
+                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">
+                    {% if profile.verification_tier == 'blue' %}
+                        ✓ ID verified • {{ buyer_transactions.count|add:seller_transactions.count }} transactions completed
+                    {% elif profile.verification_tier == 'green' %}
+                        ✓ {{ buyer_transactions.count|add:seller_transactions.count }} transaction{{ buyer_transactions.count|add:seller_transactions.count|pluralize }} completed
+                    {% elif profile.verification_tier == 'yellow' %}
+                        ✓ Profile information complete
+                    {% else %}
+                        Complete your profile to reach Yellow tier
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Vouch Count -->
+            <div class="trust-stat" style="cursor: help; border: 2px solid transparent; transition: all 0.3s ease;">
+                <div class="trust-stat-value"><i class="bi bi-hand-thumbs-up-fill" style="color: #f9a825; margin-right: 0.3rem;"></i>{{ profile.vouch_count }}</div>
+                <div class="trust-stat-label">Vouch{{ profile.vouch_count|pluralize }}</div>
+                <div class="tier-tooltip">
+                    Get vouches by making successful transactions
+                </div>
+            </div>
+
+            <!-- Transaction Reliability -->
+            <div class="trust-stat" style="cursor: help; border: 2px solid transparent; transition: all 0.3s ease;">
+                <div class="trust-stat-value">{% if buyer_transactions and seller_transactions %}{{ buyer_transactions.count|add:seller_transactions.count }}{% else %}0{% endif %}</div>
+                <div class="trust-stat-label">Successful Exchange{% if buyer_transactions and seller_transactions %}{{ buyer_transactions.count|add:seller_transactions.count|pluralize }}{% endif %}</div>
+                <div class="tier-tooltip">
+                    {% if buyer_transactions and seller_transactions %}
+                        {% with total_trans=buyer_transactions.count|add:seller_transactions.count %}
+                        {% if total_trans < 20 %}
+                            {{ total_trans }}/20 for Blue tier
+                        {% else %}
+                            You qualify for Blue tier verification!
+                        {% endif %}
+                        {% endwith %}
+                    {% else %}
+                        Complete transactions to build trust
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="sections">
         <div class="section">
@@ -937,7 +1376,254 @@
                     <p>No vouches yet.</p>
                 </div>
             {% endif %}
+
+            <!-- Profile Edit Section - Only for Owner -->
+            {% if is_owner_view and form %}
+            <div id="profile-edit" class="profile-edit-section" style="display: none; margin-top: 3rem; padding: 2rem; background: white; border-radius: 12px; border: 1px solid #e0e0e0;">
+                <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--ubelt-navy); margin-bottom: 1.5rem;">Edit Profile</h2>
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <!-- Basic form fields from crispy -->
+                    {{ form|crispy }}
+                    
+                    <!-- Social Media Accounts Section -->
+                    <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 2px solid #e5e5e5;">
+                        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--ubelt-navy); margin-bottom: 1.5rem;">Social Media Accounts</h3>
+                        
+                        <!-- Add Social Media Section -->
+                        <div style="display: grid; grid-template-columns: 1fr 1.5fr auto; gap: 0.75rem; margin-bottom: 1.5rem; align-items: end;">
+                            <div>
+                                <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 0.4rem; font-weight: 500;">Platform</label>
+                                <select id="social-platform-select" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem; background: white; color: #333;">
+                                    <option value="">-- Select --</option>
+                                    <option value="facebook">Facebook</option>
+                                    <option value="instagram">Instagram</option>
+                                    <option value="twitter">Twitter / X</option>
+                                    <option value="discord">Discord</option>
+                                    <option value="whatsapp">WhatsApp</option>
+                                    <option value="linkedin">LinkedIn</option>
+                                    <option value="viber">Viber</option>
+                                    <option value="telegram">Telegram</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 0.4rem; font-weight: 500;">Handle / URL</label>
+                                <input type="text" id="social-handle-input" placeholder="e.g., @username or profile-url" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem;" maxlength="255">
+                            </div>
+                            <button type="button" id="add-social-btn" onclick="addSocialMediaAccount()" style="padding: 0.6rem 1.5rem; background: #97C2EC; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; white-space: nowrap; transition: background 0.3s;">+ Add</button>
+                        </div>
+                        
+                        <!-- Display Added Social Media -->
+                        <div id="social-media-list" style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.5rem;">
+                            <!-- Social media accounts will be displayed here -->
+                        </div>
+                        
+                        <small style="display: block; color: #666; line-height: 1.6;">
+                            <strong>📱 Connect with buyers</strong> by adding your social media accounts. They'll see these accounts on your profile and listings. You can add and remove accounts anytime.
+                        </small>
+                    </div>
+                    
+                    <button type="submit" style="background: linear-gradient(135deg, var(--ubelt-navy) 0%, #2d4a6f 100%); color: white; padding: 0.75rem 2rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; margin-top: 1.5rem;">Save Changes</button>
+                    <a href="#listings" onclick="switchTab('listings', event); return false;" style="margin-left: 1rem; padding: 0.75rem 2rem; border-radius: 8px; background: #f0f0f0; color: #666; text-decoration: none; font-weight: 600; display: inline-block;">Cancel</a>
+                </form>
+                
+                <!-- Social Media Management JavaScript -->
+                <script>
+                    // Social Media Platform Configuration
+                    const SOCIAL_PLATFORMS = {
+                        facebook: { name: 'Facebook', color: '#3b5998', icon: '📘' },
+                        instagram: { name: 'Instagram', color: '#E1306C', icon: '📷' },
+                        twitter: { name: 'Twitter / X', color: '#1DA1F2', icon: '𝕏' },
+                        discord: { name: 'Discord', color: '#5865F2', icon: '💜' },
+                        whatsapp: { name: 'WhatsApp', color: '#25C059', icon: '💬' },
+                        linkedin: { name: 'LinkedIn', color: '#0077b5', icon: '💼' },
+                        viber: { name: 'Viber', color: '#665CAC', icon: '📞' },
+                        telegram: { name: 'Telegram', color: '#0088cc', icon: '✈️' }
+                    };
+
+                    // Load and display social media accounts
+                    function loadSocialMediaAccounts() {
+                        fetch('{% url "marketplace:get_social_media" %}', {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                renderSocialMediaList(data.accounts);
+                            }
+                        })
+                        .catch(error => console.error('Error loading social media:', error));
+                    }
+
+                    // Render the list of social media accounts
+                    function renderSocialMediaList(accounts) {
+                        const container = document.getElementById('social-media-list');
+                        container.innerHTML = '';
+
+                        if (accounts.length === 0) {
+                            container.innerHTML = '<p style="color: #999; font-size: 0.9rem; padding: 1rem; background: #f9f9f9; border-radius: 4px; text-align: center;">No social media accounts added yet</p>';
+                            return;
+                        }
+
+                        accounts.forEach(account => {
+                            const platform = SOCIAL_PLATFORMS[account.platform];
+                            if (platform) {
+                                const itemHTML = `
+                                    <div style="display: flex; gap: 1rem; align-items: center; padding: 0.9rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid ${platform.color};">
+                                        <div style="font-size: 1.5rem; min-width: 30px;">${platform.icon}</div>
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div style="font-weight: 600; color: ${platform.color}; font-size: 0.9rem;">${platform.name}</div>
+                                            <div style="color: #333; word-break: break-all; font-size: 0.85rem; margin-top: 0.2rem;">${account.handle}</div>
+                                        </div>
+                                        <button type="button" onclick="removeSocialMediaAccount('${account.platform}')" style="padding: 0.4rem 0.8rem; background: #ff6b6b; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: 600; font-size: 0.85rem; white-space: nowrap; transition: background 0.3s;">Remove</button>
+                                    </div>
+                                `;
+                                container.innerHTML += itemHTML;
+                            }
+                        });
+                    }
+
+                    // Add a new social media account
+                    function addSocialMediaAccount() {
+                        const platform = document.getElementById('social-platform-select').value;
+                        const handle = document.getElementById('social-handle-input').value.trim();
+
+                        if (!platform) {
+                            alert('Please select a platform');
+                            return;
+                        }
+
+                        if (!handle) {
+                            alert('Please enter a handle or URL');
+                            return;
+                        }
+
+                        const btn = document.getElementById('add-social-btn');
+                        btn.disabled = true;
+                        btn.textContent = 'Adding...';
+
+                        fetch('{% url "marketplace:add_social_media" %}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value || getCookie('csrftoken')
+                            },
+                            body: JSON.stringify({
+                                platform: platform,
+                                handle: handle
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Clear inputs
+                                document.getElementById('social-platform-select').value = '';
+                                document.getElementById('social-handle-input').value = '';
+                                document.getElementById('social-handle-input').focus();
+                                
+                                // Reload the list
+                                loadSocialMediaAccounts();
+                            } else {
+                                alert('Error: ' + (data.error || 'Could not add social media account'));
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Error adding social media account');
+                        })
+                        .finally(() => {
+                            btn.disabled = false;
+                            btn.textContent = '+ Add';
+                        });
+                    }
+
+                    // Remove a social media account
+                    function removeSocialMediaAccount(platform) {
+                        if (!confirm('Remove this social media account?')) return;
+
+                        fetch(`{% url "marketplace:remove_social_media" "PLATFORM" %}`.replace('PLATFORM', platform), {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value || getCookie('csrftoken')
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                loadSocialMediaAccounts();
+                            } else {
+                                alert('Error: ' + (data.error || 'Could not remove social media account'));
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Error removing social media account');
+                        });
+                    }
+
+                    // Helper function to get CSRF token
+                    function getCookie(name) {
+                        let cookieValue = null;
+                        if (document.cookie && document.cookie !== '') {
+                            const cookies = document.cookie.split(';');
+                            for (let i = 0; i < cookies.length; i++) {
+                                const cookie = cookies[i].trim();
+                                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                    break;
+                                }
+                            }
+                        }
+                        return cookieValue;
+                    }
+
+                    // Allow Enter key to submit
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const handleInput = document.getElementById('social-handle-input');
+                        if (handleInput) {
+                            handleInput.addEventListener('keypress', function(e) {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    addSocialMediaAccount();
+                                }
+                            });
+                        }
+                        
+                        // Load social media accounts on page load
+                        loadSocialMediaAccounts();
+                    });
+                </script>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
+
+<!-- JavaScript for tab switching -->
+<script>
+function switchTab(tabName, event) {
+    event.preventDefault();
+    
+    // Hide all profile sections
+    const sections = document.querySelectorAll('.profile-edit-section');
+    sections.forEach(function(section) {
+        section.style.display = 'none';
+    });
+    
+    // Show selected tab
+    const selectedTab = document.getElementById(tabName);
+    if (selectedTab) {
+        selectedTab.style.display = 'block';
+        // Scroll to section smoothly
+        setTimeout(function() {
+            selectedTab.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+    }
+}
+</script>
 {% endblock %}

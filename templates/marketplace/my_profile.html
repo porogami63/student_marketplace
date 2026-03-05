@@ -634,6 +634,7 @@
         border: 2px solid #97C2EC;
         padding: 2rem;
         border-radius: 12px;
+        margin-top: 2.5rem;
         margin-bottom: 2rem;
     }
 
@@ -754,6 +755,115 @@
 
     .verification-tier-badge i {
         font-size: 1.1rem;
+    }
+
+    /* Trust Profile Info Icon */
+    .trust-header-with-popup {
+        position: relative;
+    }
+
+    .trust-info-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--ubelt-navy);
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 700;
+        cursor: help;
+        margin-left: 0.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .trust-info-icon:hover {
+        background: #005fa3;
+        transform: scale(1.1);
+    }
+
+    /* Detailed Trust Tiers Popup */
+    .trust-tiers-popup {
+        position: fixed;
+        top: auto;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        border: 2px solid var(--ubelt-navy);
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        pointer-events: none;
+        width: 400px;
+        max-width: 90vw;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    .trust-header-with-popup:hover .trust-tiers-popup {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        bottom: auto;
+        top: 50%;
+        transform: translateX(-50%) translateY(-50%);
+    }
+
+    .trust-tiers-popup:hover {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    .trust-tiers-popup h4 {
+        margin: 0 0 1rem 0;
+        color: var(--ubelt-navy);
+        font-size: 1rem;
+        font-weight: 700;
+    }
+
+    .tier-item {
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .tier-item:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+
+    .tier-item-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+    }
+
+    .tier-item-requirements {
+        font-size: 0.85rem;
+        color: #666;
+        line-height: 1.5;
+        margin-left: 1.5rem;
+    }
+
+    .tier-item-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.2rem 0.6rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: white;
     }
 
     .unverified-prompt {
@@ -962,8 +1072,63 @@
     <div class="trust-section">
         <div class="trust-header">
             <div class="trust-icon"><i class="bi bi-shield-check" style="font-size: 2.5rem; color: var(--ubelt-navy);"></i></div>
-            <div>
-                <h2 class="trust-title">Your Trust Profile</h2>
+            <div class="trust-header-with-popup">
+                <h2 class="trust-title">
+                    Your Trust Profile
+                    <span class="trust-info-icon" title="Learn about verification tiers">i</span>
+                </h2>
+                <div class="trust-tiers-popup">
+                    <h4>Verification Tiers</h4>
+                    
+                    <div class="tier-item">
+                        <div class="tier-item-header">
+                            <span class="tier-item-badge" style="background: #999;">⭕</span>
+                            <span>Grey - Unverified</span>
+                        </div>
+                        <div class="tier-item-requirements">
+                            <strong>Your starting tier</strong><br>
+                            Just created your account
+                        </div>
+                    </div>
+
+                    <div class="tier-item">
+                        <div class="tier-item-header">
+                            <span class="tier-item-badge" style="background: #f9a825;">⭐</span>
+                            <span>Yellow - Profile Complete</span>
+                        </div>
+                        <div class="tier-item-requirements">
+                            <strong>Requirements:</strong><br>
+                            • Complete all profile information<br>
+                            • Add a profile picture<br>
+                            • Add school/university
+                        </div>
+                    </div>
+
+                    <div class="tier-item">
+                        <div class="tier-item-header">
+                            <span class="tier-item-badge" style="background: #2e7d32;">✓</span>
+                            <span>Green - Active Member</span>
+                        </div>
+                        <div class="tier-item-requirements">
+                            <strong>Requirements:</strong><br>
+                            • Complete Yellow tier requirements<br>
+                            • Have at least 1 successful transaction
+                        </div>
+                    </div>
+
+                    <div class="tier-item">
+                        <div class="tier-item-header">
+                            <span class="tier-item-badge" style="background: linear-gradient(135deg, #0066cc 0%, #004499 100%);">💎</span>
+                            <span>Blue - Highly Trusted</span>
+                        </div>
+                        <div class="tier-item-requirements">
+                            <strong>Requirements:</strong><br>
+                            • Complete Green tier requirements<br>
+                            • ID verification completed<br>
+                            • 20+ successful transactions
+                        </div>
+                    </div>
+                </div>
                 <p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.95rem;">Verification tier and community endorsements</p>
             </div>
         </div>
@@ -1256,14 +1421,14 @@
                         <label>Social Media Accounts</label>
                         
                         <!-- Add Social Media Section -->
-                        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: flex-end;">
-                            <div style="flex: 1; min-width: 200px;">
-                                <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 0.4rem;">Select Platform</label>
-                                <select id="social-platform-select" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; background: white;">
-                                    <option value="">-- Choose a platform --</option>
+                        <div style="display: grid; grid-template-columns: 1fr 1.5fr auto; gap: 0.75rem; margin-bottom: 1.5rem; align-items: end;">
+                            <div>
+                                <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 0.4rem; font-weight: 500;">Platform</label>
+                                <select id="social-platform-select" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem; background: white; color: #333;">
+                                    <option value="">-- Select --</option>
                                     <option value="facebook">Facebook</option>
                                     <option value="instagram">Instagram</option>
-                                    <option value="twitter">Twitter</option>
+                                    <option value="twitter">Twitter / X</option>
                                     <option value="discord">Discord</option>
                                     <option value="whatsapp">WhatsApp</option>
                                     <option value="linkedin">LinkedIn</option>
@@ -1271,144 +1436,74 @@
                                     <option value="telegram">Telegram</option>
                                 </select>
                             </div>
-                            <div style="flex: 2; min-width: 250px;">
-                                <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 0.4rem;">Handle / URL</label>
-                                <input type="text" id="social-input" placeholder="Enter your handle or profile URL" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;">
+                            <div>
+                                <label style="display: block; font-size: 0.85rem; color: #666; margin-bottom: 0.4rem; font-weight: 500;">Handle / URL</label>
+                                <input type="text" id="social-handle-input" placeholder="e.g., @username or profile-url" style="width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem;" maxlength="255">
                             </div>
-                            <button type="button" onclick="addSocialMedia()" style="padding: 0.5rem 1.25rem; background: #97C2EC; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; white-space: nowrap;">+ Add</button>
+                            <button type="button" id="add-social-btn" onclick="addSocialMediaAccount()" style="padding: 0.6rem 1.5rem; background: #97C2EC; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; white-space: nowrap; transition: background 0.3s;">+ Add</button>
                         </div>
                         
                         <!-- Display Added Social Media -->
-                        <div id="social-display-container" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
-                            <!-- Added platforms will be displayed here -->
-                        </div>
-
-                        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center;">
-                            <button type="button" onclick="saveSocialMediaToDB()" style="padding: 0.6rem 1.5rem; background: var(--ubelt-navy); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; white-space: nowrap;">💾 Save Social Media</button>
-                            <span id="save-feedback" style="color: #28a745; font-weight: 600; display: none;">✓ Saved successfully!</span>
+                        <div id="social-media-list" style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.5rem;">
+                            <!-- Social media accounts will be displayed here -->
                         </div>
                         
-                        <small style="display: block; margin-top: 0.75rem; line-height: 1.6; color: #666;">
-                            <strong>Add your social media accounts</strong> so buyers can connect with you. Select a platform above, enter your handle or URL, click Add, then click "Save Social Media" to publish them on your profile.
+                        <small style="display: block; color: #666; line-height: 1.6;">
+                            <strong>📱 Connect with buyers</strong> by adding your social media accounts. They'll see these accounts on your profile and listings. You can add and remove accounts anytime.
                         </small>
                     </div>
 
-                    <!-- Hidden input to store all social media data - outside form-group -->
-                    {{ form.contact_info }}
-
                     <script>
+                        // Social Media Platform Configuration
                         const SOCIAL_PLATFORMS = {
-                            facebook: { name: 'Facebook', placeholder: 'facebook.com/yourname', color: '#3b5998', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>' },
-                            instagram: { name: 'Instagram', placeholder: '@yourhandle or instagram.com/yourhandle', color: '#E1306C', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor"/></svg>' },
-                            twitter: { name: 'Twitter', placeholder: '@yourhandle or twitter.com/yourhandle', color: '#1DA1F2', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M23 3a10.9 10.9 0 11-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2s9 5 20 5a9.5 9.5 0 00-9-5.5c4.75 2.25 7-7 7-7s1.1 5.2-5.2 7.14"/></svg>' },
-                            discord: { name: 'Discord', placeholder: 'username#1234', color: '#5865F2', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.49c-1.717-.804-3.547-1.303-5.468-1.559a.075.075 0 00-.079.037c-.237.416-.498.957-.683 1.386-2.045-.305-4.074-.305-6.089 0-.186-.43-.458-.97-.696-1.386a.075.075 0 00-.079-.036c-1.921.256-3.751.755-5.468 1.559a.074.074 0 00-.036.026C1.08 7.294.27 10.017 1.618 12.533a.08.08 0 00.03.055c1.733 1.325 3.413 2.132 5.064 2.662a.075.075 0 00.082-.027c.516-.715.978-1.47 1.372-2.265a.075.075 0 00-.041-.105c-.748-.227-1.461-.503-2.137-.823a.075.075 0 01-.008-.125c.143-.11.286-.225.425-.344a.075.075 0 01.078-.01c4.482 2.044 9.331 2.044 13.765 0a.075.075 0 01.079.01c.139.119.282.234.425.344a.075.075 0 01-.006.125c-.675.32-1.388.596-2.137.823a.074.074 0 00-.041.105c.394.795.856 1.55 1.371 2.265a.075.075 0 00.082.027c1.651-.53 3.332-1.337 5.064-2.662a.075.075 0 00.031-.054c1.362-2.591.534-5.227-.898-6.944a.074.074 0 00-.035-.026z"/></svg>' },
-                            whatsapp: { name: 'WhatsApp', placeholder: '+1234567890 or link', color: '#25C059', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-9.746 9.798c0 2.718.732 5.355 2.124 7.684L2.51 22.898l8.32-2.184c2.203 1.202 4.686 1.836 7.231 1.836 5.414 0 9.859-4.4 9.868-9.8.009-2.624-.753-5.195-2.177-7.38-1.425-2.186-3.42-3.414-5.691-3.414zm0 0"/></svg>' },
-                            linkedin: { name: 'LinkedIn', placeholder: 'linkedin.com/in/yourname', color: '#0077b5', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.475-2.236-1.986-2.236-1.081 0-1.722.731-2.004 1.438-.103.249-.129.597-.129.946v5.421h-3.554s.045-8.789 0-9.708h3.554v1.375c.481-.742 1.337-1.8 3.27-1.8 2.391 0 4.185 1.562 4.185 4.911l.005 5.222zM5.337 8.855c-1.144 0-1.915-.762-1.915-1.715 0-.955.77-1.715 1.916-1.715.99 0 1.9.76 1.923 1.715 0 .953-.768 1.715-1.924 1.715zm1.6 11.597H3.736V9.644h3.201v10.808zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg>' },
-                            viber: { name: 'Viber', placeholder: '+1234567890 or link', color: '#665CAC', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M11.918 3c3.804 0 6.917 2.773 6.917 6.185v4.63c0 3.412-3.113 6.185-6.917 6.185H6.54v2.817L2.17 19.2V9.185C2.17 5.773 5.283 3 9.087 3h2.831m.018 1.5H9.087c-2.934 0-5.317 2.134-5.317 4.685v8.015l2.77-1.865h5.278c2.934 0 5.317-2.134 5.317-4.685v-4.63c0-2.551-2.383-4.685-5.317-4.685z"/></svg>' },
-                            telegram: { name: 'Telegram', placeholder: '@yourhandle or link', color: '#0088cc', icon: '<svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.879-.456 1.08-.745 1.11-.578.05-1.016-.369-1.576-.722-.875-.561-1.369-.906-2.222-1.44-.974-.624-1.084-1.569-.237-2.5.818-.85 1.697-1.755 2.528-2.61.113-.12.053-.278-.042-.353l-.022-.02z"/></svg>' }
+                            facebook: { name: 'Facebook', color: '#3b5998', icon: '📘' },
+                            instagram: { name: 'Instagram', color: '#E1306C', icon: '📷' },
+                            twitter: { name: 'Twitter / X', color: '#1DA1F2', icon: '𝕏' },
+                            discord: { name: 'Discord', color: '#5865F2', icon: '💜' },
+                            whatsapp: { name: 'WhatsApp', color: '#25C059', icon: '💬' },
+                            linkedin: { name: 'LinkedIn', color: '#0077b5', icon: '💼' },
+                            viber: { name: 'Viber', color: '#665CAC', icon: '📞' },
+                            telegram: { name: 'Telegram', color: '#0088cc', icon: '✈️' }
                         };
 
-                        const STORAGE_KEY = 'social_media_data';
-
-                        function loadSocialMediaData() {
-                            const stored = localStorage.getItem(STORAGE_KEY);
-                            if (stored) {
-                                return JSON.parse(stored);
-                            }
-                            // Fall back to parsing form field if no localStorage data
-                            const contactInfo = document.getElementById('id_contact_info').value;
-                            return parseSocialMediaData(contactInfo);
-                        }
-
-                        function saveSocialMediaData(data) {
-                            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-                            // Also update the form field
-                            const lines = Object.keys(data).map(key => key + ':' + data[key]);
-                            document.getElementById('id_contact_info').value = lines.join('\n');
-                        }
-
-                        function parseSocialMediaData(contactInfo) {
-                            const data = {};
-                            if (contactInfo && contactInfo.trim()) {
-                                const lines = contactInfo.split('\n');
-                                lines.forEach(line => {
-                                    line = line.trim();
-                                    if (line) {
-                                        const colonIndex = line.indexOf(':');
-                                        if (colonIndex !== -1) {
-                                            const platform = line.substring(0, colonIndex).toLowerCase().trim();
-                                            const value = line.substring(colonIndex + 1).trim();
-                                            if (platform && value && SOCIAL_PLATFORMS[platform]) {
-                                                const platformKeys = Object.keys(SOCIAL_PLATFORMS);
-                                                const hasCorruption = platformKeys.some(key => value.includes(key + ':'));
-                                                if (!hasCorruption) {
-                                                    data[platform] = value;
-                                                }
-                                            }
-                                        }
-                                    }
-                                });
-                            }
-                            return data;
-                        }
-
-                        function constructSocialUrl(platform, value) {
-                            platform = platform.toLowerCase();
-                            value = value.trim();
-                            
-                            if (!value) return '#';
-                            
-                            // If already a URL, return as-is
-                            if (value.startsWith('http://') || value.startsWith('https://')) {
-                                return value;
-                            }
-                            
-                            // Remove leading @ if present
-                            let cleanValue = value;
-                            if (cleanValue.startsWith('@')) {
-                                cleanValue = cleanValue.substring(1);
-                            }
-                            
-                            const urls = {
-                                facebook: (v) => `https://www.facebook.com/${v}`,
-                                instagram: (v) => `https://www.instagram.com/${v}`,
-                                twitter: (v) => `https://www.twitter.com/${v}`,
-                                x: (v) => `https://www.x.com/${v}`,
-                                linkedin: (v) => v.includes('/in/') ? `https://www.linkedin.com/${v}` : `https://www.linkedin.com/in/${v}`,
-                                discord: (v) => `https://discordapp.com/users/${v}`,
-                                whatsapp: (v) => `https://wa.me/${v.replace('+', '')}`,
-                                telegram: (v) => `https://t.me/${v}`,
-                                viber: (v) => v.startsWith('+') ? `viber://contact?number=${v}` : `viber://chat?number=${v}`,
-                            };
-                            
-                            if (urls[platform]) {
-                                try {
-                                    return urls[platform](cleanValue);
-                                } catch(e) {
-                                    return '#';
+                        // Load and display social media accounts
+                        function loadSocialMediaAccounts() {
+                            fetch('{% url "marketplace:get_social_media" %}', {
+                                method: 'GET',
+                                headers: {
+                                    'Content-Type': 'application/json',
                                 }
-                            }
-                            
-                            return '#';
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    renderSocialMediaList(data.accounts);
+                                }
+                            })
+                            .catch(error => console.error('Error loading social media:', error));
                         }
 
-                        function renderSocialMedia() {
-                            const data = loadSocialMediaData();
-                            const container = document.getElementById('social-display-container');
+                        // Render the list of social media accounts
+                        function renderSocialMediaList(accounts) {
+                            const container = document.getElementById('social-media-list');
                             container.innerHTML = '';
 
-                            Object.keys(data).forEach(key => {
-                                const platform = SOCIAL_PLATFORMS[key];
+                            if (accounts.length === 0) {
+                                container.innerHTML = '<p style="color: #999; font-size: 0.9rem; padding: 1rem; background: #f9f9f9; border-radius: 4px; text-align: center;">No social media accounts added yet</p>';
+                                return;
+                            }
+
+                            accounts.forEach(account => {
+                                const platform = SOCIAL_PLATFORMS[account.platform];
                                 if (platform) {
-                                    const url = constructSocialUrl(key, data[key]);
                                     const itemHTML = `
-                                        <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid ${platform.color};">
-                                            <a href="${url}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: ${platform.color}; font-weight: 600; min-width: fit-content; text-decoration: none; cursor: pointer; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
-                                                ${platform.icon}
-                                                <span>${platform.name}</span>
-                                            </a>
-                                            <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">${data[key]}</span>
-                                            <button type="button" onclick="removeSocialMedia('${key}')" style="padding: 0.3rem 0.6rem; background: #ff6b6b; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: 600; min-width: fit-content;">Remove</button>
+                                        <div style="display: flex; gap: 1rem; align-items: center; padding: 0.9rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid ${platform.color};">
+                                            <div style="font-size: 1.5rem; min-width: 30px;">${platform.icon}</div>
+                                            <div style="flex: 1; min-width: 0;">
+                                                <div style="font-weight: 600; color: ${platform.color}; font-size: 0.9rem;">${platform.name}</div>
+                                                <div style="color: #333; word-break: break-all; font-size: 0.85rem; margin-top: 0.2rem;">${account.handle}</div>
+                                            </div>
+                                            <button type="button" onclick="removeSocialMediaAccount('${account.platform}')" style="padding: 0.4rem 0.8rem; background: #ff6b6b; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: 600; font-size: 0.85rem; white-space: nowrap; transition: background 0.3s;">Remove</button>
                                         </div>
                                     `;
                                     container.innerHTML += itemHTML;
@@ -1416,95 +1511,115 @@
                             });
                         }
 
-                        function addSocialMedia() {
-                            const platformSelect = document.getElementById('social-platform-select');
-                            const input = document.getElementById('social-input');
-                            const platform = platformSelect.value;
-                            const value = input.value.trim();
+                        // Add a new social media account
+                        function addSocialMediaAccount() {
+                            const platform = document.getElementById('social-platform-select').value;
+                            const handle = document.getElementById('social-handle-input').value.trim();
 
                             if (!platform) {
                                 alert('Please select a platform');
                                 return;
                             }
 
-                            if (!value) {
+                            if (!handle) {
                                 alert('Please enter a handle or URL');
                                 return;
                             }
 
-                            const data = loadSocialMediaData();
+                            const btn = document.getElementById('add-social-btn');
+                            btn.disabled = true;
+                            btn.textContent = 'Adding...';
 
-                            if (data[platform]) {
-                                alert('You have already added ' + SOCIAL_PLATFORMS[platform].name);
-                                return;
-                            }
-
-                            data[platform] = value;
-                            saveSocialMediaData(data);
-                            renderSocialMedia();
-                            platformSelect.value = '';
-                            input.value = '';
-                            input.focus();
-                        }
-
-                        function removeSocialMedia(platform) {
-                            const data = loadSocialMediaData();
-                            delete data[platform];
-                            saveSocialMediaData(data);
-                            renderSocialMedia();
-                        }
-
-                        function saveSocialMediaToDB() {
-                            const data = loadSocialMediaData();
-                            const lines = Object.keys(data).map(key => key + ':' + data[key]);
-                            const finalValue = lines.join('\n');
-                            
-                            console.log('Saving social media data:', finalValue);
-                            
-                            // Find and update the contact_info field
-                            const contactInfoField = document.getElementById('id_contact_info');
-                            if (contactInfoField) {
-                                contactInfoField.value = finalValue;
-                                console.log('Form field value set to:', contactInfoField.value);
-                                // Make sure the field is included in submission by ensuring it's not in a display:none parent
-                                contactInfoField.style.display = 'block';
-                                contactInfoField.style.visibility = 'hidden';
-                                contactInfoField.style.height = '0';
-                                contactInfoField.style.width = '0';
-                                contactInfoField.style.border = 'none';
-                                contactInfoField.style.margin = '0';
-                                contactInfoField.style.padding = '0';
-                            }
-                            
-                            // Clear localStorage so we reload from database on next page load
-                            localStorage.removeItem(STORAGE_KEY);
-                            
-                            // Submit the form
-                            const form = document.querySelector('form');
-                            if (form) {
-                                form.submit();
-                            }
-                        }
-
-                        document.addEventListener('DOMContentLoaded', function() {
-                            renderSocialMedia();
-
-                            document.getElementById('social-input').addEventListener('keypress', function(e) {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    addSocialMedia();
+                            fetch('{% url "marketplace:add_social_media" %}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value || getCookie('csrftoken')
+                                },
+                                body: JSON.stringify({
+                                    platform: platform,
+                                    handle: handle
+                                })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Clear inputs
+                                    document.getElementById('social-platform-select').value = '';
+                                    document.getElementById('social-handle-input').value = '';
+                                    document.getElementById('social-handle-input').focus();
+                                    
+                                    // Reload the list
+                                    loadSocialMediaAccounts();
+                                } else {
+                                    alert('Error: ' + (data.error || 'Could not add social media account'));
                                 }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('Error adding social media account');
+                            })
+                            .finally(() => {
+                                btn.disabled = false;
+                                btn.textContent = '+ Add';
                             });
+                        }
 
-                            // Sync localStorage to form field before submission
-                            const form = document.querySelector('form');
-                            if (form) {
-                                form.addEventListener('submit', function() {
-                                    const data = loadSocialMediaData();
-                                    const lines = Object.keys(data).map(key => key + ':' + data[key]);
-                                    document.getElementById('id_contact_info').value = lines.join('\n');
+                        // Remove a social media account
+                        function removeSocialMediaAccount(platform) {
+                            if (!confirm('Remove this social media account?')) return;
+
+                            fetch(`{% url "marketplace:remove_social_media" "PLATFORM" %}`.replace('PLATFORM', platform), {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value || getCookie('csrftoken')
+                                }
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    loadSocialMediaAccounts();
+                                } else {
+                                    alert('Error: ' + (data.error || 'Could not remove social media account'));
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('Error removing social media account');
+                            });
+                        }
+
+                        // Helper function to get CSRF token
+                        function getCookie(name) {
+                            let cookieValue = null;
+                            if (document.cookie && document.cookie !== '') {
+                                const cookies = document.cookie.split(';');
+                                for (let i = 0; i < cookies.length; i++) {
+                                    const cookie = cookies[i].trim();
+                                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                        break;
+                                    }
+                                }
+                            }
+                            return cookieValue;
+                        }
+
+                        // Allow Enter key to submit
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const handleInput = document.getElementById('social-handle-input');
+                            if (handleInput) {
+                                handleInput.addEventListener('keypress', function(e) {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        addSocialMediaAccount();
+                                    }
                                 });
                             }
+                            
+                            // Load social media accounts on page load
+                            loadSocialMediaAccounts();
                         });
                     </script>
                 </div>
@@ -1781,8 +1896,11 @@ function switchTab(tabName, event) {
     // Show selected tab
     document.getElementById(tabName).classList.add('active');
     
-    // Mark button as active
-    event.target.classList.add('active');
+    // Find and mark the corresponding button as active
+    const button = document.querySelector(`.tab-button[onclick*="switchTab('${tabName}'"]`);
+    if (button) {
+        button.classList.add('active');
+    }
 }
 
 // Initialize school selector

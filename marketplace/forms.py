@@ -366,7 +366,7 @@ class ListingForm(forms.ModelForm):
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = Profile
-        fields = ['full_name', 'school', 'year_level', 'age', 'birthday', 'phone', 'contact_info', 'address', 'bio', 'avatar', 'header_image']
+        fields = ['full_name', 'school', 'year_level', 'age', 'birthday', 'phone', 'address', 'bio', 'avatar', 'header_image']
         widgets = {
             'full_name': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -394,11 +394,7 @@ class ProfileForm(forms.ModelForm):
                 'pattern': '^[0-9+\-\s()]{7,20}$',
                 'title': 'Valid phone number'
             }),
-            'contact_info': forms.TextInput(attrs={
-                'placeholder': 'facebook.com/username, instagram.com/username, discord: username#1234, twitter.com/username, etc.',
-                'class': 'form-control',
-                'maxlength': '200',
-            }),
+
             'avatar': forms.FileInput(attrs={
                 'class': 'form-control',
                 'accept': 'image/*'

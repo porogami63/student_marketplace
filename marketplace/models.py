@@ -194,6 +194,58 @@ class Profile(models.Model):
         self.update_verification_tier()
 
 
+class SocialMedia(models.Model):
+    """Social media accounts linked to a user profile."""
+    PLATFORM_CHOICES = [
+        ('facebook', 'Facebook'),
+        ('instagram', 'Instagram'),
+        ('twitter', 'Twitter / X'),
+        ('discord', 'Discord'),
+        ('whatsapp', 'WhatsApp'),
+        ('linkedin', 'LinkedIn'),
+        ('viber', 'Viber'),
+        ('telegram', 'Telegram'),
+    ]
+
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='social_media')
+    platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES)
+    handle = models.CharField(max_length=255, help_text='Username, handle, or profile URL')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['profile', 'platform']
+        verbose_name_plural = 'Social Media'
+        ordering = ['platform']
+
+    def __str__(self):
+        return f"{self.profile.user.username} - {self.get_platform_display()}"
+
+    def get_url(self):
+        """Generate a clickable URL from the handle."""
+        handle = self.handle.strip()
+        
+        # If already a full URL, return as-is
+        if handle.startswith('http://') or handle.startswith('https://'):
+            return handle
+        
+        # Remove leading @ if present
+        clean_handle = handle.lstrip('@')
+        
+        urls = {
+            'facebook': f'https://www.facebook.com/{clean_handle}',
+            'instagram': f'https://www.instagram.com/{clean_handle}/',
+            'twitter': f'https://www.twitter.com/{clean_handle}',
+            'linkedin': f'https://www.linkedin.com/in/{clean_handle}' if '/in/' not in clean_handle else f'https://www.linkedin.com/{clean_handle}',
+            'discord': f'https://discordapp.com/users/{clean_handle}',
+            'whatsapp': f'https://wa.me/{clean_handle.replace("+", "")}',
+            'telegram': f'https://t.me/{clean_handle}',
+            'viber': f'viber://contact?number={clean_handle}' if clean_handle.startswith('+') else f'viber://chat?number={clean_handle}',
+        }
+        
+        return urls.get(self.platform, '#')
+
+
 class Favorite(models.Model):
     """User's saved/favorited listings."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites')

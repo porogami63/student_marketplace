@@ -4,6 +4,7 @@ from .models import (
     Category,
     Listing,
     Profile,
+    SocialMedia,
     Favorite,
     Conversation,
     ConversationParticipant,
@@ -59,6 +60,14 @@ class ProfileAdmin(admin.ModelAdmin):
         ('Other', {'fields': ('pinned_post', 'is_verified')}),
     )
     readonly_fields = ['vouch_count', 'total_sold', 'total_bought', 'forum_posts_count']
+
+
+@admin.register(SocialMedia)
+class SocialMediaAdmin(admin.ModelAdmin):
+    list_display = ['profile', 'platform', 'handle', 'created_at']
+    list_filter = ['platform', 'created_at']
+    search_fields = ['profile__user__username', 'handle']
+    read_only_fields = ['created_at', 'updated_at']
 
 
 @admin.register(Favorite)
