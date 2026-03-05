@@ -336,8 +336,8 @@
                     <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:inbox' %}"><i class="bi bi-envelope me-1"></i>Messages</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:mod_dashboard' %}"><i class="bi bi-shield-check me-1"></i>Mod</a></li>
                     {% else %}
-                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:listing_create' %}">Sell</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:my_listings' %}">My Listings</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:listing_create' %}">Add a listing</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:my_listings' %}">Profile</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:recommendation_chat' %}"><i class="bi bi-robot me-1"></i>Chat</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:recommended' %}"><i class="bi bi-sparkles me-1"></i>Recommended</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:favorites' %}"><i class="bi bi-heart me-1"></i>Favorites</a></li>
@@ -372,7 +372,7 @@
                             <li><a class="dropdown-item" href="{% url 'marketplace:inbox' %}"><i class="bi bi-envelope me-2"></i>Messages</a></li>
                             {% else %}
                             <li><a class="dropdown-item" href="{% url 'marketplace:profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
-                            <li><a class="dropdown-item" href="{% url 'marketplace:my_listings' %}"><i class="bi bi-box-seam me-2"></i>My Listings</a></li>
+                            <li><a class="dropdown-item" href="{% url 'marketplace:my_listings' %}"><i class="bi bi-box-seam me-2"></i>Profile</a></li>
                             <li><a class="dropdown-item" href="{% url 'marketplace:recommendation_chat' %}"><i class="bi bi-robot me-2"></i>Chat with AI</a></li>
                             <li><a class="dropdown-item" href="{% url 'marketplace:recommended' %}"><i class="bi bi-sparkles me-2"></i>Recommended</a></li>
                             <li><a class="dropdown-item" href="{% url 'marketplace:favorites' %}"><i class="bi bi-heart me-2"></i>Favorites</a></li>

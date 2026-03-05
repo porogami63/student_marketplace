@@ -198,10 +198,16 @@ class ListingForm(forms.ModelForm):
     class Meta:
         model = Listing
         fields = [
-            'title', 'description', 'price', 'category', 'condition',
+            'listing_type', 'title', 'description', 'price', 'category', 'condition',
             'campus', 'image', 'school', 'contact_info'
         ]
         widgets = {
+            'listing_type': forms.RadioSelect(choices=[
+                ('wts', 'Want to Sell (WTS) - I have an item to sell'),
+                ('wtb', 'Want to Buy (WTB) - I\'m looking for an item to purchase'),
+            ], attrs={
+                'class': 'form-check-input',
+            }),
             'title': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'What are you selling?',
@@ -237,14 +243,25 @@ class ListingForm(forms.ModelForm):
                 'placeholder': 'Phone, email, or social media (optional)',
                 'maxlength': '200'
             }),
-            'description': forms.Textarea(attrs={'rows': 4}),
-            'category': forms.Select(attrs={'class': 'category-select', 'id': 'id_category'}),
-            'school': SchoolSelect(attrs={'id': 'id_school'}),
         }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.product_attribute_fields = {}
+        
+        # Determine listing type from data or instance
+        listing_type = None
+        if self.data:
+            listing_type = self.data.get('listing_type', 'wts')
+        elif self.instance and self.instance.listing_type:
+            listing_type = self.instance.listing_type
+        else:
+            listing_type = 'wts'
+        
+        # Hide condition field for WTB listings since it's not applicable
+        if listing_type == 'wtb':
+            if 'condition' in self.fields:
+                self.fields['condition'].widget = forms.HiddenInput()
         
         # Determine category from data or instance
         category = None

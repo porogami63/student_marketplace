@@ -146,8 +146,41 @@
         const titleInput = document.getElementById('id_title');
         const categorySelect = document.getElementById('id_category');
         const schoolSelect = document.getElementById('id_school');
+        const listingTypeInputs = document.querySelectorAll('input[name="listing_type"]');
         const container = document.getElementById('product-details-container');
         const listingId = '{{ listing.id|default:"" }}';
+        const conditionField = document.getElementById('id_condition');
+        const conditionWrapper = conditionField ? conditionField.closest('.form-group, .mb-3, [class*="field"]') : null;
+        
+        // Handle listing type change - show/hide condition field
+        listingTypeInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                if (this.value === 'wtb') {
+                    // Hide condition field for WTB
+                    if (conditionWrapper) {
+                        conditionWrapper.style.display = 'none';
+                    }
+                    if (conditionField) {
+                        conditionField.style.display = 'none';
+                    }
+                } else {
+                    // Show condition field for WTS
+                    if (conditionWrapper) {
+                        conditionWrapper.style.display = 'block';
+                    }
+                    if (conditionField) {
+                        conditionField.style.display = 'block';
+                    }
+                }
+            });
+        });
+        
+        // Initial state on page load
+        const selectedListingType = document.querySelector('input[name="listing_type"]:checked');
+        if (selectedListingType && selectedListingType.value === 'wtb') {
+            if (conditionWrapper) conditionWrapper.style.display = 'none';
+            if (conditionField) conditionField.style.display = 'none';
+        }
         
         // Enhanced school selector with logos
         if (schoolSelect) {

@@ -498,7 +498,14 @@
                 {% endif %}
             </div>
             <div class="listing-card-title">{{ listing.title }}</div>
-            <div class="listing-card-condition">{{ listing.get_condition_display }}</div>
+            <div class="listing-card-condition">
+                {% if listing.listing_type == 'wtb' %}
+                <span style="background: #fbbf24; color: #1f2937; padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">WTB</span>
+                {% else %}
+                <span style="background: #60a5fa; color: white; padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">WTS</span>
+                {% if listing.listing_type == 'wts' %}{{ listing.get_condition_display }}{% endif %}
+                {% endif %}
+            </div>
             {% if listing.school %}
             <div style="font-size: 0.7rem; color: {{ listing.school.primary_color }}; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.25rem;">
                 {% if listing.school.logo_url %}
@@ -662,7 +669,15 @@
                 {% endif %}
             </div>
             <div class="listing-card-title">{{ listing.title }}</div>
-            <div class="listing-card-condition">{{ listing.get_condition_display }}{% if listing.school %} · {% include 'marketplace/_school_badge.html' with school=listing.school %}{% endif %}</div>
+            <div class="listing-card-condition">
+                {% if listing.listing_type == 'wtb' %}
+                <span style="background: #fbbf24; color: #1f2937; padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">WTB</span>
+                {% else %}
+                <span style="background: #60a5fa; color: white; padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">WTS</span>
+                {% if listing.listing_type == 'wts' %}{{ listing.get_condition_display }}{% endif %}
+                {% endif %}
+                {% if listing.school %} · {% include 'marketplace/_school_badge.html' with school=listing.school %}{% endif %}
+            </div>
             <div class="listing-card-seller">
                 <div class="listing-card-avatar">
                     {% if listing.seller.profile.avatar %}

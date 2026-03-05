@@ -615,6 +615,14 @@
                                 {% endif %}
                                 <div class="listing-body">
                                     <h3 class="listing-title">{{ listing.title }}</h3>
+                                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
+                                        {% if listing.listing_type == 'wtb' %}
+                                            <span style="background: #fbbf24; color: #1f2937; padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">WTB</span>
+                                        {% else %}
+                                            <span style="background: #60a5fa; color: white; padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">WTS</span>
+                                            {% if listing.listing_type == 'wts' %}<span style="font-size: 0.75rem; color: #64748b;">{{ listing.get_condition_display }}</span>{% endif %}
+                                        {% endif %}
+                                    </div>
                                     {% if listing.product_details %}
                                         <div class="listing-details">
                                             {% for key, value in listing.product_details.items %}

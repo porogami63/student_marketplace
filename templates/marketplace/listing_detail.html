@@ -203,6 +203,11 @@
     <div>
         <div class="listing-hero-title">{{ listing.title }}</div>
         <div class="listing-hero-meta">
+            {% if listing.listing_type == 'wtb' %}
+            <span style="background: #fbbf24; color: #1f2937; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600; display: inline-block; margin-right: 0.5rem;">WTB</span>
+            {% else %}
+            <span style="background: #60a5fa; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600; display: inline-block; margin-right: 0.5rem;">WTS</span>
+            {% endif %}
             {% if listing.category %}{{ listing.category.name }} • {% endif %}{{ listing.get_condition_display }} • {{ listing.view_count }} views
         </div>
     </div>
@@ -270,7 +275,9 @@
                         {% if listing.campus %}
                         <span class="badge bg-ubelt-dark">{{ listing.get_campus_display }}</span>
                         {% endif %}
+                        {% if listing.listing_type == 'wts' %}
                         <span class="badge bg-secondary">{{ listing.get_condition_display }}</span>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -425,21 +432,19 @@
                     {% if not listing.is_sold %}
                     <form action="{% url 'marketplace:listing_mark_sold' listing.pk %}" method="post" class="d-inline">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-secondary btn-sm">Mark as sold</button>
+                        <button type="submit" class="btn btn-outline-secondary btn-sm">Mark as closed</button>
                     </form>
                     {% endif %}
                     <a href="{% url 'marketplace:listing_delete' listing.pk %}" class="btn btn-outline-danger btn-sm">Delete</a>
                 </div>
                 {% elif not listing.is_sold %}
-                    {% if user.is_authenticated %}
-                    <div class="d-flex gap-2 flex-wrap">
-                        <a href="{% url 'marketplace:initiate_purchase' listing.pk %}" class="btn btn-success flex-grow-1">
-                            <i class="bi bi-cart-check me-1"></i> Buy now
-                        </a>
-                        <a href="{% url 'marketplace:message_send' listing.pk %}?initial_offer=1" class="btn btn-offer flex-grow-1">
-                            <i class="bi bi-tag me-1"></i> Make an Offer
-                        </a>
-                        <div class="w-100 d-flex gap-2">
+                    {% if listing.listing_type == 'wtb' %}
+                        {# Want to Buy listing - visitor can offer to sell the item #}
+                        {% if user.is_authenticated %}
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a href="{% url 'marketplace:message_send' listing.pk %}?initial_offer=1" class="btn btn-success flex-grow-1">
+                                <i class="bi bi-bag-check me-1"></i> I can provide this
+                            </a>
                             <a href="{% url 'marketplace:message_send' listing.pk %}" class="btn btn-outline-ubelt flex-grow-1">
                                 <i class="bi bi-chat-dots me-1"></i> Message
                             </a>
@@ -451,25 +456,67 @@
                             {% endif %}
                             {% endwith %}
                         </div>
-                    </div>
-                    {% else %}
-                    <div class="alert alert-info small mb-2">
-                        <i class="bi bi-info-circle me-2"></i>
-                        <a href="{% url 'marketplace:register' %}" class="alert-link">Sign up</a> or
-                        <a href="{% url 'account_login' %}" class="alert-link">log in</a> to buy this item.
-                    </div>
-                    <div class="d-flex gap-2 flex-wrap">
-                        <a href="{% url 'marketplace:message_send' listing.pk %}" class="btn btn-outline-ubelt flex-grow-1">
-                            <i class="bi bi-chat-dots me-1"></i> Message seller
-                        </a>
-                        {% with contact=listing.contact_info|default:seller_profile.phone|default:seller_profile.contact_info %}
-                        {% if contact %}
-                        <a href="tel:{{ contact }}" class="btn btn-outline-ubelt flex-grow-1">
-                            <i class="bi bi-telephone me-1"></i> Call
-                        </a>
+                        {% else %}
+                        <div class="alert alert-info small mb-2">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <a href="{% url 'marketplace:register' %}" class="alert-link">Sign up</a> or
+                            <a href="{% url 'account_login' %}" class="alert-link">log in</a> to help this person find what they're looking for.
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a href="{% url 'marketplace:message_send' listing.pk %}" class="btn btn-outline-ubelt flex-grow-1">
+                                <i class="bi bi-chat-dots me-1"></i> Message buyer
+                            </a>
+                            {% with contact=listing.contact_info|default:seller_profile.phone|default:seller_profile.contact_info %}
+                            {% if contact %}
+                            <a href="tel:{{ contact }}" class="btn btn-outline-ubelt flex-grow-1">
+                                <i class="bi bi-telephone me-1"></i> Call
+                            </a>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
                         {% endif %}
-                        {% endwith %}
-                    </div>
+                    {% else %}
+                        {# Want to Sell listing - visitor can buy the item #}
+                        {% if user.is_authenticated %}
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a href="{% url 'marketplace:initiate_purchase' listing.pk %}" class="btn btn-success flex-grow-1">
+                                <i class="bi bi-cart-check me-1"></i> Buy now
+                            </a>
+                            <a href="{% url 'marketplace:message_send' listing.pk %}?initial_offer=1" class="btn btn-offer flex-grow-1">
+                                <i class="bi bi-tag me-1"></i> Make an Offer
+                            </a>
+                            <div class="w-100 d-flex gap-2">
+                                <a href="{% url 'marketplace:message_send' listing.pk %}" class="btn btn-outline-ubelt flex-grow-1">
+                                    <i class="bi bi-chat-dots me-1"></i> Message
+                                </a>
+                                {% with contact=listing.contact_info|default:seller_profile.phone|default:seller_profile.contact_info %}
+                                {% if contact %}
+                                <a href="tel:{{ contact }}" class="btn btn-outline-ubelt flex-grow-1">
+                                    <i class="bi bi-telephone me-1"></i> Call
+                                </a>
+                                {% endif %}
+                                {% endwith %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info small mb-2">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <a href="{% url 'marketplace:register' %}" class="alert-link">Sign up</a> or
+                            <a href="{% url 'account_login' %}" class="alert-link">log in</a> to buy this item.
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a href="{% url 'marketplace:message_send' listing.pk %}" class="btn btn-outline-ubelt flex-grow-1">
+                                <i class="bi bi-chat-dots me-1"></i> Message seller
+                            </a>
+                            {% with contact=listing.contact_info|default:seller_profile.phone|default:seller_profile.contact_info %}
+                            {% if contact %}
+                            <a href="tel:{{ contact }}" class="btn btn-outline-ubelt flex-grow-1">
+                                <i class="bi bi-telephone me-1"></i> Call
+                            </a>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                        {% endif %}
                     {% endif %}
                 {% elif listing.is_sold %}
                 <div class="alert alert-secondary small mb-0">

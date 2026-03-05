@@ -35,8 +35,8 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Listing)
 class ListingAdmin(admin.ModelAdmin):
-    list_display = ['title', 'price', 'category', 'seller', 'school', 'is_sold', 'created_at']
-    list_filter = ['category', 'condition', 'is_sold', 'school']
+    list_display = ['title', 'price', 'listing_type', 'category', 'seller', 'school', 'is_sold', 'created_at']
+    list_filter = ['listing_type', 'category', 'condition', 'is_sold', 'school']
     search_fields = ['title', 'description']
     date_hierarchy = 'created_at'
 

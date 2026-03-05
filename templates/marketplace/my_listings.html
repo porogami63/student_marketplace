@@ -117,6 +117,11 @@
                 <div class="mylist-price">₱{{ listing.price|floatformat:0 }}</div>
                 <div class="mylist-name">{{ listing.title }}</div>
                 <div class="mylist-meta">
+                    {% if listing.listing_type == 'wtb' %}
+                    <span style="background: #fbbf24; color: #1f2937; padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.7rem; display: inline-block;">WTB</span>
+                    {% else %}
+                    <span style="background: #60a5fa; color: white; padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.7rem; display: inline-block;">WTS</span>
+                    {% endif %}
                     {% if listing.is_sold %}
                     <span class="badge bg-secondary">Sold</span>
                     {% else %}

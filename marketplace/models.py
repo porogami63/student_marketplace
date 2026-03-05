@@ -35,6 +35,11 @@ class Category(models.Model):
 
 class Listing(models.Model):
     """Marketplace listing."""
+    LISTING_TYPE_CHOICES = [
+        ('wts', 'Want to Sell (WTS)'),
+        ('wtb', 'Want to Buy (WTB)'),
+    ]
+
     CONDITION_CHOICES = [
         ('new', 'Brand New'),
         ('like_new', 'Like New'),
@@ -50,6 +55,7 @@ class Listing(models.Model):
         ('public', 'Public'),
     ]
 
+    listing_type = models.CharField(max_length=10, choices=LISTING_TYPE_CHOICES, default='wts', help_text='Specify if you want to sell or buy an item')
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
