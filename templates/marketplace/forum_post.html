@@ -19,10 +19,16 @@
         <h1 class="font-display fw-bold h4 mb-2" style="color: var(--ubelt-navy);">{{ post.title }}</h1>
         <p class="text-muted small mb-3">
             by <a href="{% url 'marketplace:public_profile' post.author.username %}" style="color: var(--ubelt-navy); text-decoration: none; font-weight: 600;">{{ post.author.username }}</a>
-            {% if post.author.profile.average_rating > 0 %}
-                <span style="margin-left: 0.5rem; color: var(--ubelt-gold);">
-                    {% for star in "12345" %}{% if star|add:"0" <= post.author.profile.average_rating %}⭐{% else %}☆{% endif %}{% endfor %}
-                    <span style="font-size: 0.9rem; color: #999;">{{ post.author.profile.average_rating|floatformat:1 }}</span>
+            {% if post.author.profile.verification_tier != 'grey' %}
+                <span style="margin-left: 0.5rem;">
+                    {% if post.author.profile.verification_tier == 'blue' %}
+                        <span style="background: linear-gradient(135deg, #0066cc 0%, #004499 100%); color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 700;"><i class="bi bi-diamond-fill"></i> Blue</span>
+                    {% elif post.author.profile.verification_tier == 'green' %}
+                        <span style="background: #2e7d32; color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 700;"><i class="bi bi-check-circle-fill"></i> Green</span>
+                    {% elif post.author.profile.verification_tier == 'yellow' %}
+                        <span style="background: #f9a825; color: white; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 700;"><i class="bi bi-star-fill"></i> Yellow</span>
+                    {% endif %}
+                    <span style="margin-left: 0.5rem; color: var(--ubelt-gold); font-weight: 700;"><i class="bi bi-hand-thumbs-up-fill"></i> {{ post.author.profile.vouch_count }}</span>
                 </span>
             {% endif %}
             · {{ post.created_at|timesince }} ago

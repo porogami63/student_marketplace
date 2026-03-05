@@ -42,7 +42,23 @@ class ListingAdmin(admin.ModelAdmin):
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ['user', 'full_name', 'school', 'phone']
+    list_display = ['user', 'full_name', 'verification_tier', 'vouch_count', 'total_sold', 'total_bought']
+    list_filter = ['verification_tier', 'id_verified', 'school']
+    search_fields = ['user__username', 'full_name', 'user__email']
+    fieldsets = (
+        ('User Account', {'fields': ('user',)}),
+        ('Personal Information', {'fields': ('full_name', 'age', 'birthday', 'phone', 'address', 'bio')}),
+        ('School & Academic', {'fields': ('school', 'year_level')}),
+        ('Contact & Social', {'fields': ('contact_info',)}),
+        ('Media', {'fields': ('avatar', 'header_image', 'google_avatar_url')}),
+        ('Verification & Trust', {
+            'fields': ('verification_tier', 'vouch_count', 'id_submitted', 'id_verified', 'forum_posts_count'),
+            'description': 'Verification tier is automatically updated based on profile completion and activity'
+        }),
+        ('Activity', {'fields': ('total_sold', 'total_bought')}),
+        ('Other', {'fields': ('pinned_post', 'is_verified')}),
+    )
+    readonly_fields = ['vouch_count', 'total_sold', 'total_bought', 'forum_posts_count']
 
 
 @admin.register(Favorite)
@@ -80,11 +96,17 @@ class TransactionAdmin(admin.ModelAdmin):
 
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ['reviewer', 'seller', 'rating', 'created_at']
-    list_filter = ['rating', 'created_at']
+    list_display = ['reviewer', 'seller', 'is_vouch', 'created_at']
+    list_filter = ['is_vouch', 'created_at']
     search_fields = ['reviewer__username', 'seller__username', 'comment']
     date_hierarchy = 'created_at'
     readonly_fields = ['created_at', 'updated_at']
+    fieldsets = (
+        ('Vouch Details', {'fields': ('reviewer', 'seller', 'is_vouch')}),
+        ('Transaction & Listing', {'fields': ('transaction', 'listing')}),
+        ('Feedback', {'fields': ('comment',)}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
+    )
 
 
 @admin.register(ModerationLog)

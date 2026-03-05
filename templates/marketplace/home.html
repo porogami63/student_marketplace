@@ -672,6 +672,13 @@
             </div>
         </section>
 
+        <!-- Gemini AI Recommendations Section (for authenticated users) -->
+        {% if user.is_authenticated %}
+        <section style="margin-top: 3rem; padding: 2rem; background: linear-gradient(135deg, #f0f8ff 0%, #f8fbff 100%); border-radius: 12px; border: 1px solid #97C2EC;">
+            <div id="gemini-recommendations" style="min-height: 250px;"></div>
+        </section>
+        {% endif %}
+
         {% if not user.is_authenticated %}
         <section class="cta-section">
             <h2>Join the student marketplace</h2>

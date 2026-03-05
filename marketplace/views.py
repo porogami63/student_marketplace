@@ -199,9 +199,62 @@ def _get_listing_context(request):
     }
 
 
+def _get_recommended_for_user(user, limit=8):
+    """Get recommended listings based on user's favorite categories and schools."""
+    if not user.is_authenticated:
+        return []
+    
+    # Get user's favorite listings
+    favorites = Favorite.objects.filter(user=user).select_related('listing__category', 'listing__school').values_list('listing', flat=True)
+    
+    if not favorites:
+        return []
+    
+    # Extract categories and schools from favorites
+    favorite_listings = Listing.objects.filter(pk__in=favorites).values_list('category_id', 'school_id')
+    categories = set()
+    schools = set()
+    for cat_id, school_id in favorite_listings:
+        if cat_id:
+            categories.add(cat_id)
+        if school_id:
+            schools.add(school_id)
+    
+    # Find recommendations from same categories or schools (excluding already favorited)
+    recommendations = Listing.objects.filter(
+        is_sold=False
+    ).exclude(
+        pk__in=favorites
+    ).select_related(
+        'category', 'seller', 'school', 'seller__profile'
+    ).annotate(
+        fav_count=Count('favorited_by')
+    )
+    
+    # Prioritize by categories and schools
+    from django.db.models import Q, Case, When, IntegerField
+    recommendations = recommendations.filter(
+        Q(category_id__in=categories) | Q(school_id__in=schools)
+    )
+    
+    # Order by category match, then recency
+    recommendations = recommendations.annotate(
+        category_match=Case(
+            When(category_id__in=categories, then=2),
+            default=1,
+            output_field=IntegerField()
+        )
+    ).order_by('-category_match', '-created_at')
+    
+    return list(recommendations[:limit])
+
+
 def home(request):
     """Homepage with hero and safety banner."""
     context = _get_listing_context(request)
+    # Add recommended listings for authenticated users
+    if request.user.is_authenticated:
+        context['recommended_listings'] = _get_recommended_for_user(request.user)
     return render(request, 'marketplace/home.html', context)
 
 
@@ -428,6 +481,9 @@ def profile_view(request):
         form = ProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
             form.save()
+            # Update verification tier based on new profile information
+            profile.update_verification_tier()
+            profile.save()
             messages.success(request, 'Profile updated.')
             return redirect('marketplace:profile')
     else:
@@ -443,6 +499,9 @@ def profile_view(request):
     # Fetch user's posts and forum activity
     profile_posts = ProfilePost.objects.filter(author=request.user)
     forum_posts = ForumPost.objects.filter(author=request.user)
+    
+    # Get recommended listings based on favorites
+    recommended_listings = _get_recommended_for_user(request.user)
 
     return render(request, 'marketplace/my_profile.html', {
         'form': form,
@@ -452,6 +511,7 @@ def profile_view(request):
         'seller_transactions': seller_transactions,
         'profile_posts': profile_posts,
         'forum_posts': forum_posts,
+        'recommended_listings': recommended_listings,
     })
 
 
@@ -490,49 +550,45 @@ def public_profile_view(request, username):
 
 @login_required
 def leave_review(request, username):
-    """Leave a review for a seller."""
+    """Leave a vouch for a seller."""
     seller = get_object_or_404(User, username=username)
     
     if seller == request.user:
-        messages.error(request, "You can't review yourself.")
+        messages.error(request, "You can't vouch for yourself.")
         return redirect('marketplace:public_profile', username=username)
     
-    # Check if user has already reviewed
+    # Check if user has already left feedback
     existing_review = Review.objects.filter(reviewer=request.user, seller=seller).first()
     
     if request.method == 'POST':
-        rating = request.POST.get('rating', 5)
+        is_vouch_str = request.POST.get('is_vouch', 'true')
+        is_vouch = is_vouch_str.lower() == 'true'
         comment = request.POST.get('comment', '')
         
-        try:
-            rating = int(rating)
-            if rating < 1 or rating > 5:
-                messages.error(request, 'Rating must be between 1 and 5.')
-                return redirect('marketplace:leave_review', username=username)
-        except ValueError:
-            messages.error(request, 'Invalid rating.')
-            return redirect('marketplace:leave_review', username=username)
-        
         if existing_review:
-            existing_review.rating = rating
+            existing_review.is_vouch = is_vouch
             existing_review.comment = comment
             existing_review.save()
-            messages.success(request, 'Your review has been updated.')
+            messages.success(request, 'Your vouch has been updated.')
         else:
-            Review.objects.create(
+            review = Review.objects.create(
                 reviewer=request.user,
                 seller=seller,
-                rating=rating,
+                is_vouch=is_vouch,
                 comment=comment
             )
-            messages.success(request, 'Your review has been posted!')
+            # Increment vouch count if it's a vouch
+            if is_vouch:
+                seller.profile.vouch_count += 1
+                seller.profile.update_verification_tier()
+                seller.profile.save()
+            messages.success(request, 'Your vouch has been posted!')
         
         return redirect('marketplace:public_profile', username=username)
     
     context = {
         'seller': seller,
         'existing_review': existing_review,
-        'rating_choices': Review._meta.get_field('rating').choices,
     }
     return render(request, 'marketplace/leave_review.html', context)
 
@@ -620,7 +676,201 @@ def favorites_list(request):
         'listing', 'listing__category', 'listing__school'
     ).order_by('-created_at')
     listings = [f.listing for f in favs]
-    return render(request, 'marketplace/favorites.html', {'listings': listings})
+    
+    # Get recommendations based on favorites
+    recommended_listings = _get_recommended_for_user(request.user, limit=6)
+    
+    return render(request, 'marketplace/favorites.html', {
+        'listings': listings,
+        'recommended_listings': recommended_listings
+    })
+
+
+@login_required
+def recommended_listings(request):
+    """Display AI-powered recommended listings based on user preferences."""
+    profile = request.user.profile
+    
+    # Get user's favorites
+    favorite_ids = Favorite.objects.filter(user=request.user).values_list('listing_id', flat=True)
+    
+    # Get available listings for recommendations
+    available = Listing.objects.filter(
+        is_sold=False
+    ).exclude(
+        pk__in=favorite_ids
+    ).exclude(
+        seller=request.user
+    ).select_related('category', 'school')
+    
+    # Get Gemini recommendations
+    from .utils import get_gemini_recommendations
+    favorite_objs = Favorite.objects.filter(user=request.user).select_related('listing')[:10]
+    
+    recommendations = get_gemini_recommendations(
+        user_profile=profile,
+        favorite_listings=favorite_objs,
+        available_listings=available,
+        max_recommendations=12
+    )
+    
+    # Fetch full listing details for recommended IDs
+    recommended_listings = []
+    if recommendations:
+        for rec in recommendations:
+            try:
+                listing = Listing.objects.select_related('category', 'school', 'seller').get(id=rec['id'])
+                recommended_listings.append({
+                    'listing': listing,
+                    'reason': rec['reason']
+                })
+            except Listing.DoesNotExist:
+                continue
+    
+    # Fallback to rule-based recommendations if Gemini fails
+    if not recommended_listings:
+        fallback_listings = _get_recommended_for_user(request.user, limit=12)
+        recommended_listings = [{'listing': listing, 'reason': 'Matches your interests'} for listing in fallback_listings]
+    
+    return render(request, 'marketplace/recommended.html', {
+        'recommended_listings': recommended_listings,
+        'has_gemini': bool(recommendations)
+    })
+
+
+@login_required
+def api_gemini_recommendations(request):
+    """API endpoint for Gemini-based recommendations."""
+    from django.http import JsonResponse
+    from .utils import get_gemini_recommendations
+    
+    profile = request.user.profile
+    
+    # Get user's favorites
+    favorite_objs = Favorite.objects.filter(user=request.user).select_related('listing')[:10]
+    favorite_ids = Favorite.objects.filter(user=request.user).values_list('listing_id', flat=True)
+    
+    # Get available listings (excluding favorites)
+    available = Listing.objects.filter(
+        is_sold=False
+    ).exclude(
+        pk__in=favorite_ids
+    ).exclude(
+        seller=request.user
+    ).select_related('category', 'school')
+    
+    # Get Gemini recommendations
+    recommendations = get_gemini_recommendations(
+        user_profile=profile,
+        favorite_listings=favorite_objs,
+        available_listings=available,
+        max_recommendations=6
+    )
+    
+    if not recommendations:
+        return JsonResponse({'recommendations': [], 'error': 'Could not generate recommendations'}, status=200)
+    
+    # Fetch full listing details for recommended IDs
+    result_listings = []
+    for rec in recommendations:
+        try:
+            listing = Listing.objects.select_related('category', 'school', 'seller').get(id=rec['id'])
+            result_listings.append({
+                'id': listing.id,
+                'title': listing.title,
+                'price': float(listing.price),
+                'image_url': listing.image.url if listing.image else None,
+                'category': listing.category.name if listing.category else None,
+                'school_name': listing.school.short_name if listing.school else None,
+                'seller_name': listing.seller.username,
+                'ai_reason': rec['reason'],
+                'view_count': listing.view_count,
+                'url': listing.get_absolute_url()
+            })
+        except Listing.DoesNotExist:
+            continue
+    
+    return JsonResponse({
+        'recommendations': result_listings,
+        'count': len(result_listings)
+    })
+
+
+@login_required
+def recommendation_chat(request):
+    """Display the AI chatbot for item recommendations."""
+    return render(request, 'marketplace/recommendation_chat.html', {
+        'page_title': 'AI Shopping Assistant'
+    })
+
+
+@login_required
+def api_chat_message(request):
+    """API endpoint for chat messages with Gemini."""
+    from django.http import JsonResponse
+    from .utils import get_gemini_chat_response
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=400)
+    
+    try:
+        data = json.loads(request.body)
+        user_message = data.get('message', '').strip()
+        conversation_history = data.get('history', [])
+        
+        if not user_message:
+            return JsonResponse({'error': 'Message cannot be empty'}, status=400)
+        
+        # Limit message length
+        if len(user_message) > 500:
+            return JsonResponse({'error': 'Message too long (max 500 chars)'}, status=400)
+        
+        # Get available listings
+        available_listings = Listing.objects.filter(is_sold=False).select_related('category', 'school')
+        
+        # Get response from Gemini
+        response = get_gemini_chat_response(
+            user_message=user_message,
+            available_listings=available_listings,
+            user_profile=request.user.profile,
+            conversation_history=conversation_history
+        )
+        
+        if 'error' in response:
+            return JsonResponse({'error': response['error']}, status=500)
+        
+        # Fetch full listing details if recommendations mentioned
+        recommendations = []
+        if response.get('recommendations'):
+            for listing_id in response['recommendations']:
+                try:
+                    listing = Listing.objects.select_related('category', 'school', 'seller').get(
+                        id=listing_id
+                    )
+                    recommendations.append({
+                        'id': listing.id,
+                        'title': listing.title,
+                        'price': float(listing.price),
+                        'image_url': listing.image.url if listing.image else None,
+                        'category': listing.category.name if listing.category else None,
+                        'school_name': listing.school.short_name if listing.school else None,
+                        'seller_name': listing.seller.username,
+                        'url': listing.get_absolute_url()
+                    })
+                except Listing.DoesNotExist:
+                    continue
+        
+        return JsonResponse({
+            'response': response.get('response', ''),
+            'recommendations': recommendations,
+            'role': 'assistant'
+        })
+    
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        logger.error(f"Error in chat endpoint: {str(e)}")
+        return JsonResponse({'error': 'Server error'}, status=500)
 
 
 # ----- Transactions -----
@@ -857,9 +1107,16 @@ def complete_transaction(request, transaction_id):
             transaction.listing.save()
             
         seller_profile = getattr(transaction.seller, 'profile', None) or Profile.objects.filter(user=transaction.seller).first()
+        buyer_profile = getattr(transaction.buyer, 'profile', None) or Profile.objects.filter(user=transaction.buyer).first()
+        
         if seller_profile:
             seller_profile.total_sold += 1
-            seller_profile.save(update_fields=['total_sold'])
+            seller_profile.update_verification_tier()
+            seller_profile.save()
+
+        if buyer_profile:
+            buyer_profile.update_verification_tier()
+            buyer_profile.save()
 
         # Notify both
         Notification.objects.create(
@@ -1164,6 +1421,10 @@ def forum_create_post(request):
             post = form.save(commit=False)
             post.author = request.user
             post.save()
+            # Track forum post count
+            request.user.profile.forum_posts_count += 1
+            request.user.profile.update_verification_tier()
+            request.user.profile.save()
             messages.success(request, 'Post created!')
             return redirect('marketplace:forum_post', pk=post.pk)
     else:

@@ -156,4 +156,11 @@
     </div>
     {% endfor %}
 </div>
+
+<!-- Gemini AI Recommendations Section -->
+{% if user.is_authenticated %}
+<div style="margin-top: 4rem; padding-top: 3rem; border-top: 2px solid #e0e0e0;">
+    <div id="gemini-recommendations" style="min-height: 200px;"></div>
+</div>
+{% endif %}
 {% endblock %}

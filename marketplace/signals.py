@@ -24,13 +24,14 @@ def update_conversation_timestamp(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Review)
 def notify_seller_on_review(sender, instance, created, **kwargs):
-    """Notify seller when they receive a new review (but not their own reviews)."""
+    """Notify seller when they receive a new review/vouch (but not their own reviews)."""
     if created:
         # Only notify if it's a new review and not a self-review
         if instance.reviewer_id != instance.seller_id:
+            vouch_text = "Vouched for you" if instance.is_vouch else "Posted feedback"
             Notification.objects.create(
                 user=instance.seller,
-                message=f"New review from {instance.reviewer.username}: {instance.rating}/5 stars",
+                message=f"New review from {instance.reviewer.username}: {vouch_text}",
                 url=reverse('marketplace:public_profile', args=[instance.reviewer.username]),
             )
 

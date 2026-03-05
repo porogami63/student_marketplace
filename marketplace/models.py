@@ -100,6 +100,13 @@ class Profile(models.Model):
         ('doctorate', 'Doctorate Degree'),
     ]
 
+    VERIFICATION_TIER_CHOICES = [
+        ('grey', 'Grey - Unverified'),
+        ('yellow', 'Yellow - Profile Complete'),
+        ('green', 'Green - Active Member'),
+        ('blue', 'Blue - Highly Trusted'),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     full_name = models.CharField(max_length=120, blank=True)
     school = models.ForeignKey(School, on_delete=models.SET_NULL, null=True, blank=True)
@@ -113,11 +120,14 @@ class Profile(models.Model):
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     header_image = models.ImageField(upload_to='profile_headers/', blank=True, null=True, help_text='Cover image for your profile header')
     google_avatar_url = models.URLField(blank=True)
-    reputation_score = models.DecimalField(max_digits=3, decimal_places=2, default=5.0, help_text='Average reputation score from reviews (1-5 stars)')
-    review_count = models.PositiveIntegerField(default=0, help_text='Total number of reviews received')
+    vouch_count = models.PositiveIntegerField(default=0, help_text='Number of vouches received')
+    verification_tier = models.CharField(max_length=10, choices=VERIFICATION_TIER_CHOICES, default='grey', help_text='Verification tier based on profile completion and activity')
     total_sold = models.PositiveIntegerField(default=0, help_text='Number of items sold')
     total_bought = models.PositiveIntegerField(default=0, help_text='Number of items purchased')
-    is_verified = models.BooleanField(default=False, help_text='Verified email or school verification')
+    id_submitted = models.BooleanField(default=False, help_text='Admin approval required for blue tier')
+    id_verified = models.BooleanField(default=False, help_text='ID has been verified by admin')
+    forum_posts_count = models.PositiveIntegerField(default=0, help_text='Number of forum posts created')
+    is_verified = models.BooleanField(default=False, help_text='Kept for backward compatibility')
     pinned_post = models.ForeignKey('ProfilePost', on_delete=models.SET_NULL, null=True, blank=True, related_name='pinned_in_profile', help_text='Featured post on profile')
 
     def __str__(self):
@@ -129,8 +139,41 @@ class Profile(models.Model):
 
     @property
     def average_rating(self):
-        """Backward compatibility property for reputation_score."""
-        return self.reputation_score
+        """Backward compatibility property - returns vouch count."""
+        return self.vouch_count
+
+    @property
+    def review_count(self):
+        """Backward compatibility property - alias for vouch_count."""
+        return self.vouch_count
+
+    def is_profile_complete(self):
+        """Check if profile has all required information for yellow tier."""
+        return bool(self.full_name and self.school and self.year_level and self.phone and self.address)
+
+    def get_completed_transactions_count(self):
+        """Get count of completed transactions as buyer or seller."""
+        from django.db.models import Q
+        return self.user.purchases.filter(status='completed').count() + self.user.sales.filter(status='completed').count()
+
+    def update_verification_tier(self):
+        """Recalculate and update verification tier based on profile activity."""
+        completed_transactions = self.get_completed_transactions_count()
+        
+        # Blue tier: 20+ completed transactions, ID verified by admin
+        if self.id_verified and completed_transactions >= 20:
+            self.verification_tier = 'blue'
+        # Green tier: Active member - forum posts, transactions, and general activity
+        elif completed_transactions > 0 and (self.forum_posts_count > 0 or self.vouch_count > 0):
+            self.verification_tier = 'green'
+        # Yellow tier: Complete profile information
+        elif self.is_profile_complete():
+            self.verification_tier = 'yellow'
+        # Grey tier: Minimal information
+        else:
+            self.verification_tier = 'grey'
+        
+        self.save(update_fields=['verification_tier'])
 
     @property
     def total_spent(self):
@@ -147,15 +190,8 @@ class Profile(models.Model):
         return total or 0
 
     def update_rating(self):
-        """Recalculate reputation score from reviews."""
-        reviews = self.user.reviews_received.all()
-        if reviews.exists():
-            self.reputation_score = sum(r.rating for r in reviews) / reviews.count()
-            self.review_count = reviews.count()
-        else:
-            self.reputation_score = 5.0
-            self.review_count = 0
-        self.save(update_fields=['reputation_score', 'review_count'])
+        """Backward compatibility method - updates verification tier instead."""
+        self.update_verification_tier()
 
 
 class Favorite(models.Model):
@@ -307,21 +343,13 @@ class TransactionMessage(models.Model):
 
 
 class Review(models.Model):
-    """User review/rating for a seller."""
-    RATING_CHOICES = [
-        (1, '⭐ Poor'),
-        (2, '⭐⭐ Fair'),
-        (3, '⭐⭐⭐ Good'),
-        (4, '⭐⭐⭐⭐ Very Good'),
-        (5, '⭐⭐⭐⭐⭐ Excellent'),
-    ]
-
+    """User vouch/endorsement for a seller."""
     reviewer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_given')
     seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_received')
     listing = models.ForeignKey(Listing, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviews')
     transaction = models.OneToOneField(Transaction, on_delete=models.SET_NULL, null=True, blank=True, related_name='review')
-    rating = models.IntegerField(choices=RATING_CHOICES, default=5)
-    comment = models.TextField(blank=True)
+    is_vouch = models.BooleanField(default=True, help_text='True if reviewer vouches for seller')
+    comment = models.TextField(blank=True, help_text='Optional feedback from the transaction')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -330,13 +358,44 @@ class Review(models.Model):
         unique_together = ['reviewer', 'seller', 'listing']
 
     def __str__(self):
-        return f"{self.reviewer.username} → {self.seller.username} ({self.rating}★)"
+        vouch_text = "Vouched" if self.is_vouch else "Not Vouched"
+        return f"{self.reviewer.username} → {self.seller.username} ({vouch_text})"
 
     def save(self, *args, **kwargs):
+        # Track if this is a new review and the old is_vouch status
+        is_new = self.pk is None
+        old_is_vouch = None
+        
+        if not is_new:
+            # Get the original is_vouch value for updates
+            try:
+                old_review = Review.objects.get(pk=self.pk)
+                old_is_vouch = old_review.is_vouch
+            except Review.DoesNotExist:
+                pass
+        
         super().save(*args, **kwargs)
-        # Update seller's average rating
+        
+        # Update seller's vouch count and verification tier
         if hasattr(self.seller, 'profile'):
-            self.seller.profile.update_rating()
+            profile = self.seller.profile
+            
+            # Handle vouch count changes
+            if is_new and self.is_vouch:
+                # New vouch review
+                profile.vouch_count += 1
+            elif not is_new and old_is_vouch is not None:
+                # Updating existing review
+                if not old_is_vouch and self.is_vouch:
+                    # Changed from non-vouch to vouch
+                    profile.vouch_count += 1
+                elif old_is_vouch and not self.is_vouch:
+                    # Changed from vouch to non-vouch
+                    if profile.vouch_count > 0:
+                        profile.vouch_count -= 1
+            
+            profile.update_verification_tier()
+            profile.save()
 
 
 class ModerationLog(models.Model):

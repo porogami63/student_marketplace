@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Rate {{ seller.username }} - Reputation System{% endblock %}
+{% block title %}Vouch {{ seller.username }} - Community Trust{% endblock %}
 {% block extra_css %}
 <style>
     .review-form-container {
@@ -65,62 +65,60 @@
         font-size: 1rem;
     }
     
-    .rating-selector {
+    .vouch-selector {
         display: flex;
-        gap: 0.75rem;
+        gap: 1.5rem;
         justify-content: center;
         align-items: flex-start;
+        flex-wrap: wrap;
     }
-    .rating-option {
+    
+    .vouch-option {
+        flex: 0 1 200px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.75rem;
         cursor: pointer;
         position: relative;
     }
-    .rating-option input[type="radio"] {
+    
+    .vouch-option input[type="radio"] {
         display: none;
     }
-    .rating-star {
-        font-size: 2.5rem;
-        transition: all 0.15s ease;
+    
+    .vouch-icon {
+        font-size: 3rem;
+        transition: all 0.2s ease;
         opacity: 0.3;
-        filter: grayscale(100%);
     }
-    /* When radio is checked, fill the star and all previous siblings */
-    .rating-option input[type="radio"]:checked ~ .rating-star {
+    
+    .vouch-option input[type="radio"]:checked ~ .vouch-icon {
         opacity: 1;
-        filter: grayscale(0%);
-        transform: scale(1.2);
+        transform: scale(1.1);
     }
-    /* When hovering, fill this star and show it's being hovered */
-    .rating-option:hover .rating-star {
-        opacity: 0.9;
-        filter: grayscale(0%);
-        transform: scale(1.3);
+    
+    .vouch-option:hover .vouch-icon {
+        opacity: 0.6;
     }
-    /* All rating options before a hovered one should also light up on hover */
-    .rating-option:hover ~ .rating-option .rating-star {
-        opacity: 1;
-        filter: grayscale(0%);
-        transform: scale(1.15);
-    }
-    /* Reset siblings after hover */
-    .rating-option ~ .rating-option:hover .rating-star ~ .rating-star {
-        opacity: 0.3;
-        filter: grayscale(100%);
-        transform: scale(1);
-    }
-    .rating-text {
-        font-size: 0.8rem;
-        color: #999;
-        font-weight: 500;
+    
+    .vouch-label {
+        font-weight: 700;
+        color: #333;
+        font-size: 1rem;
         min-height: 1.2em;
     }
-    .rating-option input[type="radio"]:checked ~ .rating-text {
-        color: var(--ubelt-gold);
-        font-weight: 700;
+    
+    .vouch-option input[type="radio"]:checked ~ .vouch-label {
+        color: var(--ubelt-navy);
+    }
+    
+    .vouch-option:nth-child(1) input[type="radio"]:checked ~ .vouch-icon {
+        color: #f9a825;
+    }
+    
+    .vouch-option:nth-child(2) input[type="radio"]:checked ~ .vouch-icon {
+        color: #999;
     }
 
     textarea {
@@ -216,11 +214,15 @@
         .form-header h1 {
             font-size: 1.5rem;
         }
-        .rating-selector {
-            gap: 0.5rem;
+        .vouch-selector {
+            gap: 1rem;
         }
-        .rating-star {
-            font-size: 2rem;
+        .vouch-option {
+            flex: 1;
+            min-width: 150px;
+        }
+        .vouch-icon {
+            font-size: 2.5rem;
         }
         .button-group {
             flex-direction: column;
@@ -236,16 +238,16 @@
 <div class="review-form-container">
     <div class="form-card">
         <div class="form-header">
-            <h1>Rate This User</h1>
-            <p>Your honest feedback helps build trust in the JUBelt marketplace. Rate sellers and buyers based on your experience.</p>
+            <h1>Leave a Vouch</h1>
+            <p>Your honest feedback helps build trust in the JUBelt marketplace. Vouch for users you had a good experience with.</p>
             <div class="seller-badge">
-                Rating: <strong>{{ seller.get_full_name|default:seller.username }}</strong>
+                For: <strong>{{ seller.get_full_name|default:seller.username }}</strong>
             </div>
-            <div class="subtitle">💡 Your rating contributes to their reputation score</div>
+            <div class="subtitle"><i class="bi bi-hand-thumbs-up-fill"></i> Vouching helps build community trust</div>
             {% if existing_review %}
                 <div class="existing-review-notice" style="margin-top: 1.5rem; margin-bottom: 0;">
-                    <strong>You've already rated this person</strong>
-                    Your new rating will replace the previous one.
+                    <strong>You've already left feedback</strong>
+                    Your new vouch will replace the previous one.
                 </div>
             {% endif %}
         </div>
@@ -254,83 +256,35 @@
             {% csrf_token %}
 
             <div class="form-group">
-                <label class="form-label">Rate Your Experience</label>
-                <div class="rating-selector">
-                    {% for value, label in rating_choices %}
-                        <label class="rating-option">
-                            <input type="radio" name="rating" value="{{ value }}" {% if existing_review.rating == value or value == 5 %}checked{% endif %}>
-                            <span class="rating-star">⭐</span>
-                            <span class="rating-text">
-                                {% if value == 1 %}Poor{% elif value == 2 %}Fair{% elif value == 3 %}Good{% elif value == 4 %}Very Good{% else %}Excellent{% endif %}
-                            </span>
-                        </label>
-                    {% endfor %}
+                <label class="form-label">Would you vouch for this user?</label>
+                <div class="vouch-selector">
+                    <label class="vouch-option">
+                        <input type="radio" name="is_vouch" value="true" {% if existing_review.is_vouch or not existing_review %}checked{% endif %}>
+                        <span class="vouch-icon" style="color: #f9a825;"><i class="bi bi-hand-thumbs-up-fill"></i></span>
+                        <span class="vouch-label">Yes, Highly Recommended</span>
+                    </label>
+                    <label class="vouch-option">
+                        <input type="radio" name="is_vouch" value="false" {% if existing_review and not existing_review.is_vouch %}checked{% endif %}>
+                        <span class="vouch-icon" style="color: #999;"><i class="bi bi-hand-thumbs-down-fill"></i></span>
+                        <span class="vouch-label">No, Would Not Recommend</span>
+                    </label>
                 </div>
             </div>
 
             <div class="form-group">
-                <label for="comment" class="form-label">Your Review (Optional)</label>
-                <textarea name="comment" id="comment" placeholder="Tell other students about the transaction. Was the seller responsive? Did they deliver on time? What condition was the item in?">{{ existing_review.comment }}</textarea>
-                <p class="form-hint">Be honest and detailed. Specific feedback helps the community.</p>
+                <label for="comment" class="form-label">Comments (Optional)</label>
+                <textarea name="comment" id="comment" placeholder="Share details about your transaction. Was the seller responsive? Did they deliver as promised? What condition was the item in?">{{ existing_review.comment }}</textarea>
+                <p class="form-hint">Specific feedback helps the community make informed decisions.</p>
             </div>
 
             <div class="button-group">
                 <a href="{% url 'marketplace:public_profile' seller.username %}" class="btn btn-cancel">Cancel</a>
                 <button type="submit" class="btn btn-submit">
-                    {% if existing_review %}Update Review{% else %}Post Review{% endif %}
+                    {% if existing_review %}Update Vouch{% else %}Post Vouch{% endif %}
                 </button>
             </div>
         </form>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const ratingOptions = document.querySelectorAll('.rating-option');
-    
-    ratingOptions.forEach((option, index) => {
-        option.addEventListener('mouseenter', function() {
-            // Clear previous hover states
-            ratingOptions.forEach((opt, idx) => {
-                opt.classList.remove('hover-filled', 'hover-future');
-                // Mark stars after hovered star as "future"
-                if (idx > index) {
-                    opt.classList.add('hover-future');
-                }
-            });
-            
-            // Fill this and all previous stars (up to and including hovered star)
-            for (let i = 0; i <= index; i++) {
-                ratingOptions[i].classList.add('hover-filled');
-            }
-        });
-        
-        option.addEventListener('mouseleave', function() {
-            // Clear all hover states completely
-            ratingOptions.forEach(opt => {
-                opt.classList.remove('hover-filled', 'hover-future');
-            });
-        });
-    });
-});
-</script>
-
-<style>
-.rating-option.hover-filled .rating-star {
-    opacity: 1 !important;
-    filter: grayscale(0%) !important;
-    transform: scale(1.15) !important;
-}
-
-.rating-option.hover-filled:last-of-type .rating-star {
-    transform: scale(1.3) !important;
-}
-
-.rating-option.hover-future .rating-star {
-    opacity: 0.3 !important;
-    filter: grayscale(100%) !important;
-    transform: scale(1) !important;
-}
-</style>
 {% endblock %}
 

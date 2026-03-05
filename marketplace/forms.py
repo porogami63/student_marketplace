@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from .models import Listing, Profile, ForumPost, ForumReply, Transaction, Category, ProfilePost, School
+import re
 
 # Category-specific product attribute definitions
 PRODUCT_ATTRIBUTES = {
@@ -70,11 +71,53 @@ class SchoolSelect(forms.Select):
 
 
 class CustomUserCreationForm(UserCreationForm):
-    email = forms.EmailField(required=True)
+    email = forms.EmailField(required=True, widget=forms.EmailInput(attrs={
+        'class': 'form-control',
+        'placeholder': 'Enter your email',
+        'autocomplete': 'email'
+    }))
 
     class Meta:
         model = User
         fields = ('username', 'email', 'password1', 'password2')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Add classes and validation attrs to fields
+        self.fields['username'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Username (3-20 characters)',
+            'minlength': '3',
+            'maxlength': '20',
+            'autocomplete': 'username',
+            'pattern': '[a-zA-Z0-9_-]+'
+        })
+        self.fields['password1'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Password (min 8 characters)',
+            'minlength': '8'
+        })
+        self.fields['password2'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Confirm password',
+            'minlength': '8'
+        })
+    
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if len(username) < 3:
+            raise forms.ValidationError('Username must be at least 3 characters long.')
+        if len(username) > 20:
+            raise forms.ValidationError('Username must be 20 characters or less.')
+        if not re.match(r'^[a-zA-Z0-9_-]+$', username):
+            raise forms.ValidationError('Username can only contain letters, numbers, hyphens, and underscores.')
+        return username
+    
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError('This email address is already registered.')
+        return email
 
 
 class ProfileRegistrationForm(forms.ModelForm):
@@ -87,6 +130,8 @@ class ProfileRegistrationForm(forms.ModelForm):
             'full_name': forms.TextInput(attrs={
                 'placeholder': 'Enter your full name',
                 'class': 'form-control',
+                'minlength': '2',
+                'maxlength': '120',
                 'required': True
             }),
             'school': SchoolSelect(attrs={
@@ -108,18 +153,45 @@ class ProfileRegistrationForm(forms.ModelForm):
                 'max': '80'
             }),
             'phone': forms.TextInput(attrs={
-                'placeholder': 'Mobile number',
+                'placeholder': 'Mobile number (e.g., 09123456789)',
                 'class': 'form-control',
+                'pattern': '^[0-9+\-\s()]{7,20}$',
+                'title': 'Valid phone number',
             }),
             'address': forms.TextInput(attrs={
                 'placeholder': 'General meetup area or barangay',
                 'class': 'form-control',
+                'maxlength': '255',
             }),
             'contact_info': forms.TextInput(attrs={
                 'placeholder': 'Social media handles or alternate contact',
                 'class': 'form-control',
+                'maxlength': '200',
             }),
         }
+    
+    def clean_full_name(self):
+        full_name = self.cleaned_data.get('full_name', '').strip()
+        if len(full_name) < 2:
+            raise forms.ValidationError('Full name must be at least 2 characters long.')
+        if len(full_name) > 120:
+            raise forms.ValidationError('Full name must be 120 characters or less.')
+        return full_name
+    
+    def clean_phone(self):
+        phone = self.cleaned_data.get('phone', '').strip()
+        if phone and not re.match(r'^[0-9+\-\s()]{7,20}$', phone):
+            raise forms.ValidationError('Enter a valid phone number (7-20 digits/symbols).')
+        return phone
+    
+    def clean_age(self):
+        age = self.cleaned_data.get('age')
+        if age is not None:
+            if age < 10:
+                raise forms.ValidationError('You must be at least 10 years old.')
+            if age > 80:
+                raise forms.ValidationError('Please enter a valid age.')
+        return age
 
 
 class ListingForm(forms.ModelForm):
@@ -130,6 +202,41 @@ class ListingForm(forms.ModelForm):
             'campus', 'image', 'school', 'contact_info'
         ]
         widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'What are you selling?',
+                'minlength': '5',
+                'maxlength': '200',
+                'required': True
+            }),
+            'description': forms.Textarea(attrs={
+                'rows': 4,
+                'class': 'form-control',
+                'placeholder': 'Describe the condition, features, and why you\'re selling it...',
+                'maxlength': '2000',
+                'minlength': '10'
+            }),
+            'price': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '₱0.00',
+                'min': '0',
+                'max': '999999',
+                'step': '0.01',
+                'inputmode': 'decimal'
+            }),
+            'category': forms.Select(attrs={'class': 'form-control category-select', 'id': 'id_category'}),
+            'condition': forms.Select(attrs={'class': 'form-control'}),
+            'campus': forms.Select(attrs={'class': 'form-control'}),
+            'image': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*'
+            }),
+            'school': SchoolSelect(attrs={'class': 'form-control', 'id': 'id_school'}),
+            'contact_info': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Phone, email, or social media (optional)',
+                'maxlength': '200'
+            }),
             'description': forms.Textarea(attrs={'rows': 4}),
             'category': forms.Select(attrs={'class': 'category-select', 'id': 'id_category'}),
             'school': SchoolSelect(attrs={'id': 'id_school'}),
@@ -168,14 +275,23 @@ class ListingForm(forms.ModelForm):
                     label=attr['label'],
                     required=attr.get('required', False),
                     initial=initial_value if self.data is None else self.data.get(field_name, ''),
-                    widget=forms.TextInput(attrs={'class': 'form-control product-field', 'data-field': attr['field']})
+                    widget=forms.TextInput(attrs={
+                        'class': 'form-control product-field',
+                        'data-field': attr['field'],
+                        'maxlength': '200'
+                    })
                 )
             elif attr['type'] == 'number':
                 self.fields[field_name] = forms.IntegerField(
                     label=attr['label'],
                     required=attr.get('required', False),
                     initial=initial_value if self.data is None else self.data.get(field_name, ''),
-                    widget=forms.NumberInput(attrs={'class': 'form-control product-field', 'data-field': attr['field']})
+                    widget=forms.NumberInput(attrs={
+                        'class': 'form-control product-field',
+                        'data-field': attr['field'],
+                        'min': '1900',
+                        'max': '2100'
+                    })
                 )
             elif attr['type'] == 'select':
                 self.fields[field_name] = forms.ChoiceField(
@@ -210,6 +326,33 @@ class ListingForm(forms.ModelForm):
         self.product_details = product_details
         return cleaned_data
     
+    def clean_title(self):
+        title = self.cleaned_data.get('title', '').strip()
+        if len(title) < 5:
+            raise forms.ValidationError('Title must be at least 5 characters long.')
+        if len(title) > 200:
+            raise forms.ValidationError('Title must be 200 characters or less.')
+        return title
+    
+    def clean_description(self):
+        description = self.cleaned_data.get('description', '').strip()
+        if description and len(description) < 10:
+            raise forms.ValidationError('Description must be at least 10 characters long.')
+        if description and len(description) > 2000:
+            raise forms.ValidationError('Description must be 2000 characters or less.')
+        return description
+    
+    def clean_price(self):
+        price = self.cleaned_data.get('price')
+        if price is not None:
+            if price < 0:
+                raise forms.ValidationError('Price cannot be negative.')
+            if price > 999999:
+                raise forms.ValidationError('Price is too high. Maximum is ₱999,999.')
+            if price == 0:
+                raise forms.ValidationError('Price must be greater than zero.')
+        return price
+    
     def save(self, commit=True):
         """Save the listing with product details."""
         instance = super().save(commit=False)
@@ -225,13 +368,76 @@ class ProfileForm(forms.ModelForm):
         model = Profile
         fields = ['full_name', 'school', 'year_level', 'age', 'birthday', 'phone', 'contact_info', 'address', 'bio', 'avatar', 'header_image']
         widgets = {
-            'address': forms.TextInput(attrs={'placeholder': 'e.g. Sampaloc, Manila or near LRT Legarda'}),
-            'bio': forms.Textarea(attrs={'rows': 3}),
-            'school': SchoolSelect(attrs={'id': 'id_school'}),
-            'birthday': forms.DateInput(attrs={'type': 'date'}),
-            'age': forms.NumberInput(attrs={'min': 10, 'max': 80}),
-            'contact_info': forms.TextInput(attrs={'placeholder': 'facebook.com/username, instagram.com/username, discord: username#1234, twitter.com/username, etc.'}),
+            'full_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'minlength': '2',
+                'maxlength': '120',
+            }),
+            'address': forms.TextInput(attrs={
+                'placeholder': 'e.g. Sampaloc, Manila or near LRT Legarda',
+                'class': 'form-control',
+                'maxlength': '255',
+            }),
+            'bio': forms.Textarea(attrs={
+                'rows': 3,
+                'class': 'form-control',
+                'maxlength': '500',
+                'placeholder': 'Tell us about yourself (max 500 chars)'
+            }),
+            'school': SchoolSelect(attrs={'id': 'id_school', 'class': 'form-control'}),
+            'birthday': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'age': forms.NumberInput(attrs=
+                {'min': 10, 'max': 80, 'class': 'form-control'}),
+            'phone': forms.TextInput(attrs={
+                'placeholder': 'Mobile number',
+                'class': 'form-control',
+                'pattern': '^[0-9+\-\s()]{7,20}$',
+                'title': 'Valid phone number'
+            }),
+            'contact_info': forms.TextInput(attrs={
+                'placeholder': 'facebook.com/username, instagram.com/username, discord: username#1234, twitter.com/username, etc.',
+                'class': 'form-control',
+                'maxlength': '200',
+            }),
+            'avatar': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*'
+            }),
+            'header_image': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*'
+            }),
+            'year_level': forms.Select(attrs={'class': 'form-control'})
         }
+    
+    def clean_full_name(self):
+        full_name = self.cleaned_data.get('full_name', '').strip()
+        if full_name and len(full_name) < 2:
+            raise forms.ValidationError('Full name must be at least 2 characters long.')
+        if full_name and len(full_name) > 120:
+            raise forms.ValidationError('Full name must be 120 characters or less.')
+        return full_name
+    
+    def clean_phone(self):
+        phone = self.cleaned_data.get('phone', '').strip()
+        if phone and not re.match(r'^[0-9+\-\s()]{7,20}$', phone):
+            raise forms.ValidationError('Enter a valid phone number.')
+        return phone
+    
+    def clean_age(self):
+        age = self.cleaned_data.get('age')
+        if age is not None:
+            if age < 10:
+                raise forms.ValidationError('You must be at least 10 years old.')
+            if age > 80:
+                raise forms.ValidationError('Please enter a valid age.')
+        return age
+    
+    def clean_bio(self):
+        bio = self.cleaned_data.get('bio', '').strip()
+        if bio and len(bio) > 500:
+            raise forms.ValidationError('Bio must be 500 characters or less.')
+        return bio
 
 
 class MessageForm(forms.Form):
@@ -243,7 +449,20 @@ class ForumPostForm(forms.ModelForm):
         model = ForumPost
         fields = ['title', 'body', 'listing']
         widgets = {
-            'body': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Share your listing, ask questions, or chat with the community...'}),
+            'title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'What do you want to discuss?',
+                'minlength': '5',
+                'maxlength': '200',
+                'required': True
+            }),
+            'body': forms.Textarea(attrs={
+                'rows': 4,
+                'placeholder': 'Share your listing, ask questions, or chat with the community...',
+                'class': 'form-control',
+                'minlength': '10',
+                'maxlength': '5000'
+            }),
             'listing': forms.Select(attrs={'class': 'form-select'}),
         }
 
@@ -254,6 +473,22 @@ class ForumPostForm(forms.ModelForm):
             self.fields['listing'].required = False
             self.fields['listing'].label = 'Link your listing (optional)'
             self.fields['listing'].empty_label = 'None - just a discussion'
+    
+    def clean_title(self):
+        title = self.cleaned_data.get('title', '').strip()
+        if len(title) < 5:
+            raise forms.ValidationError('Title must be at least 5 characters long.')
+        if len(title) > 200:
+            raise forms.ValidationError('Title must be 200 characters or less.')
+        return title
+    
+    def clean_body(self):
+        body = self.cleaned_data.get('body', '').strip()
+        if len(body) < 10:
+            raise forms.ValidationError('Post must be at least 10 characters long.')
+        if len(body) > 5000:
+            raise forms.ValidationError('Post must be 5000 characters or less.')
+        return body
     
     def __str__(self):
         return "Forum Post"
@@ -313,9 +548,18 @@ class ProfilePostForm(forms.ModelForm):
                 'rows': 4,
                 'placeholder': 'Share your thoughts, updates, or messages with visitors to your profile. Max 1000 characters.',
                 'class': 'form-control',
-                'maxlength': '1000'
+                'maxlength': '1000',
+                'minlength': '5'
             }),
         }
         labels = {
             'content': 'What\'s on your mind?',
         }
+    
+    def clean_content(self):
+        content = self.cleaned_data.get('content', '').strip()
+        if len(content) < 5:
+            raise forms.ValidationError('Post must be at least 5 characters long.')
+        if len(content) > 1000:
+            raise forms.ValidationError('Post must be 1000 characters or less.')
+        return content

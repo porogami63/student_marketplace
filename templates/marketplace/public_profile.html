@@ -574,18 +574,31 @@
                 </div>
                 {% endif %}
                 {% if profile.year_level %}
-                <div style="color: white; opacity: 0.95; font-size: 0.95rem; margin-bottom: 0.5rem;">📚 {{ profile.get_year_level_display }}</div>
+                <div style="color: white; opacity: 0.95; font-size: 0.95rem; margin-bottom: 0.5rem;"><i class="bi bi-book"></i> {{ profile.get_year_level_display }}</div>
                 {% endif %}
                 <div class="reputation-display">
                     <div style="display: flex; align-items: center; gap: 1rem;">
                         <div>
-                            <span class="reputation-stars">
-                                {% if profile.reputation_score >= 4.5 %}⭐⭐⭐⭐⭐{% elif profile.reputation_score >= 3.5 %}⭐⭐⭐⭐{% elif profile.reputation_score >= 2.5 %}⭐⭐⭐{% elif profile.reputation_score >= 1.5 %}⭐⭐{% else %}⭐{% endif %}
-                            </span>
-                            <div class="reputation-score">{{ profile.reputation_score|floatformat:1 }}/5.0</div>
+                            {% if profile.verification_tier == 'blue' %}
+                                <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: linear-gradient(135deg, #0066cc 0%, #004499 100%); color: white; padding: 0.4rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem;">
+                                    <i class="bi bi-diamond-fill"></i> Blue
+                                </div>
+                            {% elif profile.verification_tier == 'green' %}
+                                <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: #2e7d32; color: white; padding: 0.4rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem;">
+                                    <i class="bi bi-check-circle-fill"></i> Green
+                                </div>
+                            {% elif profile.verification_tier == 'yellow' %}
+                                <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: #f9a825; color: white; padding: 0.4rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem;">
+                                    <i class="bi bi-star-fill"></i> Yellow
+                                </div>
+                            {% else %}
+                                <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: #999; color: white; padding: 0.4rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem;">
+                                    <i class="bi bi-circle"></i> Grey
+                                </div>
+                            {% endif %}
+                            <div class="reputation-score" style="margin-top: 0.5rem;"><i class="bi bi-hand-thumbs-up-fill" style="color: #f9a825;"></i> {{ profile.vouch_count }} Vouch{{ profile.vouch_count|pluralize }}</div>
                         </div>
                         <div class="reputation-text">
-                            <strong>{{ profile.review_count }}</strong> review{{ profile.review_count|pluralize }}<br>
                             Member since {{ profile_user.date_joined|date:"b Y" }}
                         </div>
                     </div>
@@ -609,11 +622,11 @@
         {% endif %}
         {% if not has_reviewed %}
             <a href="{% url 'marketplace:leave_review' profile_user.username %}" class="btn-secondary">
-                Rate Seller
+                Leave Vouch
             </a>
         {% else %}
             <a href="{% url 'marketplace:leave_review' profile_user.username %}" class="btn-secondary">
-                Edit Rating
+                Edit Vouch
             </a>
         {% endif %}
     </div>
@@ -637,12 +650,8 @@
             <div class="stat-label">Total Earned</div>
         </div>
         <div class="stat-card">
-            <div class="stat-number">{{ profile.reputation_score|floatformat:1 }}/5</div>
-            <div class="stat-label">Reputation Score</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number">{{ profile.review_count }}</div>
-            <div class="stat-label">Total Reviews</div>
+            <div class="stat-number"><i class="bi bi-hand-thumbs-up-fill" style="color: #f9a825; margin-right: 0.3rem;"></i>{{ profile.vouch_count }}</div>
+            <div class="stat-label">Vouch{{ profile.vouch_count|pluralize }}</div>
         </div>
     </div>
 
@@ -899,7 +908,7 @@
             </div>
             {% endif %}
 
-            <h2 class="section-title">Reviews ({{ profile.review_count }})</h2>
+            <h2 class="section-title">Vouches ({{ profile.vouch_count }})</h2>
             {% if reviews %}
                 <div class="reviews-container">
                     {% for review in reviews %}
@@ -910,9 +919,11 @@
                                     <div class="review-date">{{ review.created_at|date:"M d, Y" }}</div>
                                 </div>
                                 <div class="review-rating">
-                                    {% for star in "12345" %}
-                                        {% if star|add:"0" <= review.rating %}⭐{% else %}☆{% endif %}
-                                    {% endfor %}
+                                    {% if review.is_vouch %}
+                                        <span style="color: #f9a825; font-weight: 700;"><i class="bi bi-hand-thumbs-up-fill"></i> Vouched</span>
+                                    {% else %}
+                                        <span style="color: #999; font-weight: 700;"><i class="bi bi-hand-thumbs-down-fill"></i> Not Vouched</span>
+                                    {% endif %}
                                 </div>
                             </div>
                             {% if review.comment %}
@@ -923,7 +934,7 @@
                 </div>
             {% else %}
                 <div class="empty-state">
-                    <p>No reviews yet.</p>
+                    <p>No vouches yet.</p>
                 </div>
             {% endif %}
         </div>
