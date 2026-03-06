@@ -49,9 +49,12 @@ media/avatars/*
 media/listings/*
 !media/listings/.gitkeep
 
-# Environment
+# Environment & Sensitive Data
+# Never commit API keys, secrets, or credentials
 .env
 .env.local
+.env*.local
+# Stripe API Keys (STRIPE_PUBLIC_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET)
 
 # Testing
 .coverage
