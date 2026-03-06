@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Payment Successful - {{ transaction.listing.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .success-container {
+        max-width: 700px;
+        margin: 3rem auto;
+        animation: slideIn 0.5s ease-out;
+    }
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .success-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .success-icon {
+        font-size: 4rem;
+        color: #28a745;
+        margin-bottom: 1rem;
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.1);
+        }
+    }
+    .success-message {
+        background: linear-gradient(135deg, rgba(40, 167, 69, 0.05) 0%, rgba(23, 162, 184, 0.02) 100%);
+        border: 2px solid #28a745;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    .payment-confirmation {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .confirmation-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .confirmation-item:last-child {
+        border-bottom: none;
+    }
+    .confirmation-item.total {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #28a745;
+        border-top: 2px solid #dee2e6;
+        padding-top: 1rem;
+        margin-top: 1rem;
+    }
+    .next-steps {
+        background: #e7f3ff;
+        border-left: 4px solid #17a2b8;
+        padding: 1.5rem;
+        border-radius: 6px;
+        margin-bottom: 2rem;
+    }
+    .next-steps h6 {
+        color: #0c5460;
+        margin-bottom: 1rem;
+    }
+    .next-steps ol {
+        margin-bottom: 0;
+        color: #0c5460;
+    }
+    .next-steps li {
+        margin-bottom: 0.5rem;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+    .action-buttons .btn {
+        flex: 1;
+    }
+    .seller-info-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .seller-info-card h6 {
+        margin-bottom: 1rem;
+        color: #495057;
+    }
+    .vouch-badge {
+        display: inline-block;
+        background: #ffc107;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="success-container">
+    <!-- Success Header -->
+    <div class="success-header">
+        <div class="success-icon">✓</div>
+        <h1 class="text-success mb-2">Payment Successful!</h1>
+        <p class="text-muted">Your payment has been processed and confirmed.</p>
+    </div>
+
+    <!-- Success Message -->
+    <div class="success-message">
+        <h5 class="text-success mb-3">
+            <i class="bi bi-check-circle-fill me-2"></i>Payment Confirmed
+        </h5>
+        <p class="mb-0">
+            {% if payment %}
+                <strong>₱{{ payment.amount|floatformat:2 }}</strong> recorded for 
+                <strong>{{ transaction.listing.title }}</strong>.
+                {% if payment.payment_method == 'credit_card' %}
+                    The funds will be transferred to the seller within 24–48 hours.
+                {% elif payment.payment_method == 'in_person' %}
+                    You've selected cash on meetup — please coordinate the exchange via chat.
+                {% elif payment.payment_method == 'gcash' %}
+                    Your GCash payment has been registered. The seller will confirm receipt.
+                {% elif payment.payment_method == 'bank_transfer' %}
+                    Your bank transfer has been registered. The seller will verify the deposit.
+                {% else %}
+                    Your payment arrangement has been registered with the seller.
+                {% endif %}
+            {% else %}
+                Your payment method for <strong>{{ transaction.listing.title }}</strong> has been registered.
+                Please coordinate the exchange with the seller.
+            {% endif %}
+        </p>
+    </div>
+
+    <!-- Payment Confirmation Details -->
+    <div class="payment-confirmation">
+        <h6 class="text-dark mb-3">
+            <i class="bi bi-receipt me-2"></i>Payment Receipt
+        </h6>
+        
+        <div class="confirmation-item">
+            <span>Transaction ID:</span>
+            <code>#{{ transaction.id }}</code>
+        </div>
+        
+        <div class="confirmation-item">
+            <span>Payment ID:</span>
+            <code>{{ payment.stripe_charge_id }}</code>
+        </div>
+        
+        <div class="confirmation-item">
+            <span>Item:</span>
+            <strong>{{ transaction.listing.title }}</strong>
+        </div>
+        
+        <div class="confirmation-item">
+            <span>Date & Time:</span>
+            <span>{{ payment.created_at|date:"M d, Y \a\t h:i A" }}</span>
+        </div>
+        
+        <div class="confirmation-item">
+            <span>Payment Status:</span>
+            <span class="badge bg-success">{{ payment.get_status_display }}</span>
+        </div>
+        
+        <div class="confirmation-item total">
+            <span>Amount Paid:</span>
+            <span class="text-success">₱{{ payment.amount|floatformat:2 }}</span>
+        </div>
+    </div>
+
+    <!-- Seller Information -->
+    {% if transaction.seller %}
+    <div class="seller-info-card">
+        <h6><i class="bi bi-person-circle me-2"></i>Seller Information</h6>
+        <p class="mb-0">
+            <strong>{{ transaction.seller.username }}</strong>
+            {% if transaction.seller.profile %}
+            <br>
+            <small class="text-muted">{{ transaction.seller.profile.display_name }}</small>
+            <br>
+            <span class="vouch-badge">
+                <i class="bi bi-hand-thumbs-up-fill me-1"></i>{{ transaction.seller.profile.vouch_count }} vouches
+            </span>
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- Next Steps -->
+    <div class="next-steps">
+        <h6><i class="bi bi-arrow-right-circle me-2"></i>What's Next?</h6>
+        <ol class="mb-0">
+            <li><strong>Contact the Seller:</strong> Message the seller in your transaction chat to coordinate the meetup.</li>
+            <li><strong>Confirm Details:</strong> Agree on a specific time and location for the exchange.</li>
+            <li><strong>Meet & Exchange:</strong> Complete the transaction and verify the item is in good condition.</li>
+            <li><strong>Leave Review:</strong> After the exchange, leave a review to help the community.</li>
+        </ol>
+    </div>
+
+    <!-- Important Notice -->
+    <div class="alert alert-warning" role="alert">
+        <h6 class="alert-heading mb-2">
+            <i class="bi bi-exclamation-triangle me-2"></i>Important Reminder
+        </h6>
+        <p class="mb-0">
+            This payment is <strong>FINAL and IRREVOCABLE</strong>. You cannot cancel this transaction. 
+            Please coordinate with the seller immediately to complete the exchange. If you have any issues, 
+            contact support within 24 hours of payment.
+        </p>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+        <a href="{% url 'marketplace:transaction_detail' transaction.id %}" class="btn btn-primary">
+            <i class="bi bi-chat-dots me-2"></i>Go to Transaction
+        </a>
+        <a href="{% url 'marketplace:inbox' %}" class="btn btn-outline-primary">
+            <i class="bi bi-inbox me-2"></i>View Messages
+        </a>
+    </div>
+</div>
+
+<!-- Optional: Email Notification Hint -->
+<div style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid #e9ecef; text-align: center; color: #6c757d;">
+    <small>
+        <i class="bi bi-envelope me-1"></i>A payment confirmation email has been sent to your registered email address.
+    </small>
+</div>
+{% endblock %}

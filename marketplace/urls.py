@@ -30,6 +30,10 @@ urlpatterns = [
     path('transactions/<int:transaction_id>/confirm/', views.confirm_transaction, name='confirm_transaction'),
     path('transactions/<int:transaction_id>/complete/', views.complete_transaction, name='complete_transaction'),
     path('transactions/<int:transaction_id>/cancel/', views.cancel_transaction, name='cancel_transaction'),
+    # Payment URLs
+    path('transactions/<int:transaction_id>/payment/', views.payment_checkout, name='payment_checkout'),
+    path('transactions/<int:transaction_id>/payment/success/', views.payment_success, name='payment_success'),
+    path('transactions/<int:transaction_id>/payment/cancel/', views.payment_cancel, name='payment_cancel'),
     path('forum/', views.forum_index, name='forum'),
     path('forum/new/', views.forum_create_post, name='forum_create'),
     path('forum/<int:pk>/', views.forum_post_detail, name='forum_post'),

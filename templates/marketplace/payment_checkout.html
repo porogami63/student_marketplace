@@ -1,0 +1,805 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Payment Checkout - {{ transaction.listing.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .checkout-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        animation: slideIn 0.5s ease-out;
+    }
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .checkout-header {
+        background: linear-gradient(135deg, #1F1F1F 0%, #97C2EC 100%);
+        color: white;
+        padding: 1.25rem 2rem;
+        border-radius: 0;
+        margin-bottom: 1.25rem;
+        text-align: center;
+    }
+    .checkout-header h1 {
+        font-family: 'Space Grotesk', sans-serif;
+        margin-bottom: 0.25rem;
+        font-size: 1.8rem;
+        font-weight: 700;
+    }
+    .checkout-header p {
+        margin: 0;
+        font-size: 0.95rem;
+        opacity: 0.9;
+    }
+    
+    .checkout-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 1.5rem;
+        padding: 0 1rem;
+    }
+    
+    @media (max-width: 768px) {
+        .checkout-content {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .checkout-main {
+        background: white;
+        border-radius: 0;
+        padding: 1.25rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    
+    .checkout-summary {
+        background: #f8f9fa;
+        border-radius: 0;
+        padding: 1.5rem;
+        height: fit-content;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .summary-section {
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .summary-section:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+    
+    .summary-section h6 {
+        font-family: 'Space Grotesk', sans-serif;
+        color: #1f1f1f;
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+    
+    .section-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #1f1f1f;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .finality-warning {
+        background: #f8d7da;
+        border: 2px solid #dc3545;
+        border-radius: 0;
+        padding: 1rem;
+        margin-bottom: 1.25rem;
+        position: relative;
+    }
+    
+    .finality-warning h6 {
+        color: #721c24;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1rem;
+    }
+    
+    .finality-warning h6 i {
+        font-size: 1.2rem;
+    }
+    
+    .finality-info-hover {
+        transition: all 0.2s ease;
+    }
+    
+    .finality-info-hover:hover {
+        transform: scale(1.3);
+    }
+    
+    .finality-warning .warning-summary {
+        color: #721c24;
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .finality-warning .warning-details {
+        position: absolute;
+        right: 100%;
+        top: 0;
+        margin-right: 1.5rem;
+        background: white;
+        border: 2px solid #dc3545;
+        border-radius: 6px;
+        padding: 1rem;
+        width: 350px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+        z-index: 1000;
+    }
+    
+    .finality-warning.show-details .warning-details {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    
+    .finality-warning .warning-details ul {
+        margin-bottom: 0;
+        padding-left: 1.5rem;
+        color: #721c24;
+    }
+    
+    .finality-warning .warning-details li {
+        margin-bottom: 0.5rem;
+        line-height: 1.5;
+        font-size: 0.85rem;
+    }
+    
+    .payment-methods {
+        margin-bottom: 1.5rem;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+    
+    .method-option {
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 0.9rem;
+        margin-bottom: 0;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .method-option:hover {
+        border-color: #667eea;
+        background: #f8f9ff;
+    }
+    
+    .method-option input[type="radio"] {
+        position: absolute;
+        opacity: 0;
+        cursor: pointer;
+    }
+    
+    .method-option input[type="radio"]:checked + .method-content {
+        color: #667eea;
+    }
+    
+    .method-option input[type="radio"]:checked ~ .method-checkmark {
+        border-color: #667eea;
+        background: #667eea;
+    }
+    
+    .method-checkmark {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.25rem;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #ddd;
+        border-radius: 50%;
+        transition: all 0.3s ease;
+    }
+    
+    .method-checkmark::after {
+        content: '';
+        position: absolute;
+        display: none;
+        left: 5px;
+        top: 2px;
+        width: 6px;
+        height: 10px;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+    }
+    
+    .method-option input[type="radio"]:checked ~ .method-checkmark::after {
+        display: block;
+    }
+    
+    .method-content {
+        padding-right: 40px;
+    }
+    
+    .method-title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        margin-bottom: 0.3rem;
+        color: #333;
+    }
+    
+    .method-description {
+        font-size: 0.8rem;
+        color: #666;
+    }
+    
+    .stripe-payment-form {
+        background: #f8f9fa;
+        border: 2px dashed #667eea;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        display: none;
+    }
+    
+    .stripe-payment-form.active {
+        display: block;
+    }
+    
+    .stripe-payment-form h6 {
+        color: #667eea;
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+    }
+    
+    #card-element {
+        background: white;
+        padding: 12px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        margin-bottom: 1rem;
+        font-size: 1rem;
+    }
+    
+    .card-errors {
+        color: #dc3545;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .confirmation-checklist {
+        background: #e7f3ff;
+        border-left: 4px solid #17a2b8;
+        border-radius: 0;
+        padding: 1rem;
+        margin-bottom: 1.25rem;
+    }
+    
+    .confirmation-checklist h6 {
+        color: #0c5460;
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .confirmation-checklist h6 i {
+        font-size: 1.3rem;
+    }
+    
+    .checklist-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+        color: #0c5460;
+        font-size: 0.85rem;
+    }
+    
+    .checklist-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .checklist-item input[type="checkbox"] {
+        margin-top: 3px;
+        margin-right: 0.25rem;
+        cursor: pointer;
+        width: 18px;
+        height: 18px;
+        accent-color: #17a2b8;
+    }
+    
+    .checklist-item i {
+        color: #17a2b8;
+        margin-top: 2px;
+        min-width: 16px;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.25rem;
+    }
+    
+    .btn-pay {
+        flex: 1;
+        padding: 1rem;
+        font-size: 1.05rem;
+        font-weight: 600;
+    }
+    
+    .btn-cancel {
+        flex: 1;
+    }
+    
+    .error-message {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+        padding: 1rem;
+        border-radius: 6px;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .error-message i {
+        font-size: 1.3rem;
+    }
+    
+    .success-message {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+        padding: 1rem;
+        border-radius: 6px;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .success-message i {
+        font-size: 1.3rem;
+    }
+    
+    /* Item and Seller Styling */
+    .item-image {
+        width: 100%;
+        height: 160px;
+        object-fit: cover;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    
+    .item-title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #333;
+        word-break: break-word;
+    }
+    
+    .item-seller {
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+    }
+    
+    .seller-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="checkout-container">
+    <div class="checkout-header">
+        <h1>Payment Checkout</h1>
+        <p>Complete your transaction securely</p>
+    </div>
+    
+    {% if error %}
+    <div class="error-message">
+        <i class="bi bi-exclamation-circle"></i>
+        <span>{{ error }}</span>
+    </div>
+    {% endif %}
+    
+    <div class="checkout-content">
+        <!-- Main checkout section -->
+        <div class="checkout-main">
+            <!-- Finality Warning -->
+            <div class="finality-warning" id="finality-warning">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <h6 style="margin: 0; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="bi bi-info-circle finality-info-hover" style="font-size: 1.2rem; color: #721c24; cursor: help; flex-shrink: 0;"></i>
+                        Payment Finality & Important Information
+                    </h6>
+                    <i class="bi bi-shield-check"></i>
+                </div>
+                <p class="warning-summary">All verified transactions are final and cannot be reversed.</p>
+                <div class="warning-details">
+                    <ul>
+                        <li><strong>Payment is final:</strong> Once you confirm and submit payment, it cannot be reversed. Please verify all details before proceeding.</li>
+                        <li><strong>Verify seller authenticity:</strong> Confirm you're buying from the correct seller and that this is the correct item before paying.</li>
+                        <li><strong>No refunds for buyer's remorse:</strong> If you change your mind after payment, refunds may not be possible.</li>
+                        <li><strong>Report fraud immediately:</strong> If something seems suspicious, contact support before making payment.</li>
+                        <li><strong>Documentation required:</strong> Take proof of payment and communication with the seller for dispute resolution.</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Payment Methods -->
+            <div class="section-title">
+                <i class="bi bi-credit-card"></i>
+                Select Payment Method
+            </div>
+            
+            <form method="post" id="payment-form">
+                {% csrf_token %}
+                <div class="payment-methods">
+                    <!-- In-Person -->
+                    <label class="method-option">
+                        <input type="radio" name="exchange_method" value="in_person" 
+                               {% if exchange_method == 'in_person' %}checked{% endif %}>
+                        <div class="method-content">
+                            <div class="method-title">Cash Payment (In Person)</div>
+                            <div class="method-description">Exchange cash directly when you meet the seller. Coordinate details via chat.</div>
+                        </div>
+                        <div class="method-checkmark"></div>
+                    </label>
+                    
+                    <!-- GCash -->
+                    <label class="method-option">
+                        <input type="radio" name="exchange_method" value="gcash" 
+                               {% if exchange_method == 'gcash' %}checked{% endif %}>
+                        <div class="method-content">
+                            <div class="method-title">GCash / E-Wallet</div>
+                            <div class="method-description">Pay via GCash, PayMaya, or similar e-wallet platforms. Seller will confirm receipt.</div>
+                        </div>
+                        <div class="method-checkmark"></div>
+                    </label>
+                    
+                    <!-- Bank Transfer -->
+                    <label class="method-option">
+                        <input type="radio" name="exchange_method" value="bank_transfer" 
+                               {% if exchange_method == 'bank_transfer' %}checked{% endif %}>
+                        <div class="method-content">
+                            <div class="method-title">Bank Transfer</div>
+                            <div class="method-description">Direct bank-to-bank transfer. Seller provides account details for payment.</div>
+                        </div>
+                        <div class="method-checkmark"></div>
+                    </label>
+                    
+                    <!-- Credit Card (Stripe) -->
+                    <label class="method-option">
+                        <input type="radio" name="exchange_method" value="credit_card" 
+                               {% if exchange_method == 'credit_card' %}checked{% endif %}>
+                        <div class="method-content">
+                            <div class="method-title">Credit / Debit Card</div>
+                            <div class="method-description">Secure payment processing via Stripe. Card transactions processed immediately. 2% processing fee applies.</div>
+                        </div>
+                        <div class="method-checkmark"></div>
+                    </label>
+                    
+                    <!-- Other -->
+                    <label class="method-option">
+                        <input type="radio" name="exchange_method" value="other" 
+                               {% if exchange_method == 'other' %}checked{% endif %}>
+                        <div class="method-content">
+                            <div class="method-title">Other Arrangement</div>
+                            <div class="method-description">Discuss a custom payment method with the seller via chat.</div>
+                        </div>
+                        <div class="method-checkmark"></div>
+                    </label>
+                </div>
+                
+                <!-- Stripe Payment Form (shown/hidden via JS) -->
+                <div class="stripe-payment-form {% if exchange_method == 'credit_card' %}active{% endif %}">
+                    <h6>Secure Card Information</h6>
+                    
+                    <!-- Credit Card Notice -->
+                    <div style="background: #e7f3ff; border-left: 4px solid #17a2b8; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
+                        <div style="color: #0c5460; font-size: 0.95rem; line-height: 1.6;">
+                            <strong>Credit Card Processing Notice:</strong>
+                            <ul style="margin: 0.75rem 0 0 1.5rem; padding: 0;">
+                                <li>A 2% processing fee will be added to your total</li>
+                                <li>Your card information is encrypted and secure</li>
+                                <li>Transaction is processed immediately upon submission</li>
+                                <li>You will receive a receipt via email after successful payment</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div id="card-element"></div>
+                    <div id="card-errors" class="card-errors"></div>
+                    <!-- Populated by JS after stripe.confirmCardPayment succeeds -->
+                    <input type="hidden" name="payment_intent_id" id="payment-intent-id" value="">
+                </div>
+                
+                <!-- Confirmation Checklist -->
+                <div class="confirmation-checklist">
+                    <h6>
+                        <i class="bi bi-check-circle"></i>
+                        Please Confirm Before Payment
+                    </h6>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="confirm-1" name="confirm_item" value="1">
+                        <label for="confirm-1" style="cursor: pointer; margin-bottom: 0;">I have verified the item details and price (₱{{ transaction.price }})</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="confirm-2" name="confirm_item" value="2">
+                        <label for="confirm-2" style="cursor: pointer; margin-bottom: 0;">I understand that payment is final and cannot be reversed</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="confirm-3" name="confirm_item" value="3">
+                        <label for="confirm-3" style="cursor: pointer; margin-bottom: 0;">I have coordinated meetup location and time with the seller</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="confirm-4" name="confirm_item" value="4">
+                        <label for="confirm-4" style="cursor: pointer; margin-bottom: 0;">I will inspect the item in a safe, public location before completing payment</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="confirm-5" name="confirm_item" value="5">
+                        <label for="confirm-5" style="cursor: pointer; margin-bottom: 0;">I have saved communication records with the seller for reference</label>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <a href="{% url 'marketplace:transaction_detail' transaction_id=transaction.id %}" class="btn btn-secondary btn-cancel">
+                        Back to Transaction
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-pay">
+                        Confirm & Pay
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Summary sidebar -->
+        <div class="checkout-summary">
+            <div class="summary-section">
+                <h6>Item Information</h6>
+                {% if transaction.listing.image %}
+                <img src="{{ transaction.listing.image.url }}" alt="{{ transaction.listing.title }}" class="item-image">
+                {% else %}
+                <div style="width: 100%; height: 180px; background: #e0e0e0; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #999; margin-bottom: 1rem;">
+                    <i class="bi bi-image" style="font-size: 3rem;"></i>
+                </div>
+                {% endif %}
+                <div class="item-title">{{ transaction.listing.title }}</div>
+                <div style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">
+                    {% if transaction.listing.school %}
+                        <div style="margin: 0.25rem 0;"><strong>School:</strong> {{ transaction.listing.school.name }}</div>
+                    {% endif %}
+                    <div style="margin: 0.25rem 0;"><strong>Category:</strong> {{ transaction.listing.category.name|default:"Uncategorized" }}</div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h6>Seller Information</h6>
+                <div class="item-seller" style="margin-bottom: 1rem;">
+                    {% if transaction.seller.profile.avatar %}
+                    <img src="{{ transaction.seller.profile.avatar.url }}" alt="{{ transaction.seller.username }}" class="seller-avatar">
+                    {% elif transaction.seller.profile.google_avatar_url %}
+                    <img src="{{ transaction.seller.profile.google_avatar_url }}" alt="{{ transaction.seller.username }}" class="seller-avatar">
+                    {% else %}
+                    <div class="seller-avatar" style="background: #97C2EC; display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; font-size: 1rem; flex-shrink: 0;">{{ transaction.seller.username|first|upper }}</div>
+                    {% endif %}
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 600; color: #333; word-break: break-word;">{{ transaction.seller.profile.display_name|default:transaction.seller.username }}</div>
+                        <div style="font-size: 0.85rem; color: #666; word-break: break-word;">@{{ transaction.seller.username }}</div>
+                    </div>
+                </div>
+                <div style="font-size: 0.85rem; color: #666; line-height: 1.5;">
+                    {% if transaction.seller.profile.phone %}
+                        <div style="margin-bottom: 0.5rem; word-break: break-word;"><strong>Contact:</strong> {{ transaction.seller.profile.phone }}</div>
+                    {% endif %}
+                    {% if transaction.seller.profile.contact_info %}
+                        <div style="margin-bottom: 0.5rem; word-break: break-word; overflow-wrap: break-word;"><strong>Social:</strong> <span style="display: block; font-size: 0.8rem;">{{ transaction.seller.profile.contact_info }}</span></div>
+                    {% endif %}
+                    {% if transaction.seller.profile.school %}
+                        <div style="word-break: break-word;"><strong>School:</strong> {{ transaction.seller.profile.school.short_name|default:transaction.seller.profile.school.name }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h6>Payment Details</h6>
+                <div style="margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.95rem;">
+                        <span>Item Price:</span>
+                        <span>₱{{ transaction.price }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.95rem;" id="fee-display">
+                        <span>Processing Fee (2%):</span>
+                        <span>₱0.00</span>
+                    </div>
+                    <div style="border-top: 2px solid #e0e0e0; padding-top: 0.75rem; display: flex; justify-content: space-between; font-weight: 700; font-size: 1.15rem; color: #667eea;">
+                        <span>Total:</span>
+                        <span id="total-display">₱{{ transaction.price }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="summary-section">
+                <h6>Transaction ID</h6>
+                <div style="background: white; padding: 0.75rem; border-radius: 6px; font-family: monospace; font-size: 0.85rem; word-break: break-all; border: 1px solid #e0e0e0;">
+                    #{{ transaction.id }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const itemPrice = parseFloat('{{ transaction.price }}');
+    const methodRadios = document.querySelectorAll('input[name="exchange_method"]');
+    const confirmCheckboxes = document.querySelectorAll('input[name="confirm_item"]');
+    const submitBtn = document.querySelector('button[type="submit"]');
+    const stripeForm = document.querySelector('.stripe-payment-form');
+    const feeDisplay = document.querySelector('#fee-display span:last-child');
+    const totalDisplay = document.querySelector('#total-display');
+    
+    // Handle finality warning info icon hover
+    const finality = document.getElementById('finality-warning');
+    const infoIcon = finality ? finality.querySelector('.finality-info-hover') : null;
+    
+    if (finality && infoIcon) {
+        infoIcon.addEventListener('mouseenter', function() {
+            finality.classList.add('show-details');
+        });
+        
+        finality.addEventListener('mouseleave', function() {
+            finality.classList.remove('show-details');
+        });
+    }
+    
+    const stripe = Stripe('{{ stripe_public_key }}');
+    const elements = stripe.elements();
+    const cardElement = elements.create('card');
+    // Store client secret separately — never sent to server
+    const clientSecret = '{{ client_secret|escapejs }}';
+    let cardMounted = false;
+    
+    // Check if all confirmations are checked
+    function updateSubmitButton() {
+        const allChecked = Array.from(confirmCheckboxes).every(cb => cb.checked);
+        submitBtn.disabled = !allChecked;
+        submitBtn.style.opacity = allChecked ? '1' : '0.5';
+        submitBtn.style.cursor = allChecked ? 'pointer' : 'not-allowed';
+    }
+    
+    // Update fees based on payment method
+    function updatePaymentSummary() {
+        const selectedMethod = document.querySelector('input[name="exchange_method"]:checked').value;
+        let processingFee = 0;
+        
+        // Only apply 2% fee for credit card payments
+        if (selectedMethod === 'credit_card') {
+            processingFee = (itemPrice * 0.02).toFixed(2);
+        }
+        
+        const total = (itemPrice + parseFloat(processingFee)).toFixed(2);
+        
+        // Update display
+        feeDisplay.textContent = '\u20b1' + processingFee;
+        totalDisplay.textContent = '\u20b1' + total;
+    }
+    
+    // Handle payment method UI changes
+    function updatePaymentForm() {
+        const selectedMethod = document.querySelector('input[name="exchange_method"]:checked').value;
+        if (selectedMethod === 'credit_card') {
+            stripeForm.classList.add('active');
+            if (!cardMounted) {
+                cardElement.mount('#card-element');
+                cardMounted = true;
+            }
+        } else {
+            stripeForm.classList.remove('active');
+        }
+        updatePaymentSummary();
+    }
+    
+    // Attach change listeners to all method radios
+    methodRadios.forEach(radio => {
+        radio.addEventListener('change', updatePaymentForm);
+    });
+    
+    // Attach change listeners to all confirmation checkboxes
+    confirmCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSubmitButton);
+    });
+    
+    // Initialize on page load
+    const initialMethod = document.querySelector('input[name="exchange_method"]:checked');
+    if (initialMethod && initialMethod.value === 'credit_card') {
+        cardElement.mount('#card-element');
+        cardMounted = true;
+    }
+    updatePaymentSummary();
+    updateSubmitButton();
+    
+    // Handle form submission
+    const paymentForm = document.getElementById('payment-form');
+    paymentForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Verify all checkboxes are checked
+        const allChecked = Array.from(confirmCheckboxes).every(cb => cb.checked);
+        if (!allChecked) {
+            alert('Please check all confirmation boxes before proceeding.');
+            return;
+        }
+        
+        const selectedMethod = document.querySelector('input[name="exchange_method"]:checked').value;
+        
+        if (selectedMethod === 'credit_card') {
+            if (!clientSecret) {
+                document.getElementById('card-errors').textContent = 'Payment session expired. Please refresh the page and try again.';
+                return;
+            }
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+
+            // confirmCardPayment — the correct Stripe flow for PaymentIntents
+            const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+                payment_method: { card: cardElement }
+            });
+            
+            if (error) {
+                document.getElementById('card-errors').textContent = error.message;
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Confirm & Pay';
+            } else if (paymentIntent.status === 'succeeded') {
+                // Send verified PaymentIntent ID to backend
+                document.getElementById('payment-intent-id').value = paymentIntent.id;
+                paymentForm.submit();
+            } else {
+                document.getElementById('card-errors').textContent = 'Payment was not completed (status: ' + paymentIntent.status + '). Please try again.';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Confirm & Pay';
+            }
+        } else {
+            // For non-card methods, just submit
+            paymentForm.submit();
+        }
+    });
+});
+</script>
+{% endblock %}

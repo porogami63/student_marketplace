@@ -249,6 +249,17 @@
             <small class="text-muted">Created {{ transaction.created_at|date:"M d, Y h:i A" }}</small>
         </div>
         <div class="d-flex flex-column flex-md-row gap-2">
+            {% if is_buyer and transaction.status == 'confirmed' %}
+                {% if payment_completed %}
+                <span class="btn btn-sm btn-success disabled" title="Payment confirmed">
+                    <i class="bi bi-check-circle-fill me-1"></i> Paid
+                </span>
+                {% else %}
+                <a href="{% url 'marketplace:payment_checkout' transaction.pk %}" class="btn btn-sm btn-primary" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
+                    <i class="bi bi-credit-card me-1"></i> Pay Now
+                </a>
+                {% endif %}
+            {% endif %}
             {% if transaction.status == 'pending' or transaction.status == 'confirmed' %}
                 {% if is_buyer or is_seller %}
                 <a href="{% url 'marketplace:cancel_transaction' transaction.pk %}" class="btn btn-sm btn-outline-danger">
@@ -307,26 +318,48 @@
                 </div>
 
                 <div class="txn-chat-body">
-                    {% if transaction.notes and is_seller and transaction.status == 'pending' %}
-                        <div class="txn-message-row">
-                            <div class="txn-bubble other">
-                                <div class="txn-bubble-meta mb-1 text-warning">
-                                    Buyer note when requesting:
-                                </div>
+                    {% if transaction.notes %}
+                        {% if is_buyer %}
+                        <div class="txn-message-row self">
+                            <div class="txn-bubble self">
+                                <div class="txn-bubble-meta mb-1" style="opacity:0.75;">Your purchase note</div>
                                 <div>{{ transaction.notes }}</div>
+                                <div class="txn-bubble-meta text-end">{{ transaction.created_at|timesince }} ago</div>
                             </div>
                         </div>
+                        {% else %}
+                        <div class="txn-message-row">
+                            <div class="txn-bubble other">
+                                <div class="txn-bubble-meta mb-1 text-warning">Buyer's purchase note</div>
+                                <div>{{ transaction.notes }}</div>
+                                <div class="txn-bubble-meta">{{ transaction.created_at|timesince }} ago</div>
+                            </div>
+                        </div>
+                        {% endif %}
                     {% endif %}
 
-                    {% if transaction.seller_notes and transaction.status == 'confirmed' or transaction.seller_notes and transaction.status == 'completed' %}
-                        <div class="txn-message-row">
-                            <div class="txn-bubble other">
-                                <div class="txn-bubble-meta mb-1 text-success">
-                                    Seller confirmation:
-                                </div>
+                    {% if transaction.seller_notes %}
+                        {% if is_seller %}
+                        <div class="txn-message-row self">
+                            <div class="txn-bubble self">
+                                <div class="txn-bubble-meta mb-1" style="opacity:0.75;">Your confirmation note</div>
                                 <div>{{ transaction.seller_notes }}</div>
+                                {% if transaction.confirmed_at %}
+                                <div class="txn-bubble-meta text-end">{{ transaction.confirmed_at|timesince }} ago</div>
+                                {% endif %}
                             </div>
                         </div>
+                        {% else %}
+                        <div class="txn-message-row">
+                            <div class="txn-bubble other">
+                                <div class="txn-bubble-meta mb-1 text-success">Seller's confirmation note</div>
+                                <div>{{ transaction.seller_notes }}</div>
+                                {% if transaction.confirmed_at %}
+                                <div class="txn-bubble-meta">{{ transaction.confirmed_at|timesince }} ago</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
                     {% endif %}
 
                     {% if txn_messages %}
@@ -350,7 +383,7 @@
                             {% endif %}
                             {% endwith %}
                         {% endfor %}
-                    {% else %}
+                    {% elif not transaction.notes and not transaction.seller_notes %}
                         <div class="text-center text-muted small mt-4">
                             <i class="bi bi-chat-dots mb-2" style="font-size: 1.4rem;"></i>
                             <div>No messages yet. Use this space to coordinate meetup time, place, or payment details.</div>
@@ -426,9 +459,12 @@
                     
                     {% if is_buyer %}
                         {% if not transaction.buyer_completed %}
-                        <a href="{% url 'marketplace:complete_transaction' transaction.pk %}" class="btn btn-success btn-sm">
-                            <i class="bi bi-check2-circle me-1"></i> Mark as complete
-                        </a>
+                        <form method="post" action="{% url 'marketplace:complete_transaction' transaction.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="bi bi-check2-circle me-1"></i> Mark as complete
+                            </button>
+                        </form>
                         {% else %}
                         <button class="btn btn-outline-success btn-sm" disabled>
                             <i class="bi bi-hourglass-split me-1"></i> Waiting for other party
@@ -436,9 +472,12 @@
                         {% endif %}
                     {% elif is_seller %}
                         {% if not transaction.seller_completed %}
-                        <a href="{% url 'marketplace:complete_transaction' transaction.pk %}" class="btn btn-success btn-sm">
-                            <i class="bi bi-check2-circle me-1"></i> Mark as complete
-                        </a>
+                        <form method="post" action="{% url 'marketplace:complete_transaction' transaction.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="bi bi-check2-circle me-1"></i> Mark as complete
+                            </button>
+                        </form>
                         {% else %}
                         <button class="btn btn-outline-success btn-sm" disabled>
                             <i class="bi bi-hourglass-split me-1"></i> Waiting for other party
@@ -544,7 +583,7 @@
                     <div class="txn-section-label">Timeline</div>
                     <span class="txn-tag-pill">
                         {% if transaction.status == 'pending' %}Step 1 of 4
-                        {% elif transaction.status == 'confirmed' %}Step 2 of 4
+                        {% elif transaction.status == 'confirmed' %}Step 2–3 of 4
                         {% elif transaction.status == 'completed' %}Step 4 of 4
                         {% else %}Ended{% endif %}
                     </span>
@@ -560,7 +599,7 @@
                     <div class="step {% if transaction.status == 'confirmed' %}step-active{% elif transaction.status == 'completed' %}step-done{% elif transaction.status == 'cancelled' %}step-future{% else %}step-future{% endif %}">
                         <div class="step-dot"></div>
                         <div>
-                            <div>Seller confirms & shares details</div>
+                            <div>Seller confirms &amp; shares details</div>
                             {% if transaction.confirmed_at %}
                             <small>Confirmed {{ transaction.confirmed_at|date:"M d, Y h:i A" }}</small>
                             {% else %}
@@ -568,14 +607,15 @@
                             {% endif %}
                         </div>
                     </div>
-                    <div class="step {% if transaction.status == 'completed' %}step-done{% elif transaction.status == 'confirmed' %}step-active{% else %}step-future{% endif %}">
+                    <div class="step {% if payment_completed %}step-done{% elif transaction.status == 'confirmed' %}step-active{% else %}step-future{% endif %}">
                         <div class="step-dot"></div>
                         <div>
-                            <div>Meet & exchange item/payment</div>
-                            {% if transaction.completed_at %}
-                            <small>Marked complete {{ transaction.completed_at|date:"M d, Y h:i A" }}</small>
+                            {% if payment_completed %}
+                                <div>Payment confirmed</div>
+                                <small style="color: #15803d;"><i class="bi bi-check-circle-fill"></i> {{ payment.get_payment_method_display|default:payment.payment_method }} &mdash; ₱{{ payment.amount|floatformat:2 }}</small>
                             {% else %}
-                            <small>Coordinate via chat</small>
+                                <div>Payment / meet &amp; exchange</div>
+                                <small>{% if transaction.status == 'confirmed' %}Coordinate via chat{% else %}Pending confirmation{% endif %}</small>
                             {% endif %}
                         </div>
                     </div>

@@ -15,6 +15,7 @@ from .models import (
     Review,
     Transaction,
     ModerationLog,
+    Payment,
 )
 
 
@@ -125,3 +126,17 @@ class ModerationLogAdmin(admin.ModelAdmin):
     search_fields = ['actor__username']
     date_hierarchy = 'created_at'
     readonly_fields = ['actor', 'action', 'target_model', 'target_id', 'created_at']
+
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ['stripe_charge_id', 'transaction', 'amount', 'status', 'payment_method', 'created_at']
+    list_filter = ['status', 'payment_method', 'created_at']
+    search_fields = ['stripe_charge_id', 'transaction__buyer__username', 'transaction__seller__username']
+    date_hierarchy = 'created_at'
+    readonly_fields = ['created_at', 'updated_at']
+    fieldsets = (
+        ('Payment Identification', {'fields': ('stripe_charge_id', 'transaction')}),
+        ('Payment Details', {'fields': ('amount', 'status', 'payment_method')}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
+    )

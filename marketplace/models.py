@@ -373,6 +373,7 @@ class Transaction(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     buyer_completed = models.BooleanField(default=False, help_text='Buyer confirmed exchange happened')
     seller_completed = models.BooleanField(default=False, help_text='Seller confirmed exchange happened')
+    buyer_confirmed_meeting = models.BooleanField(default=False, help_text='Buyer confirmed attendance at meeting')
     admin_notes = models.TextField(blank=True, help_text='Internal admin notes for dispute/fraud follow-up')
     flagged_for_review = models.BooleanField(default=False, help_text='Flagged by admin for follow-up')
     admin_cancelled_at = models.DateTimeField(null=True, blank=True)
@@ -492,3 +493,27 @@ class ProfilePost(models.Model):
 
     def __str__(self):
         return f"{self.author.username}'s post ({self.created_at.strftime('%Y-%m-%d')})"
+
+
+class Payment(models.Model):
+    """Payment record for transactions."""
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+    ]
+
+    transaction = models.OneToOneField(Transaction, on_delete=models.CASCADE, related_name='payment')
+    stripe_charge_id = models.CharField(max_length=255, unique=True, help_text='Stripe charge or payment intent ID')
+    amount = models.DecimalField(max_digits=10, decimal_places=2, help_text='Amount paid in PHP')
+    status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    payment_method = models.CharField(max_length=50, default='credit_card', help_text='credit_card, gcash, bank_transfer, in_person')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Payment {self.stripe_charge_id} - {self.status}"

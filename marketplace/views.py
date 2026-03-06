@@ -1,6 +1,9 @@
+import logging
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.contrib.auth import login
+
+logger = logging.getLogger(__name__)
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.contrib import messages
@@ -27,6 +30,7 @@ from .models import (
     ModerationLog,
     ProfilePost,
     SocialMedia,
+    Payment,
 )
 from .forms import (
     CustomUserCreationForm,
@@ -41,6 +45,10 @@ from .forms import (
     ProfilePostForm,
 )
 from .utils import get_similar_listings_price_stats
+import stripe
+from django.conf import settings
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 HERO_IMAGE_URLS = [
     'https://i.pinimg.com/originals/f0/a2/ea/f0a2eae1ff2863183dad317ab7b019df.jpg',
@@ -564,9 +572,19 @@ def leave_review(request, username):
         comment = request.POST.get('comment', '')
         
         if existing_review:
+            old_is_vouch = existing_review.is_vouch
             existing_review.is_vouch = is_vouch
             existing_review.comment = comment
             existing_review.save()
+            # Adjust vouch count if vouch status changed
+            if is_vouch and not old_is_vouch:
+                seller.profile.vouch_count += 1
+                seller.profile.update_verification_tier()
+                seller.profile.save()
+            elif not is_vouch and old_is_vouch:
+                seller.profile.vouch_count = max(0, seller.profile.vouch_count - 1)
+                seller.profile.update_verification_tier()
+                seller.profile.save()
             messages.success(request, 'Your vouch has been updated.')
         else:
             review = Review.objects.create(
@@ -1015,7 +1033,9 @@ def transaction_detail(request, transaction_id):
     
     buyer_profile = getattr(transaction.buyer, 'profile', None) or Profile.objects.filter(user=transaction.buyer).first()
     seller_profile = getattr(transaction.seller, 'profile', None) or Profile.objects.filter(user=transaction.seller).first()
-    
+    payment = getattr(transaction, 'payment', None)
+    payment_completed = payment is not None and payment.status == 'completed'
+
     return render(request, 'marketplace/transaction_detail.html', {
         'transaction': transaction,
         'buyer_profile': buyer_profile,
@@ -1025,6 +1045,8 @@ def transaction_detail(request, transaction_id):
         'confirm_form': confirm_form,
         'txn_messages': txn_messages,
         'message_form': message_form,
+        'payment': payment,
+        'payment_completed': payment_completed,
     })
 
 
@@ -1050,6 +1072,11 @@ def confirm_transaction(request, transaction_id):
             transaction.confirmed_at = timezone.now()
             transaction.save()
             
+            # Mark listing as sold
+            if transaction.listing:
+                transaction.listing.is_sold = True
+                transaction.listing.save()
+
             # Notify buyer
             from django.urls import reverse
             Notification.objects.create(
@@ -1082,7 +1109,11 @@ def complete_transaction(request, transaction_id):
     if transaction.status != 'confirmed':
         messages.error(request, "Transaction must be confirmed by the seller first.")
         return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
-    
+
+    # Require POST to prevent CSRF via GET links
+    if request.method != 'POST':
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
     from django.urls import reverse
     if request.user == transaction.buyer:
         transaction.buyer_completed = True
@@ -1157,6 +1188,11 @@ def cancel_transaction(request, transaction_id):
     
     if request.method == 'POST':
         from django.utils import timezone
+        # Restore listing to available if it was marked sold during confirmation
+        if transaction.status == 'confirmed' and transaction.listing:
+            transaction.listing.is_sold = False
+            transaction.listing.save()
+
         transaction.status = 'cancelled'
         transaction.save()
         
@@ -1749,7 +1785,6 @@ def mod_log(request):
 
 
 @login_required
-@login_required
 def add_social_media(request):
     """Add a social media account to user's profile (AJAX)."""
     if request.method != 'POST':
@@ -1835,4 +1870,192 @@ def get_social_media(request):
         return JsonResponse({'success': True, 'accounts': accounts})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# ==================== PAYMENT VIEWS ====================
+
+@login_required
+def payment_checkout(request, transaction_id):
+    """Handle payment checkout for a transaction."""
+    try:
+        transaction = get_object_or_404(Transaction, id=transaction_id, buyer=request.user)
+    except:
+        messages.error(request, "Transaction not found or you don't have permission to access it.")
+        return redirect('marketplace:home')
+
+    # Guard: only confirmed transactions can be paid
+    if transaction.status == 'cancelled':
+        messages.error(request, "This transaction has been cancelled and cannot be paid.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+    if transaction.status == 'completed':
+        messages.info(request, "This transaction is already completed.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+    if transaction.status == 'pending':
+        messages.info(request, "Payment is not available yet — waiting for the seller to confirm.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+
+    # Check if payment is already completed
+    if hasattr(transaction, 'payment') and transaction.payment.status == 'completed':
+        messages.info(request, "This transaction has already been paid.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+
+    if request.method == 'GET':
+        # Prepare context for GET request
+        exchange_method = request.GET.get('method', transaction.exchange_method)
+        
+        context = {
+            'transaction': transaction,
+            'exchange_method': exchange_method,
+            'stripe_public_key': settings.STRIPE_PUBLIC_KEY,
+        }
+
+        # For credit card payments, create PaymentIntent
+        if exchange_method == 'credit_card':
+            try:
+                amount_cents = int(float(transaction.price) * 100)
+                intent = stripe.PaymentIntent.create(
+                    amount=amount_cents,
+                    currency='php',
+                    description=f'Marketplace Purchase: {transaction.listing.title if transaction.listing else "Item"}',
+                    metadata={
+                        'transaction_id': str(transaction.id),
+                        'buyer': transaction.buyer.username,
+                        'seller': transaction.seller.username,
+                    },
+                    automatic_payment_methods={'enabled': True},
+                )
+                context['client_secret'] = intent.client_secret
+            except stripe.error.CardError as e:
+                context['error'] = f"Card error: {e.user_message}"
+            except stripe.error.RateLimitError:
+                context['error'] = "Too many requests. Please try again in a moment."
+            except stripe.error.InvalidRequestError:
+                context['error'] = "Invalid payment details. Please check your information."
+            except stripe.error.AuthenticationError:
+                context['error'] = "Authentication failed. Please try again."
+            except stripe.error.APIConnectionError:
+                context['error'] = "Network error. Please check your connection and try again."
+            except stripe.error.StripeError:
+                context['error'] = "An error occurred with Stripe. Please try again."
+
+        return render(request, 'marketplace/payment_checkout.html', context)
+
+    elif request.method == 'POST':
+        exchange_method = request.POST.get('exchange_method', transaction.exchange_method)
+
+        if exchange_method == 'credit_card':
+            # The frontend sends the PaymentIntent ID after confirmCardPayment succeeds
+            payment_intent_id = request.POST.get('payment_intent_id', '').strip()
+            if not payment_intent_id or not payment_intent_id.startswith('pi_'):
+                messages.error(request, "Invalid payment details. Please try again.")
+                return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+
+            try:
+                intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+
+                # Verify this PaymentIntent belongs to the correct transaction (prevent spoofing)
+                if intent.metadata.get('transaction_id') != str(transaction.id):
+                    messages.error(request, "Payment reference mismatch. Please contact support.")
+                    return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+
+                if intent.status == 'succeeded':
+                    payment, created = Payment.objects.update_or_create(
+                        transaction=transaction,
+                        defaults={
+                            'stripe_charge_id': intent.id,
+                            'amount': transaction.price,
+                            'status': 'completed',
+                            'payment_method': 'credit_card',
+                        }
+                    )
+
+                    transaction.status = 'confirmed'
+                    transaction.confirmed_at = timezone.now()
+                    transaction.save()
+
+                    messages.success(request, "Payment successful! Please meet the seller to complete the exchange.")
+                    return redirect('marketplace:payment_success', transaction_id=transaction_id)
+                else:
+                    messages.error(request, f"Payment not completed. Status: {intent.status}")
+                    return redirect('marketplace:payment_cancel', transaction_id=transaction_id)
+
+            except stripe.error.CardError as e:
+                messages.error(request, f"Card error: {e.user_message}")
+                return redirect('marketplace:payment_cancel', transaction_id=transaction_id)
+            except stripe.error.StripeError as e:
+                messages.error(request, f"Payment error: {str(e)}")
+                return redirect('marketplace:payment_cancel', transaction_id=transaction_id)
+
+        else:
+            # For non-Stripe payment methods (gcash, bank_transfer, in_person, other)
+            payment, created = Payment.objects.update_or_create(
+                transaction=transaction,
+                defaults={
+                    'stripe_charge_id': f'{exchange_method}_{transaction.id}',
+                    'amount': transaction.price,
+                    'status': 'completed' if exchange_method in ['in_person', 'gcash'] else 'pending',
+                    'payment_method': exchange_method,
+                }
+            )
+
+            # Update transaction
+            if exchange_method in ['in_person', 'gcash']:
+                transaction.status = 'confirmed'
+                transaction.confirmed_at = timezone.now()
+            transaction.exchange_method = exchange_method
+            transaction.save()
+
+            # Send notification to seller
+            seller_notification = Notification.objects.create(
+                user=transaction.seller,
+                message=f'{transaction.buyer.username} sent payment via {exchange_method} for {transaction.listing.title if transaction.listing else "your item"}',
+                url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
+            )
+
+            if exchange_method == 'in_person':
+                messages.success(request, "You selected in-person payment. Please meet the seller to complete the exchange.")
+                return redirect('marketplace:payment_success', transaction_id=transaction_id)
+            else:
+                messages.success(request, f"Payment method '{exchange_method}' registered. The seller will verify receipt.")
+                return redirect('marketplace:payment_success', transaction_id=transaction_id)
+
+    return render(request, 'marketplace/payment_checkout.html', {'transaction': transaction})
+
+
+@login_required
+def payment_success(request, transaction_id):
+    """Payment success page."""
+    try:
+        transaction = get_object_or_404(Transaction, id=transaction_id, buyer=request.user)
+    except:
+        messages.error(request, "Transaction not found.")
+        return redirect('marketplace:home')
+
+    payment = getattr(transaction, 'payment', None)
+
+    context = {
+        'transaction': transaction,
+        'payment': payment,
+    }
+
+    return render(request, 'marketplace/payment_success.html', context)
+
+
+@login_required
+def payment_cancel(request, transaction_id):
+    """Payment cancellation/failure handler."""
+    try:
+        transaction = get_object_or_404(Transaction, id=transaction_id, buyer=request.user)
+    except:
+        messages.error(request, "Transaction not found.")
+        return redirect('marketplace:home')
+
+    payment = getattr(transaction, 'payment', None)
+
+    context = {
+        'transaction': transaction,
+        'payment': payment,
+    }
+
+    return render(request, 'marketplace/payment_failure.html', context)
 
