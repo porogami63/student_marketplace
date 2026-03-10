@@ -54,7 +54,10 @@ media/listings/*
 .env
 .env.local
 .env*.local
-# Stripe API Keys (STRIPE_PUBLIC_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET)
+.env.render
+.env.production
+# Sensitive files: API Keys (STRIPE_*, GEMINI_API_KEY, DJANGO_SECRET_KEY, etc.)
+generate_secret_key.bat
 
 # Testing
 .coverage
