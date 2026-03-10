@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.contrib.sites.models import Site
 import os
+import sys
 
 class Command(BaseCommand):
     help = 'Create or update the Django Site for the current domain'
@@ -28,19 +29,26 @@ class Command(BaseCommand):
                 )
             else:
                 self.stdout.write(
-                    self.style.WARNING(f'Site already configured with domain: {domain}')
+                    self.style.SUCCESS(f'Site already configured with domain: {domain}')
                 )
         except Site.DoesNotExist:
             # Create a new site
-            Site.objects.create(
-                pk=1,
-                domain=domain,
-                name='U-Belt Student Marketplace'
-            )
-            self.stdout.write(
-                self.style.SUCCESS(f'Created Site with domain: {domain}')
-            )
+            try:
+                Site.objects.create(
+                    pk=1,
+                    domain=domain,
+                    name='U-Belt Student Marketplace'
+                )
+                self.stdout.write(
+                    self.style.SUCCESS(f'Created Site with domain: {domain}')
+                )
+            except Exception as e:
+                self.stdout.write(
+                    self.style.ERROR(f'Failed to create Site: {str(e)}')
+                )
+                sys.exit(1)
         except Exception as e:
             self.stdout.write(
                 self.style.ERROR(f'Error setting up Site: {str(e)}')
             )
+            sys.exit(1)
