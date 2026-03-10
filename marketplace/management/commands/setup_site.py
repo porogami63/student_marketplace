@@ -8,7 +8,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # Get the domain from environment variables or use default
-        allowed_hosts = os.environ.get('ALLOWED_HOSTS', 'localhost:8000')
+        allowed_hosts = os.environ.get('ALLOWED_HOSTS', 'ubxchange.onrender.com')
         # Take the first host from the list
         domain = allowed_hosts.split(',')[0].strip()
         
