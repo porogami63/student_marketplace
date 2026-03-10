@@ -155,7 +155,7 @@ class ProfileRegistrationForm(forms.ModelForm):
             'phone': forms.TextInput(attrs={
                 'placeholder': 'Mobile number (e.g., 09123456789)',
                 'class': 'form-control',
-                'pattern': '^[0-9+\-\s()]{7,20}$',
+                'pattern': r'^[0-9+\-\s()]{7,20}$',
                 'title': 'Valid phone number',
             }),
             'address': forms.TextInput(attrs={
@@ -408,7 +408,7 @@ class ProfileForm(forms.ModelForm):
             'phone': forms.TextInput(attrs={
                 'placeholder': 'Mobile number',
                 'class': 'form-control',
-                'pattern': '^[0-9+\-\s()]{7,20}$',
+                'pattern': r'^[0-9+\-\s()]{7,20}$',
                 'title': 'Valid phone number'
             }),
 
