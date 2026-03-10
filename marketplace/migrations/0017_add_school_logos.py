@@ -34,8 +34,8 @@ def add_school_logos(apps, schema_editor):
     for short_name, logo_file in logo_mapping.items():
         try:
             school = School.objects.get(short_name=short_name)
-            # Use local media path for logos
-            school.logo_url = f'/media/UNIV LOGOS/{logo_file}'
+            # Use static files path for logos (copied during deployment)
+            school.logo_url = f'/static/images/university-logos/{logo_file}'
             school.save(update_fields=['logo_url'])
             print(f'Updated {short_name} with logo: {logo_file}')
         except School.DoesNotExist:
