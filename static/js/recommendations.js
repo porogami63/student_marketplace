@@ -19,7 +19,7 @@ class GeminiRecommender {
         this.renderLoading();
 
         try {
-            const response = await fetch('/marketplace/api/recommendations/gemini/', {
+            const response = await fetch('/api/recommendations/gemini/', {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/json',

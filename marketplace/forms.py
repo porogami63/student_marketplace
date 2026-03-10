@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
-from .models import Listing, Profile, ForumPost, ForumReply, Transaction, Category, ProfilePost, School
+from .models import Listing, Profile, ForumPost, ForumReply, Transaction, Category, ProfilePost, ProfilePostComment, School
 import re
 
 # Category-specific product attribute definitions
@@ -552,10 +552,10 @@ class TransactionConfirmForm(forms.ModelForm):
 
 
 class ProfilePostForm(forms.ModelForm):
-    """Form for creating profile posts."""
+    """Form for creating profile posts with optional images."""
     class Meta:
         model = ProfilePost
-        fields = ['content']
+        fields = ['content', 'image']
         widgets = {
             'content': forms.Textarea(attrs={
                 'rows': 4,
@@ -564,9 +564,14 @@ class ProfilePostForm(forms.ModelForm):
                 'maxlength': '1000',
                 'minlength': '5'
             }),
+            'image': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*'
+            }),
         }
         labels = {
             'content': 'What\'s on your mind?',
+            'image': 'Add an image (optional)',
         }
     
     def clean_content(self):
@@ -575,4 +580,36 @@ class ProfilePostForm(forms.ModelForm):
             raise forms.ValidationError('Post must be at least 5 characters long.')
         if len(content) > 1000:
             raise forms.ValidationError('Post must be 1000 characters or less.')
+        return content
+
+
+class ProfilePostCommentForm(forms.ModelForm):
+    """Form for commenting on profile posts with optional images."""
+    class Meta:
+        model = ProfilePostComment
+        fields = ['content', 'image']
+        widgets = {
+            'content': forms.Textarea(attrs={
+                'rows': 2,
+                'placeholder': 'Share a comment or reply... (max 500 characters)',
+                'class': 'form-control',
+                'maxlength': '500',
+                'minlength': '2'
+            }),
+            'image': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*'
+            }),
+        }
+        labels = {
+            'content': 'Your comment',
+            'image': 'Add an image (optional)',
+        }
+    
+    def clean_content(self):
+        content = self.cleaned_data.get('content', '').strip()
+        if len(content) < 2:
+            raise forms.ValidationError('Comment must be at least 2 characters long.')
+        if len(content) > 500:
+            raise forms.ValidationError('Comment must be 500 characters or less.')
         return content

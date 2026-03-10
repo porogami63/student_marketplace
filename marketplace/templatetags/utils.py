@@ -134,3 +134,16 @@ def construct_social_url(platform, value):
             return '#'
     except Exception as e:
         return '#'
+
+
+@register.filter
+def payment_method_display(payment_method):
+    """Convert payment method code to human-readable format."""
+    payment_method_map = {
+        'credit_card': 'Credit Card',
+        'gcash': 'GCash',
+        'bank_transfer': 'Bank Transfer',
+        'in_person': 'In-Person Cash',
+        'other': 'Other Arrangement',
+    }
+    return payment_method_map.get(payment_method, payment_method)

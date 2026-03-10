@@ -5,25 +5,198 @@
     <i class="bi bi-bell me-2"></i>Notifications
 </h1>
 
-{% if notifications %}
-<div class="list-group">
-    {% for n in notifications %}
-    <a href="{{ n.url|default:'#' }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-start">
-        <div class="me-2">
-            <div class="fw-semibold">{{ n.message }}</div>
-            <small class="text-muted">{{ n.created_at|timesince }} ago</small>
+<!-- Filters -->
+<div class="mb-4 pb-3 border-bottom">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <div class="btn-group btn-group-sm" role="group">
+                <a href="{% url 'marketplace:notifications' %}" class="btn {% if filter_type == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    All
+                </a>
+                <a href="{% url 'marketplace:notifications' %}?filter=unread" class="btn {% if filter_type == 'unread' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    Unread
+                </a>
+                {% for type_key, type_label in notification_types %}
+                <a href="{% url 'marketplace:notifications' %}?filter={{ type_key }}" class="btn {% if filter_type == type_key %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                    {{ type_label|truncatewords:2 }}
+                </a>
+                {% endfor %}
+            </div>
         </div>
-        {% if not n.is_read %}
-        <span class="badge bg-danger rounded-pill">New</span>
-        {% endif %}
-    </a>
-    {% endfor %}
+        <div class="col-md-4 text-end">
+            {% if notifications %}
+            <form method="POST" action="{% url 'marketplace:delete_notifications' %}" style="display: inline;" onsubmit="return confirm('Are you sure?');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="clear_old">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Clear Old</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
 </div>
+
+{% if notifications %}
+<!-- Bulk Actions -->
+<div id="bulk-actions" style="display: none;" class="mb-3 p-3 bg-light rounded">
+    <form method="POST" action="{% url 'marketplace:delete_notifications' %}">
+        {% csrf_token %}
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <span id="selected-count">0</span> selected
+            </div>
+            <div>
+                <button type="submit" name="action" value="mark_as_read" class="btn btn-sm btn-outline-secondary">Mark as Read</button>
+                <button type="submit" name="action" value="mark_as_unread" class="btn btn-sm btn-outline-secondary">Mark as Unread</button>
+                <button type="submit" name="action" value="delete_selected" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete selected?');">Delete</button>
+            </div>
+        </div>
+</div>
+
+<div class="list-group">
+    <form id="notifications-form" method="POST" action="{% url 'marketplace:delete_notifications' %}">
+        {% csrf_token %}
+        {% for n in notifications %}
+        <div class="list-group-item d-flex align-items-start py-3 notification-item {% if not n.is_read %}bg-light{% endif %}" data-notification-id="{{ n.id }}">
+            <!-- Checkbox -->
+            <div class="form-check me-3 pt-1">
+                <input class="form-check-input notification-checkbox" type="checkbox" name="notification_ids" value="{{ n.id }}" id="notif-{{ n.id }}">
+            </div>
+
+            <!-- Icon/Avatar -->
+            <div class="me-3">
+                {% if n.related_user %}
+                    {% with avatar_url=n.related_user.profile.get_avatar_url %}
+                        {% if avatar_url %}
+                            <img src="{{ avatar_url }}" alt="{{ n.related_user.username }}" class="rounded-circle" width="48" height="48" title="{{ n.related_user.username }}" style="object-fit: cover;">
+                        {% else %}
+                            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px; font-size: 20px; font-weight: bold;">
+                                {{ n.related_user.username|first|upper }}
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+                {% else %}
+                    <!-- Type-specific icon -->
+                    {% if n.notification_type == 'transaction' %}
+                        <div class="rounded-circle bg-success d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px;">
+                            <i class="bi bi-coin fs-6"></i>
+                        </div>
+                    {% elif n.notification_type == 'message' %}
+                        <div class="rounded-circle bg-info d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px;">
+                            <i class="bi bi-chat fs-6"></i>
+                        </div>
+                    {% elif n.notification_type == 'offer' %}
+                        <div class="rounded-circle bg-warning d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px;">
+                            <i class="bi bi-hand-thumbs-up fs-6"></i>
+                        </div>
+                    {% elif n.notification_type == 'review' %}
+                        <div class="rounded-circle bg-danger d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px;">
+                            <i class="bi bi-star fs-6"></i>
+                        </div>
+                    {% elif n.notification_type == 'forum' %}
+                        <div class="rounded-circle bg-purple d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px; background-color: #6f42c1;">
+                            <i class="bi bi-chat-left-text fs-6"></i>
+                        </div>
+                    {% else %}
+                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 48px; height: 48px;">
+                            <i class="bi bi-info-circle fs-6"></i>
+                        </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+
+            <!-- Content -->
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div style="flex-grow: 1;">
+                        {% if n.url %}
+                            <a href="{{ n.url }}" class="text-decoration-none">
+                                <div class="fw-semibold {% if not n.is_read %}text-dark{% else %}text-muted{% endif %}">{{ n.message }}</div>
+                            </a>
+                        {% else %}
+                            <div class="fw-semibold {% if not n.is_read %}text-dark{% else %}text-muted{% endif %}">{{ n.message }}</div>
+                        {% endif %}
+                        
+                        <!-- Type badge and timestamp -->
+                        <div class="mt-2 d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-dark">{{ n.get_notification_type_display }}</span>
+                            <small class="text-muted" title="{{ n.created_at|date:'M d, Y g:i A' }}">
+                                {{ n.created_at|timesince }} ago
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Status badge -->
+                    {% if not n.is_read %}
+                    <span class="badge bg-danger rounded-pill ms-2">New</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </form>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<nav aria-label="Notification pagination" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page=1{% if filter_type != 'all' %}&filter={{ filter_type }}{% endif %}">First</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filter_type != 'all' %}&filter={{ filter_type }}{% endif %}">Previous</a>
+        </li>
+        {% endif %}
+        
+        <li class="page-item active">
+            <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        </li>
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_type != 'all' %}&filter={{ filter_type }}{% endif %}">Next</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if filter_type != 'all' %}&filter={{ filter_type }}{% endif %}">Last</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
 {% else %}
 <div class="text-center text-muted py-5">
     <i class="bi bi-bell-slash fs-1 d-block mb-2"></i>
-    <p>No notifications yet.</p>
+    {% if filter_type == 'unread' %}
+        <p>No unread notifications.</p>
+    {% elif filter_type != 'all' %}
+        <p>No {{ filter_type }} notifications.</p>
+    {% else %}
+        <p>No notifications yet.</p>
+    {% endif %}
 </div>
 {% endif %}
+
+<!-- JavaScript for bulk actions -->
+<script>
+document.querySelectorAll('.notification-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', updateBulkActions);
+});
+
+function updateBulkActions() {
+    const checkboxes = document.querySelectorAll('.notification-checkbox:checked');
+    const bulkActions = document.getElementById('bulk-actions');
+    const selectedCount = document.getElementById('selected-count');
+    
+    if (checkboxes.length > 0) {
+        bulkActions.style.display = 'block';
+        selectedCount.textContent = checkboxes.length;
+    } else {
+        bulkActions.style.display = 'none';
+    }
+}
+</script>
+
 {% endblock %}
 

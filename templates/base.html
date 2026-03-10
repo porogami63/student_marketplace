@@ -315,6 +315,192 @@
         button, a {
             transition: all 0.3s ease;
         }
+
+        /* Notification Preview Dropdown */
+        #notification-bell {
+            position: relative;
+        }
+
+        .notification-preview-dropdown {
+            position: absolute;
+            top: calc(100% + 12px);
+            right: -120px;
+            width: 420px;
+            background: white;
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            z-index: 1050;
+            overflow: hidden;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translateY(-8px);
+            transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+                        visibility 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+                        transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .notification-preview-dropdown.show {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+
+        .notification-preview-dropdown::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            right: 140px;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 8px solid white;
+            z-index: 1051;
+        }
+
+        body.dark-mode .notification-preview-dropdown {
+            background: var(--color-bg-secondary);
+            border-color: var(--color-border);
+        }
+
+        body.dark-mode .notification-preview-dropdown::before {
+            border-bottom-color: var(--color-bg-secondary);
+        }
+
+        .notification-preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--color-border);
+            background: var(--color-bg);
+        }
+
+        .notification-preview-header h6 {
+            font-weight: 600;
+            color: var(--color-text);
+        }
+
+        .notification-preview-header .btn-link {
+            font-size: 12px;
+            padding: 0 !important;
+            color: var(--color-accent-blue);
+        }
+
+        .notification-preview-body {
+            max-height: 450px;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .notification-preview-item {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--color-border);
+            cursor: pointer;
+            transition: background-color 0.15s, padding 0.15s;
+            display: flex;
+            gap: 14px;
+            text-decoration: none;
+            color: inherit;
+            align-items: flex-start;
+        }
+
+        .notification-preview-item:last-child {
+            border-bottom: none;
+        }
+
+        .notification-preview-item:hover {
+            background-color: rgba(151, 194, 236, 0.08);
+            padding-left: 20px;
+        }
+
+        body.dark-mode .notification-preview-item:hover {
+            background-color: rgba(151, 194, 236, 0.12);
+        }
+
+        .notification-preview-item.unread {
+            background-color: rgba(151, 194, 236, 0.15);
+        }
+
+        .notification-preview-item .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+            border: 2px solid var(--color-border);
+        }
+
+        .notification-preview-item .avatar-initials {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--color-accent-blue);
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .notification-preview-content {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .notification-preview-message {
+            font-size: 13px;
+            line-height: 1.45;
+            color: var(--color-text);
+            white-space: normal;
+            word-break: break-word;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .notification-preview-item.unread .notification-preview-message {
+            font-weight: 600;
+        }
+
+        .notification-preview-meta {
+            font-size: 11px;
+            color: var(--color-text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .notification-preview-type {
+            display: inline-block;
+            font-size: 10px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            background-color: rgba(151, 194, 236, 0.15);
+            color: var(--color-accent-blue);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        body.dark-mode .notification-preview-type {
+            background-color: rgba(151, 194, 236, 0.2);
+            color: #A8D5FF;
+        }
+
+        .notification-preview-empty {
+            padding: 32px 18px;
+            text-align: center;
+            color: var(--color-text-muted);
+            font-size: 13px;
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -341,7 +527,7 @@
                     <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:recommendation_chat' %}"><i class="bi bi-robot me-1"></i>Chat</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:recommended' %}"><i class="bi bi-sparkles me-1"></i>Recommended</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:favorites' %}"><i class="bi bi-heart me-1"></i>Favorites</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:forum' %}\"><i class="bi bi-chat-dots me-1"></i>Forum</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:forum' %}"><i class="bi bi-chat-dots me-1"></i>Forum</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:inbox' %}"><i class="bi bi-envelope me-1"></i>Messages</a></li>
                     {% endif %}
                     {% endif %}
@@ -354,7 +540,7 @@
                     </li>
                     {% if user.is_authenticated %}
                     <li class="nav-item me-2">
-                        <a class="nav-link position-relative" href="{% url 'marketplace:notifications' %}">
+                        <a class="nav-link position-relative" href="{% url 'marketplace:notifications' %}" id="notification-bell">
                             <i class="bi bi-bell"></i>
                             {% if unread_notifications_count %}
                             <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
@@ -362,6 +548,20 @@
                             </span>
                             {% endif %}
                         </a>
+                        <!-- Notification Preview Dropdown -->
+                        <div class="notification-preview-dropdown" id="notification-preview-dropdown">
+                            <div class="dropdown-content">
+                                <div class="notification-preview-header">
+                                    <h6 class="mb-0">Recent Notifications</h6>
+                                    <a href="{% url 'marketplace:notifications' %}" class="btn btn-sm btn-link">View All</a>
+                                </div>
+                                <div class="notification-preview-body" id="notification-preview-body">
+                                    <div class="text-center text-muted py-3">
+                                        <small>Loading...</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">{{ user.username }}</a>
@@ -431,6 +631,140 @@
             const isDark = document.body.classList.contains('dark-mode');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
             themeToggle.innerHTML = isDark ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon"></i>';
+        });
+
+        // Notification preview dropdown
+        const notificationBell = document.getElementById('notification-bell');
+        const notificationDropdown = document.getElementById('notification-preview-dropdown');
+        let dropdownOpen = false;
+        let dropdownLoaded = false;
+
+        function toggleNotificationDropdown() {
+            if (!notificationDropdown) return;
+            
+            dropdownOpen = !dropdownOpen;
+            if (dropdownOpen) {
+                notificationDropdown.classList.add('show');
+                if (!dropdownLoaded) {
+                    loadNotifications();
+                    dropdownLoaded = true;
+                }
+            } else {
+                notificationDropdown.classList.remove('show');
+            }
+        }
+
+        function loadNotifications() {
+            const body = document.getElementById('notification-preview-body');
+            if (!body) return;
+
+            fetch("{% url 'marketplace:get_recent_notifications' %}")
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data.success || data.notifications.length === 0) {
+                        body.innerHTML = '<div class="notification-preview-empty">No notifications yet</div>';
+                        return;
+                    }
+
+                    let html = '';
+                    data.notifications.forEach(notif => {
+                        const avatarHTML = getAvatarHTML(notif);
+                        const unreadClass = !notif.is_read ? 'unread' : '';
+                        const newBadge = !notif.is_read ? '<span class="badge bg-danger rounded-pill ms-2" style="font-size: 10px;">New</span>' : '';
+                        
+                        html += `
+                            <a href="${notif.url}" class="notification-preview-item ${unreadClass}" title="${notif.created_at_full}">
+                                ${avatarHTML}
+                                <div class="notification-preview-content">
+                                    <div class="notification-preview-message">${notif.message}</div>
+                                    <div class="notification-preview-meta">
+                                        <span class="notification-preview-type">${notif.type}</span>
+                                        <span>${notif.created_at}</span>
+                                        ${newBadge}
+                                    </div>
+                                </div>
+                            </a>
+                        `;
+                    });
+
+                    body.innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Error loading notifications:', error);
+                    body.innerHTML = '<div class="notification-preview-empty">Error loading notifications</div>';
+                });
+        }
+
+        function getAvatarHTML(notif) {
+            if (!notif.related_user || !notif.related_user.username) {
+                return '<div class="avatar-initials">!</div>';
+            }
+
+            const username = notif.related_user.username;
+            const avatarUrl = notif.related_user.avatar_url;
+
+            if (avatarUrl) {
+                return `<img src="${avatarUrl}" alt="${username}" class="avatar" title="${username}">`;
+            } else {
+                const initial = username.charAt(0).toUpperCase();
+                return `<div class="avatar-initials" title="${username}">${initial}</div>`;
+            }
+        }
+
+        if (notificationBell) {
+            let hoverTimeout;
+            
+            const bellContainer = notificationBell.parentElement;
+            
+            // Show dropdown on bell hover
+            bellContainer.addEventListener('mouseenter', function() {
+                clearTimeout(hoverTimeout);
+                dropdownOpen = true;
+                if (notificationDropdown) {
+                    notificationDropdown.classList.add('show');
+                    if (!dropdownLoaded) {
+                        loadNotifications();
+                        dropdownLoaded = true;
+                    }
+                }
+            });
+            
+            // Hide dropdown when leaving both bell and dropdown
+            bellContainer.addEventListener('mouseleave', function() {
+                hoverTimeout = setTimeout(function() {
+                    dropdownOpen = false;
+                    if (notificationDropdown) {
+                        notificationDropdown.classList.remove('show');
+                    }
+                }, 100); // Small delay to prevent flicker
+            });
+            
+            if (notificationDropdown) {
+                notificationDropdown.addEventListener('mouseenter', function() {
+                    clearTimeout(hoverTimeout);
+                    dropdownOpen = true;
+                });
+                
+                notificationDropdown.addEventListener('mouseleave', function() {
+                    hoverTimeout = setTimeout(function() {
+                        dropdownOpen = false;
+                        notificationDropdown.classList.remove('show');
+                    }, 100);
+                });
+            }
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            if (notificationBell && notificationDropdown && !notificationBell.contains(event.target) && !notificationDropdown.contains(event.target)) {
+                notificationDropdown.classList.remove('show');
+                dropdownOpen = false;
+            }
         });
     </script>
     {% block extra_js %}{% endblock %}

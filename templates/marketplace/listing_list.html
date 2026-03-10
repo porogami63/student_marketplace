@@ -528,7 +528,7 @@
                     <div class="listing-card-seller-name">{{ listing.seller.username }}</div>
                     <div class="listing-card-time">{{ listing.created_at|timesince }} ago</div>
                 </div>
-                <button type="button" class="listing-card-chat" style="background: transparent; border: none; cursor: pointer;" data-url="{% url 'marketplace:listing_detail' listing.pk %}" data-title="{{ listing.title|escapejs }}" data-price="{{ listing.price|floatformat:2 }}" data-condition="{{ listing.get_condition_display }}" data-description="{{ listing.description|truncatewords:20|escapejs }}" data-seller="{{ listing.seller.username }}" data-school="{{ listing.school.name|default:'' }}" data-image="{{ listing.image.url|default:'' }}" onclick="openQuickViewFromButton(this); return false;" title="Quick view"><i class="bi bi-eye"></i></button>
+                <button type="button" class="listing-card-chat" style="background: transparent; border: none; cursor: pointer;" data-url="{% url 'marketplace:listing_detail' listing.pk %}" data-title="{{ listing.title|escapejs }}" data-price="{{ listing.price|floatformat:2 }}" data-condition="{{ listing.get_condition_display }}" data-description="{{ listing.description|truncatewords:20|escapejs }}" data-seller="{{ listing.seller.username }}" data-school="{{ listing.school.name|default:'' }}" data-image="{% if listing.image %}{{ listing.image.url }}{% endif %}" onclick="openQuickViewFromButton(this); return false;" title="Quick view"><i class="bi bi-eye"></i></button>
             </div>
         </div>
     </a>
@@ -692,7 +692,7 @@
                     <div class="listing-card-seller-name">{{ listing.seller.username }}</div>
                     <div class="listing-card-time">{{ listing.created_at|timesince }} ago</div>
                 </div>
-                <button type="button" class="listing-card-chat" style="background: transparent; border: none; cursor: pointer;" data-url="{% url 'marketplace:listing_detail' listing.pk %}" data-title="{{ listing.title|escapejs }}" data-price="{{ listing.price|floatformat:2 }}" data-condition="{{ listing.get_condition_display }}" data-description="{{ listing.description|truncatewords:20|escapejs }}" data-seller="{{ listing.seller.username }}" data-school="{{ listing.school.name|default:'' }}" data-image="{{ listing.image.url|default:'' }}" onclick="openQuickViewFromButton(this); return false;" title="Quick view"><i class="bi bi-eye"></i></button>
+                <button type="button" class="listing-card-chat" style="background: transparent; border: none; cursor: pointer;" data-url="{% url 'marketplace:listing_detail' listing.pk %}" data-title="{{ listing.title|escapejs }}" data-price="{{ listing.price|floatformat:2 }}" data-condition="{{ listing.get_condition_display }}" data-description="{{ listing.description|truncatewords:20|escapejs }}" data-seller="{{ listing.seller.username }}" data-school="{{ listing.school.name|default:'' }}" data-image="{% if listing.image %}{{ listing.image.url }}{% endif %}" onclick="openQuickViewFromButton(this); return false;" title="Quick view"><i class="bi bi-eye"></i></button>
             </div>
         </div>
     </a>

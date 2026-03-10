@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Buy {{ listing.title }}{% endblock %}
+{% block title %}{% if is_wtb %}Offer Item - {{ listing.title }}{% else %}Buy {{ listing.title }}{% endif %}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -35,11 +35,20 @@
 <div class="container py-3">
     <div class="purchase-hero">
         <div>
+            {% if is_wtb %}
+            <div class="purchase-title">Send Your Offer</div>
+            <div class="purchase-sub">Add a note and confirm your offer details.</div>
+            {% else %}
             <div class="purchase-title">Send Purchase Request</div>
             <div class="purchase-sub">Add a note for the seller and suggest where to meet up.</div>
+            {% endif %}
         </div>
         <div class="text-end">
-            <div class="small text-muted mb-1">You’re buying</div>
+            {% if is_wtb %}
+            <div class="small text-muted mb-1">Item wanted</div>
+            {% else %}
+            <div class="small text-muted mb-1">You're buying</div>
+            {% endif %}
             <div class="fw-semibold">{{ listing.title|truncatechars:45 }}</div>
         </div>
     </div>
@@ -74,8 +83,13 @@
 
             <!-- Order Form -->
             <div class="card p-4 mb-4 purchase-summary-card">
+                {% if is_wtb %}
+                <h5 class="fw-bold mb-1">Message to the buyer</h5>
+                <p class="text-muted small mb-3">Confirm your item details, availability, and suggest where you'd like to meet. You'll finalize the payment method in the transaction chat.</p>
+                {% else %}
                 <h5 class="fw-bold mb-1">Message to seller</h5>
                 <p class="text-muted small mb-3">Let the seller know when you're free to meet, where you'd like to exchange, or anything else they should know. You'll agree on the exact payment method together in the transaction chat.</p>
+                {% endif %}
                 <form method="post">
                     {% csrf_token %}
                     <!-- Payment method is finalised at checkout; default to in_person for now -->
@@ -127,7 +141,11 @@
 
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-ubelt">
+                            {% if is_wtb %}
+                            <i class="bi bi-bag-check me-2"></i> Send Your Offer
+                            {% else %}
                             <i class="bi bi-check-circle me-2"></i> Send Purchase Request
+                            {% endif %}
                         </button>
                         <a href="{{ listing.get_absolute_url }}" class="btn btn-outline-secondary">Cancel</a>
                     </div>
@@ -138,15 +156,23 @@
             <div class="alert alert-info small">
                 <i class="bi bi-info-circle me-2"></i>
                 <strong>What happens next?</strong><br>
+                {% if is_wtb %}
+                The buyer will receive your offer and can review your item details. They can confirm with their details (meeting location, time, contact info, etc.). Once confirmed, you can proceed with the payment and exchange!
+                {% else %}
                 The seller will receive your purchase request and can confirm with their details (meeting location, time, contact info, etc.). Once confirmed, you can proceed with the exchange!
+                {% endif %}
             </div>
         </div>
 
         <!-- Sidebar -->
         <div class="col-lg-4">
-            <!-- Seller Details -->
+            <!-- Seller/Buyer Details -->
             <div class="card p-3 mb-3 purchase-summary-card">
+                {% if is_wtb %}
+                <h6 class="fw-bold mb-3"><i class="bi bi-person-circle me-1"></i> About the Buyer</h6>
+                {% else %}
                 <h6 class="fw-bold mb-3"><i class="bi bi-person-circle me-1"></i> About the Seller</h6>
+                {% endif %}
                 <div class="d-flex align-items-center gap-3 mb-3">
                     <div style="width:52px;height:52px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#97C2EC;display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:1.2rem;">
                         {% if seller.profile.avatar %}
@@ -206,7 +232,11 @@
                     <strong style="font-size: 1.2rem; color: var(--ubelt-gold);">₱{{ offer_amount|default:listing.price|floatformat:2 }}</strong>
                 </div>
                 <p class="small text-muted mt-3 mb-0">
+                    {% if is_wtb %}
+                    <i class="bi bi-credit-card me-1"></i> Payment method is confirmed at checkout after the buyer responds.
+                    {% else %}
                     <i class="bi bi-credit-card me-1"></i> Payment method is confirmed at checkout after the seller responds.
+                    {% endif %}
                 </p>
             </div>
         </div>

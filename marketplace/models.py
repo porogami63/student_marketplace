@@ -199,6 +199,14 @@ class Profile(models.Model):
         """Backward compatibility method - updates verification tier instead."""
         self.update_verification_tier()
 
+    def get_avatar_url(self):
+        """Get the avatar URL for this profile, preferring uploaded avatar over Google avatar."""
+        if self.avatar:
+            return self.avatar.url
+        elif self.google_avatar_url:
+            return self.google_avatar_url
+        return None
+
 
 class SocialMedia(models.Model):
     """Social media accounts linked to a user profile."""
@@ -335,11 +343,29 @@ class ForumReply(models.Model):
 
 class Notification(models.Model):
     """Simple notification for users (messages, forum replies, etc.)."""
+    NOTIFICATION_TYPES = [
+        ('transaction', 'Transaction Update'),
+        ('message', 'New Message'),
+        ('offer', 'Offer'),
+        ('review', 'Review/Vouch'),
+        ('listing', 'Listing Update'),
+        ('system', 'System Alert'),
+        ('forum', 'Forum Reply'),
+    ]
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    related_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='triggered_notifications')
     message = models.CharField(max_length=255)
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, default='system')
     url = models.CharField(max_length=255, blank=True)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.get_notification_type_display()} - {self.message[:50]}"
 
     class Meta:
         ordering = ['-created_at']
@@ -485,6 +511,7 @@ class ProfilePost(models.Model):
     """User posts on their profile - visible to public."""
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='profile_posts')
     content = models.TextField(max_length=1000)
+    image = models.ImageField(upload_to='profile_posts/', blank=True, null=True, help_text='Optional image for your post (max 5MB)')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -493,6 +520,30 @@ class ProfilePost(models.Model):
 
     def __str__(self):
         return f"{self.author.username}'s post ({self.created_at.strftime('%Y-%m-%d')})"
+    
+    def comment_count(self):
+        """Get count of non-deleted comments on this post."""
+        return self.comments.count()
+
+
+class ProfilePostComment(models.Model):
+    """Comments on profile posts - allows interaction on user profiles."""
+    post = models.ForeignKey(ProfilePost, on_delete=models.CASCADE, related_name='comments')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='profile_post_comments')
+    content = models.TextField(max_length=500, help_text='Comment text (max 500 chars)')
+    image = models.ImageField(upload_to='profile_comments/', blank=True, null=True, help_text='Optional image in comment (max 2MB)')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_edited = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['post', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.author.username} on {self.post.author.username}'s post"
 
 
 class Payment(models.Model):
@@ -504,11 +555,19 @@ class Payment(models.Model):
         ('refunded', 'Refunded'),
     ]
 
+    PAYMENT_METHOD_CHOICES = [
+        ('credit_card', 'Credit Card'),
+        ('gcash', 'GCash'),
+        ('bank_transfer', 'Bank Transfer'),
+        ('in_person', 'In-Person Cash'),
+        ('other', 'Other Arrangement'),
+    ]
+
     transaction = models.OneToOneField(Transaction, on_delete=models.CASCADE, related_name='payment')
     stripe_charge_id = models.CharField(max_length=255, unique=True, help_text='Stripe charge or payment intent ID')
     amount = models.DecimalField(max_digits=10, decimal_places=2, help_text='Amount paid in PHP')
     status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
-    payment_method = models.CharField(max_length=50, default='credit_card', help_text='credit_card, gcash, bank_transfer, in_person')
+    payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD_CHOICES, default='credit_card', help_text='Payment method used')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -517,3 +576,48 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"Payment {self.stripe_charge_id} - {self.status}"
+
+    def get_payment_method_display(self):
+        """Return the display name for the payment method."""
+        return dict(self.PAYMENT_METHOD_CHOICES).get(self.payment_method, self.payment_method)
+
+
+class Receipt(models.Model):
+    """Digital receipt for transactions - stored in user's inbox."""
+    transaction = models.OneToOneField(Transaction, on_delete=models.CASCADE, related_name='receipt')
+    payment = models.OneToOneField(Payment, on_delete=models.CASCADE, related_name='receipt', null=True, blank=True)
+    receipt_number = models.CharField(max_length=50, unique=True, help_text='Unique receipt ID (e.g., RCP-2024-001)')
+    buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='receipts_received', help_text='Buyer of the item')
+    seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='receipts_issued', help_text='Seller of the item')
+    listing_title = models.CharField(max_length=200, help_text='Snapshot of listing title at time of purchase')
+    listing_price = models.DecimalField(max_digits=10, decimal_places=2, help_text='Snapshot of price at time of purchase')
+    payment_method = models.CharField(max_length=50, help_text='How the item was paid for')
+    processing_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text='2% fee for credit card payments')
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, help_text='Final amount including fees')
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending - Awaiting seller confirmation'),
+            ('confirmed', 'Confirmed - Seller has acknowledged'),
+            ('completed', 'Completed - Transaction finished'),
+            ('failed', 'Failed - Transaction cancelled'),
+        ],
+        default='pending'
+    )
+    notes = models.TextField(blank=True, help_text='Additional buyer notes or special instructions')
+    created_at = models.DateTimeField(auto_now_add=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True, help_text='When buyer confirmed receipt')
+    completed_at = models.DateTimeField(null=True, blank=True, help_text='When exchange was completed')
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Receipt {self.receipt_number} - {self.buyer.username} → {self.seller.username}"
+
+    @property
+    def is_recent(self):
+        """Check if receipt was created within last 7 days."""
+        from datetime import timedelta
+        from django.utils import timezone
+        return timezone.now() - self.created_at < timedelta(days=7)

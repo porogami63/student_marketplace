@@ -1105,21 +1105,45 @@
             <!-- PINNED POST SECTION -->
             {% if pinned_post %}
             <div class="post-section">
-                <div class="post-item pinned">
-                    <div class="pinned-badge">📌 Featured Post</div>
-                    <div class="post-header">
-                        <div>
-                            <div class="post-author">{{ pinned_post.author.get_full_name|default:pinned_post.author.username }}</div>
-                            <div class="post-date">{{ pinned_post.created_at|date:"M d, Y" }}</div>
+                <div class="post-item pinned" style="border: 2px solid var(--ubelt-gold); border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; background: linear-gradient(135deg, #fff9e6 0%, #fffbf0 100%);">
+                    <div style="display: inline-block; background: var(--ubelt-gold); color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-bottom: 1rem;">📌 Featured Post</div>
+                    
+                    <!-- Post Header with Avatar -->
+                    <div style="display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1rem;">
+                        <div style="flex-shrink: 0;">
+                            {% if pinned_post.author.profile.avatar %}
+                                <img src="{{ pinned_post.author.profile.avatar.url }}" alt="{{ pinned_post.author.username }}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            {% elif pinned_post.author.profile.google_avatar_url %}
+                                <img src="{{ pinned_post.author.profile.google_avatar_url }}" alt="{{ pinned_post.author.username }}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            {% else %}
+                                <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--ubelt-gold) 0%, #a67e1f 100%); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">👤</div>
+                            {% endif %}
                         </div>
-                        {% if request.user == profile_user %}
-                        <div class="post-actions">
-                            <a href="{% url 'marketplace:pin_profile_post' pinned_post.id %}" class="post-action-btn pin">Unpin</a>
-                            <a href="{% url 'marketplace:delete_profile_post' pinned_post.id %}" class="post-action-btn delete">Delete</a>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div>
+                                    <a href="{% url 'marketplace:public_profile' pinned_post.author.username %}" style="color: var(--ubelt-navy); text-decoration: none; font-weight: 600; font-size: 0.95rem;">{{ pinned_post.author.get_full_name|default:pinned_post.author.username }}</a>
+                                    <div style="font-size: 0.85rem; color: #999; margin-top: 0.25rem;">{{ pinned_post.created_at|timesince }} ago</div>
+                                </div>
+                                {% if request.user == profile_user %}
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <a href="{% url 'marketplace:pin_profile_post' pinned_post.id %}" class="post-action-btn pin" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; border: 1px solid #ddd; background: white; border-radius: 5px; cursor: pointer; transition: all 0.2s; color: #666; text-decoration: none;">Unpin</a>
+                                    <a href="{% url 'marketplace:delete_profile_post' pinned_post.id %}" class="post-action-btn delete" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; border: 1px solid #ddd; background: white; border-radius: 5px; cursor: pointer; transition: all 0.2s; color: #d32f2f; text-decoration: none;">Delete</a>
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
-                        {% endif %}
                     </div>
-                    <p class="post-content">{{ pinned_post.content }}</p>
+
+                    <!-- Post Content -->
+                    <p style="color: #333; line-height: 1.6; font-size: 0.95rem; word-wrap: break-word; margin: 1rem 0;">{{ pinned_post.content }}</p>
+
+                    <!-- Post Image if exists -->
+                    {% if pinned_post.image %}
+                        <div style="margin: 1rem 0; border-radius: 8px; overflow: hidden;">
+                            <img src="{{ pinned_post.image.url }}" alt="Post image" style="width: 100%; max-height: 400px; object-fit: cover;">
+                        </div>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
@@ -1138,20 +1162,116 @@
                 {% if profile_posts %}
                     {% for post in profile_posts %}
                         {% if post != pinned_post %}
-                        <div class="post-item">
-                            <div class="post-header">
-                                <div>
-                                    <div class="post-author">{{ post.author.get_full_name|default:post.author.username }}</div>
-                                    <div class="post-date">{{ post.created_at|date:"M d, Y" }}</div>
+                        <div class="post-item" style="border: 1px solid #e0e0e0; border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; background: white;">
+                            <!-- Post Header with Avatar -->
+                            <div class="post-header" style="display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1rem;">
+                                <div style="flex-shrink: 0;">
+                                    {% if post.author.profile.avatar %}
+                                        <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.username }}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                    {% elif post.author.profile.google_avatar_url %}
+                                        <img src="{{ post.author.profile.google_avatar_url }}" alt="{{ post.author.username }}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                    {% else %}
+                                        <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--ubelt-gold) 0%, #a67e1f 100%); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">👤</div>
+                                    {% endif %}
                                 </div>
-                                {% if request.user == profile_user %}
-                                <div class="post-actions">
-                                    <a href="{% url 'marketplace:pin_profile_post' post.id %}" class="post-action-btn pin" title="Pin this post to your profile">📌 Pin</a>
-                                    <a href="{% url 'marketplace:delete_profile_post' post.id %}" class="post-action-btn delete">Delete</a>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                        <div>
+                                            <a href="{% url 'marketplace:public_profile' post.author.username %}" style="color: var(--ubelt-navy); text-decoration: none; font-weight: 600; font-size: 0.95rem;">{{ post.author.get_full_name|default:post.author.username }}</a>
+                                            <div style="font-size: 0.85rem; color: #999; margin-top: 0.25rem;">{{ post.created_at|timesince }} ago</div>
+                                        </div>
+                                        {% if request.user == profile_user %}
+                                        <div class="post-actions" style="display: flex; gap: 0.5rem;">
+                                            <a href="{% url 'marketplace:pin_profile_post' post.id %}" class="post-action-btn pin" title="Pin this post to your profile" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; border: 1px solid #ddd; background: white; border-radius: 5px; cursor: pointer; transition: all 0.2s; color: #666; text-decoration: none;">📌 Pin</a>
+                                            <a href="{% url 'marketplace:delete_profile_post' post.id %}" class="post-action-btn delete" style="padding: 0.4rem 0.8rem; font-size: 0.75rem; border: 1px solid #ddd; background: white; border-radius: 5px; cursor: pointer; transition: all 0.2s; color: #d32f2f; text-decoration: none;">Delete</a>
+                                        </div>
+                                        {% endif %}
+                                    </div>
                                 </div>
+                            </div>
+
+                            <!-- Post Content -->
+                            <p class="post-content" style="color: #333; line-height: 1.6; font-size: 0.95rem; word-wrap: break-word; margin: 1rem 0;">{{ post.content }}</p>
+
+                            <!-- Post Image if exists -->
+                            {% if post.image %}
+                                <div style="margin: 1rem 0; border-radius: 8px; overflow: hidden;">
+                                    <img src="{{ post.image.url }}" alt="Post image" style="width: 100%; max-height: 400px; object-fit: cover;">
+                                </div>
+                            {% endif %}
+
+                            <!-- Comments Section -->
+                            <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #f0f0f0;">
+                                <h4 style="font-size: 0.9rem; font-weight: 600; color: #666; margin-bottom: 1rem;">Comments ({{ post.comment_count }})</h4>
+
+                                <!-- Existing Comments -->
+                                {% if post.comments.all %}
+                                    <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem;">
+                                        {% for comment in post.comments.all %}
+                                        <div style="background: #f9f9f9; padding: 0.75rem; border-radius: 8px; border-left: 3px solid var(--ubelt-gold);">
+                                            <!-- Comment Author & Meta -->
+                                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                                {% if comment.author.profile.avatar %}
+                                                    <img src="{{ comment.author.profile.avatar.url }}" alt="{{ comment.author.username }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                                                {% elif comment.author.profile.google_avatar_url %}
+                                                    <img src="{{ comment.author.profile.google_avatar_url }}" alt="{{ comment.author.username }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                                                {% else %}
+                                                    <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #97C2EC 0%, #5a9fd4 100%); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: white;">👤</div>
+                                                {% endif %}
+                                                <div style="flex: 1; min-width: 0;">
+                                                    <a href="{% url 'marketplace:public_profile' comment.author.username %}" style="color: var(--ubelt-navy); text-decoration: none; font-weight: 600; font-size: 0.85rem;">{{ comment.author.get_full_name|default:comment.author.username }}</a>
+                                                    <span style="color: #999; font-size: 0.75rem; margin-left: 0.5rem;">{{ comment.created_at|timesince }} ago</span>
+                                                    {% if comment.is_edited %}<span style="color: #ccc; font-size: 0.75rem; margin-left: 0.5rem;">(edited)</span>{% endif %}
+                                                </div>
+                                                {% if request.user == comment.author or request.user == post.author %}
+                                                <a href="{% url 'marketplace:delete_profile_post_comment' comment.id %}" class="delete-comment-btn" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; background: #ffebee; color: #d32f2f; border: none; border-radius: 3px; cursor: pointer; text-decoration: none; transition: background 0.2s;">✕</a>
+                                                {% endif %}
+                                            </div>
+
+                                            <!-- Comment Content -->
+                                            <p style="color: #333; font-size: 0.9rem; margin: 0.5rem 0; line-height: 1.5; word-wrap: break-word;">{{ comment.content }}</p>
+
+                                            <!-- Comment Image if exists -->
+                                            {% if comment.image %}
+                                                <div style="margin-top: 0.5rem; border-radius: 6px; overflow: hidden; max-width: 300px;">
+                                                    <img src="{{ comment.image.url }}" alt="Comment image" style="width: 100%; max-height: 200px; object-fit: cover;">
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <p style="color: #999; font-size: 0.85rem; margin-bottom: 1rem;">No comments yet. Be the first to comment!</p>
+                                {% endif %}
+
+                                <!-- Comment Form (if logged in) -->
+                                {% if request.user.is_authenticated %}
+                                    <form method="post" action="{% url 'marketplace:create_profile_post_comment' post.id %}" enctype="multipart/form-data" style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #f0f0f0;">
+                                        {% csrf_token %}
+                                        <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
+                                            {% if request.user.profile.avatar %}
+                                                <img src="{{ request.user.profile.avatar.url }}" alt="Your avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">
+                                            {% elif request.user.profile.google_avatar_url %}
+                                                <img src="{{ request.user.profile.google_avatar_url }}" alt="Your avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">
+                                            {% else %}
+                                                <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--ubelt-gold) 0%, #a67e1f 100%); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: white; flex-shrink: 0;">👤</div>
+                                            {% endif %}
+                                            <div style="flex: 1; min-width: 0;">
+                                                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                                    <textarea name="content" placeholder="Add a comment..." style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; resize: vertical; min-height: 60px;" maxlength="500" minlength="2"></textarea>
+                                                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                                        <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.85rem; color: #666;">
+                                                            <input type="file" name="image" accept="image/*" style="display: none;">
+                                                            <span style="padding: 0.4rem 0.8rem; background: #f0f0f0; border-radius: 4px; border: 1px solid #ddd; transition: background 0.2s;">📷 Add Image</span>
+                                                        </label>
+                                                        <button type="submit" style="padding: 0.4rem 1rem; background: var(--ubelt-navy); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: background 0.3s;">Comment</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </form>
                                 {% endif %}
                             </div>
-                            <p class="post-content">{{ post.content }}</p>
                         </div>
                         {% endif %}
                     {% endfor %}
@@ -1251,7 +1371,7 @@
             </div>
 
             <!-- Contact Info Sidebar -->
-            {% if profile.contact_info or profile.address or profile.phone %}
+            {% if profile.phone or profile.address or social_media_accounts %}
             <div class="sidebar-section">
                 <div class="sidebar-label">Contact Info</div>
                 {% if profile.phone %}
@@ -1264,83 +1384,79 @@
                         <strong>Location:</strong><br>{{ profile.address }}
                     </div>
                 {% endif %}
-                {% if profile.contact_info %}
-                    <!-- Social Media Accounts Display -->
+                
+                <!-- Social Media Accounts Display - From SocialMedia Model -->
+                {% if social_media_accounts %}
                     <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #ddd;">
-                        <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--ubelt-navy); margin-bottom: 0.75rem;">Social Media Accounts</h3>
+                        <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--ubelt-navy); margin-bottom: 0.75rem;">Social Media</h3>
                         <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                            {% if 'facebook' in profile.contact_info|lower %}
-                                <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #3b5998;">
-                                    <a href="{{ profile.contact_info|extract_social_url:'facebook' }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #3b5998; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
-                                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                                        <span>Facebook</span>
-                                    </a>
-                                    <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ profile.contact_info|extract_social_url:'facebook' }}</span>
-                                </div>
-                            {% endif %}
-                            {% if 'instagram' in profile.contact_info|lower %}
-                                <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #E1306C;">
-                                    <a href="{{ profile.contact_info|extract_social_url:'instagram' }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #E1306C; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
-                                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor"/></svg>
-                                        <span>Instagram</span>
-                                    </a>
-                                    <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ profile.contact_info|extract_social_url:'instagram' }}</span>
-                                </div>
-                            {% endif %}
-                            {% if 'twitter' in profile.contact_info|lower %}
-                                <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #1DA1F2;">
-                                    <a href="{{ profile.contact_info|extract_social_url:'twitter' }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #1DA1F2; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
-                                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M23 3a10.9 10.9 0 11-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2s9 5 20 5a9.5 9.5 0 00-9-5.5c4.75 2.25 7-7 7-7s1.1 5.2-5.2 7.14"/></svg>
-                                        <span>Twitter</span>
-                                    </a>
-                                    <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ profile.contact_info|extract_social_url:'twitter' }}</span>
-                                </div>
-                            {% endif %}
-                            {% if 'discord' in profile.contact_info|lower %}
-                                <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #5865F2;">
-                                    <a href="{{ profile.contact_info|extract_social_url:'discord' }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #5865F2; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
-                                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.49c-1.717-.804-3.547-1.303-5.468-1.559a.075.075 0 00-.079.037c-.237.416-.498.957-.683 1.386-2.045-.305-4.074-.305-6.089 0-.186-.43-.458-.97-.696-1.386a.075.075 0 00-.079-.036c-1.921.256-3.751.755-5.468 1.559a.074.074 0 00-.036.026C1.08 7.294.27 10.017 1.618 12.533a.08.08 0 00.03.055c1.733 1.325 3.413 2.132 5.064 2.662a.075.075 0 00.082-.027c.516-.715.978-1.47 1.372-2.265a.075.075 0 00-.041-.105c-.748-.227-1.461-.503-2.137-.823a.075.075 0 01-.008-.125c.143-.11.286-.225.425-.344a.075.075 0 01.078-.01c4.482 2.044 9.331 2.044 13.765 0a.075.075 0 01.079.01c.139.119.282.234.425.344a.075.075 0 01-.006.125c-.675.32-1.388.596-2.137.823a.074.074 0 00-.041.105c.394.795.856 1.55 1.371 2.265a.075.075 0 00.082.027c1.651-.53 3.332-1.337 5.064-2.662a.075.075 0 00.031-.054c1.362-2.591.534-5.227-.898-6.944a.074.074 0 00-.035-.026z"/></svg>
-                                        <span>Discord</span>
-                                    </a>
-                                    <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ profile.contact_info|extract_social_url:'discord' }}</span>
-                                </div>
-                            {% endif %}
-                            {% if 'whatsapp' in profile.contact_info|lower %}
-                                <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #25C059;">
-                                    <a href="{{ profile.contact_info|extract_social_url:'whatsapp' }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #25C059; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
-                                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-9.746 9.798c0 2.718.732 5.355 2.124 7.684L2.51 22.898l8.32-2.184c2.203 1.202 4.686 1.836 7.231 1.836 5.414 0 9.859-4.4 9.868-9.8.009-2.624-.753-5.195-2.177-7.38-1.425-2.186-3.42-3.414-5.691-3.414zm0 0"/></svg>
-                                        <span>WhatsApp</span>
-                                    </a>
-                                    <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ profile.contact_info|extract_social_url:'whatsapp' }}</span>
-                                </div>
-                            {% endif %}
-                            {% if 'linkedin' in profile.contact_info|lower %}
-                                <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #0077b5;">
-                                    <a href="{{ profile.contact_info|extract_social_url:'linkedin' }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #0077b5; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
-                                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.475-2.236-1.986-2.236-1.081 0-1.722.731-2.004 1.438-.103.249-.129.597-.129.946v5.421h-3.554s.045-8.789 0-9.708h3.554v1.375c.481-.742 1.337-1.8 3.27-1.8 2.391 0 4.185 1.562 4.185 4.911l.005 5.222zM5.337 8.855c-1.144 0-1.915-.762-1.915-1.715 0-.955.77-1.715 1.916-1.715.99 0 1.9.76 1.923 1.715 0 .953-.768 1.715-1.924 1.715zm1.6 11.597H3.736V9.644h3.201v10.808zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg>
-                                        <span>LinkedIn</span>
-                                    </a>
-                                    <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ profile.contact_info|extract_social_url:'linkedin' }}</span>
-                                </div>
-                            {% endif %}
-                            {% if 'viber' in profile.contact_info|lower %}
-                                <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #665CAC;">
-                                    <a href="{{ profile.contact_info|extract_social_url:'viber' }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #665CAC; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
-                                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M11.918 3c3.804 0 6.917 2.773 6.917 6.185v4.63c0 3.412-3.113 6.185-6.917 6.185H6.54v2.817L2.17 19.2V9.185C2.17 5.773 5.283 3 9.087 3h2.831m.018 1.5H9.087c-2.934 0-5.317 2.134-5.317 4.685v8.015l2.77-1.865h5.278c2.934 0 5.317-2.134 5.317-4.685v-4.63c0-2.551-2.383-4.685-5.317-4.685z"/></svg>
-                                        <span>Viber</span>
-                                    </a>
-                                    <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ profile.contact_info|extract_social_url:'viber' }}</span>
-                                </div>
-                            {% endif %}
-                            {% if 'telegram' in profile.contact_info|lower %}
-                                <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #0088cc;">
-                                    <a href="{{ profile.contact_info|extract_social_url:'telegram' }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #0088cc; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
-                                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.879-.456 1.08-.745 1.11-.578.05-1.016-.369-1.576-.722-.875-.561-1.369-.906-2.222-1.44-.974-.624-1.084-1.569-.237-2.5.818-.85 1.697-1.755 2.528-2.61.113-.12.053-.278-.042-.353l-.022-.02z"/></svg>
-                                        <span>Telegram</span>
-                                    </a>
-                                    <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ profile.contact_info|extract_social_url:'telegram' }}</span>
-                                </div>
-                            {% endif %}
+                            {% for account in social_media_accounts %}
+                                {% if account.platform == 'facebook' %}
+                                    <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #3b5998;">
+                                        <a href="{{ account.get_url }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #3b5998; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                                            <span>Facebook</span>
+                                        </a>
+                                        <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ account.handle }}</span>
+                                    </div>
+                                {% elif account.platform == 'instagram' %}
+                                    <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #E1306C;">
+                                        <a href="{{ account.get_url }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #E1306C; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor"/></svg>
+                                            <span>Instagram</span>
+                                        </a>
+                                        <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ account.handle }}</span>
+                                    </div>
+                                {% elif account.platform == 'twitter' %}
+                                    <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #1DA1F2;">
+                                        <a href="{{ account.get_url }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #1DA1F2; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M23 3a10.9 10.9 0 11-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2s9 5 20 5a9.5 9.5 0 00-9-5.5c4.75 2.25 7-7 7-7s1.1 5.2-5.2 7.14"/></svg>
+                                            <span>Twitter / X</span>
+                                        </a>
+                                        <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ account.handle }}</span>
+                                    </div>
+                                {% elif account.platform == 'discord' %}
+                                    <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #5865F2;">
+                                        <a href="{{ account.get_url }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #5865F2; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.49c-1.717-.804-3.547-1.303-5.468-1.559a.075.075 0 00-.079.037c-.237.416-.498.957-.683 1.386-2.045-.305-4.074-.305-6.089 0-.186-.43-.458-.97-.696-1.386a.075.075 0 00-.079-.036c-1.921.256-3.751.755-5.468 1.559a.074.074 0 00-.036.026C1.08 7.294.27 10.017 1.618 12.533a.08.08 0 00.03.055c1.733 1.325 3.413 2.132 5.064 2.662a.075.075 0 00.082-.027c.516-.715.978-1.47 1.372-2.265a.075.075 0 00-.041-.105c-.748-.227-1.461-.503-2.137-.823a.075.075 0 01-.008-.125c.143-.11.286-.225.425-.344a.075.075 0 01.078-.01c4.482 2.044 9.331 2.044 13.765 0a.075.075 0 01.079.01c.139.119.282.234.425.344a.075.075 0 01-.006.125c-.675.32-1.388.596-2.137.823a.074.074 0 00-.041.105c.394.795.856 1.55 1.371 2.265a.075.075 0 00.082.027c1.651-.53 3.332-1.337 5.064-2.662a.075.075 0 00.031-.054c1.362-2.591.534-5.227-.898-6.944a.074.074 0 00-.035-.026z"/></svg>
+                                            <span>Discord</span>
+                                        </a>
+                                        <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ account.handle }}</span>
+                                    </div>
+                                {% elif account.platform == 'whatsapp' %}
+                                    <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #25C059;">
+                                        <a href="{{ account.get_url }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #25C059; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-9.746 9.798c0 2.718.732 5.355 2.124 7.684L2.51 22.898l8.32-2.184c2.203 1.202 4.686 1.836 7.231 1.836 5.414 0 9.859-4.4 9.868-9.8.009-2.624-.753-5.195-2.177-7.38-1.425-2.186-3.42-3.414-5.691-3.414zm0 0"/></svg>
+                                            <span>WhatsApp</span>
+                                        </a>
+                                        <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ account.handle }}</span>
+                                    </div>
+                                {% elif account.platform == 'linkedin' %}
+                                    <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #0077b5;">
+                                        <a href="{{ account.get_url }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #0077b5; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.475-2.236-1.986-2.236-1.081 0-1.722.731-2.004 1.438-.103.249-.129.597-.129.946v5.421h-3.554s.045-8.789 0-9.708h3.554v1.375c.481-.742 1.337-1.8 3.27-1.8 2.391 0 4.185 1.562 4.185 4.911l.005 5.222zM5.337 8.855c-1.144 0-1.915-.762-1.915-1.715 0-.955.77-1.715 1.916-1.715.99 0 1.9.76 1.923 1.715 0 .953-.768 1.715-1.924 1.715zm1.6 11.597H3.736V9.644h3.201v10.808zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg>
+                                            <span>LinkedIn</span>
+                                        </a>
+                                        <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ account.handle }}</span>
+                                    </div>
+                                {% elif account.platform == 'viber' %}
+                                    <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #665CAC;">
+                                        <a href="{{ account.get_url }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #665CAC; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M11.918 3c3.804 0 6.917 2.773 6.917 6.185v4.63c0 3.412-3.113 6.185-6.917 6.185H6.54v2.817L2.17 19.2V9.185C2.17 5.773 5.283 3 9.087 3h2.831m.018 1.5H9.087c-2.934 0-5.317 2.134-5.317 4.685v8.015l2.77-1.865h5.278c2.934 0 5.317-2.134 5.317-4.685v-4.63c0-2.551-2.383-4.685-5.317-4.685z"/></svg>
+                                            <span>Viber</span>
+                                        </a>
+                                        <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ account.handle }}</span>
+                                    </div>
+                                {% elif account.platform == 'telegram' %}
+                                    <div style="display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #0088cc;">
+                                        <a href="{{ account.get_url }}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 0.5rem; color: #0088cc; font-weight: 600; min-width: fit-content; text-decoration: none; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.879-.456 1.08-.745 1.11-.578.05-1.016-.369-1.576-.722-.875-.561-1.369-.906-2.222-1.44-.974-.624-1.084-1.569-.237-2.5.818-.85 1.697-1.755 2.528-2.61.113-.12.053-.278-.042-.353l-.022-.02z"/></svg>
+                                            <span>Telegram</span>
+                                        </a>
+                                        <span style="flex: 1; color: #333; word-break: break-all; font-size: 0.9rem;">{{ account.handle }}</span>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
                         </div>
                     </div>
                 {% endif %}

@@ -21,6 +21,8 @@ urlpatterns = [
     path('api/chat/', views.api_chat_message, name='api_chat_message'),
     path('listings/<int:pk>/favorite/', views.favorite_toggle, name='favorite_toggle'),
     path('notifications/', views.notifications_list, name='notifications'),
+    path('notifications/delete/', views.delete_notifications, name='delete_notifications'),
+    path('api/recent-notifications/', views.get_recent_notifications, name='get_recent_notifications'),
     path('messages/', views.inbox, name='inbox'),
     path('messages/<int:pk>/', views.conversation_view, name='conversation'),
     path('messages/<int:pk>/offer/', views.make_offer, name='make_offer'),
@@ -32,8 +34,15 @@ urlpatterns = [
     path('transactions/<int:transaction_id>/cancel/', views.cancel_transaction, name='cancel_transaction'),
     # Payment URLs
     path('transactions/<int:transaction_id>/payment/', views.payment_checkout, name='payment_checkout'),
+    path('transactions/<int:transaction_id>/payment/gcash/', views.payment_gcash, name='payment_gcash'),
+    path('transactions/<int:transaction_id>/payment/bank/', views.payment_bank_transfer, name='payment_bank_transfer'),
+    path('transactions/<int:transaction_id>/payment/cash/', views.payment_cash_arrangement, name='payment_cash_arrangement'),
+    path('transactions/<int:transaction_id>/payment/other/', views.payment_other_arrangement, name='payment_other_arrangement'),
     path('transactions/<int:transaction_id>/payment/success/', views.payment_success, name='payment_success'),
     path('transactions/<int:transaction_id>/payment/cancel/', views.payment_cancel, name='payment_cancel'),
+    # Receipt URLs
+    path('receipts/', views.receipts_list, name='receipts_list'),
+    path('receipts/<int:receipt_id>/', views.receipt_detail, name='receipt_detail'),
     path('forum/', views.forum_index, name='forum'),
     path('forum/new/', views.forum_create_post, name='forum_create'),
     path('forum/<int:pk>/', views.forum_post_detail, name='forum_post'),
@@ -45,6 +54,8 @@ urlpatterns = [
     path('profile/post/create/', views.create_profile_post, name='create_profile_post'),
     path('profile/post/<int:pk>/delete/', views.delete_profile_post, name='delete_profile_post'),
     path('profile/post/<int:pk>/pin/', views.pin_profile_post, name='pin_profile_post'),
+    path('profile/post/<int:post_id>/comment/', views.create_profile_post_comment, name='create_profile_post_comment'),
+    path('profile/comment/<int:comment_id>/delete/', views.delete_profile_post_comment, name='delete_profile_post_comment'),
     # Social Media Management
     path('api/social-media/add/', views.add_social_media, name='add_social_media'),
     path('api/social-media/remove/<str:platform>/', views.remove_social_media, name='remove_social_media'),

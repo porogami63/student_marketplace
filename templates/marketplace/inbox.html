@@ -202,6 +202,11 @@
             <span>Transactions</span>
             {% if transactions %}<span class="tab-badge">{{ transactions|length }}</span>{% endif %}
         </button>
+        <button class="modern-tab-btn" id="receipts-tab" data-bs-toggle="tab" data-bs-target="#receipts" type="button" role="tab" aria-controls="receipts" aria-selected="false">
+            <i class="bi bi-file-earmark-text"></i>
+            <span>Receipts</span>
+            {% if receipts %}<span class="tab-badge">{{ receipts|length }}</span>{% endif %}
+        </button>
     </div>
 </div>
 
@@ -336,6 +341,52 @@
             <p><strong>No transactions yet</strong></p>
             <p style="font-size: 0.9rem;">Click "Buy Now" on a listing to start a transaction.</p>
             <a href="{% url 'marketplace:listing_list' %}" class="btn btn-ubelt mt-3">Browse Listings</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Receipts Tab -->
+    <div class="tab-pane fade" id="receipts" role="tabpanel" aria-labelledby="receipts-tab">
+        {% if receipts %}
+        <div class="receipts-list">
+            {% for receipt in receipts %}
+            <a href="{% url 'marketplace:receipt_detail' receipt_id=receipt.id %}" class="conversation-item text-decoration-none" style="display: flex; gap: 1rem;">
+                <div class="conversation-avatar" style="background: linear-gradient(135deg, #667eea, #97c2ec);">
+                    <i class="bi bi-file-earmark-text"></i>
+                </div>
+                <div class="conversation-info">
+                    <div class="conversation-name">
+                        <strong>{{ receipt.listing_title }}</strong>
+                        {% if receipt.status == 'completed' %}
+                            <span class="conversation-listing-badge" style="background: #28a745;">Completed</span>
+                        {% elif receipt.status == 'pending' %}
+                            <span class="conversation-listing-badge" style="background: #ffc107;">Pending</span>
+                        {% elif receipt.status == 'confirmed' %}
+                            <span class="conversation-listing-badge" style="background: #17a2b8;">Confirmed</span>
+                        {% else %}
+                            <span class="conversation-listing-badge" style="background: #6c757d;">{{ receipt.get_status_display }}</span>
+                        {% endif %}
+                    </div>
+                    <p class="conversation-preview">
+                        {% if receipt.buyer == user %}
+                            Purchased from {{ receipt.seller.username }} • ₱{{ receipt.total_amount|floatformat:0 }}
+                        {% else %}
+                            Sold to {{ receipt.buyer.username }} • ₱{{ receipt.total_amount|floatformat:0 }}
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="conversation-meta">
+                    <small class="conversation-time" style="font-weight: 600;">{{ receipt.receipt_number }}</small>
+                    <small class="conversation-time">{{ receipt.created_at|timesince }} ago</small>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-inbox">
+            <i class="bi bi-file-earmark-text"></i>
+            <p><strong>No receipts yet</strong></p>
+            <p style="font-size: 0.9rem;">Receipts will appear here after you complete a purchase or sale.</p>
         </div>
         {% endif %}
     </div>

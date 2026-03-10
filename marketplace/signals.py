@@ -17,7 +17,9 @@ def update_conversation_timestamp(sender, instance, created, **kwargs):
         for participant in conversation.participants.exclude(pk=sender_user.pk):
             Notification.objects.create(
                 user=participant,
+                related_user=sender_user,
                 message=f"New message from {sender_user.username}",
+                notification_type='message',
                 url=reverse('marketplace:conversation', args=[conversation.pk]),
             )
 
@@ -31,7 +33,9 @@ def notify_seller_on_review(sender, instance, created, **kwargs):
             vouch_text = "Vouched for you" if instance.is_vouch else "Posted feedback"
             Notification.objects.create(
                 user=instance.seller,
+                related_user=instance.reviewer,
                 message=f"New review from {instance.reviewer.username}: {vouch_text}",
+                notification_type='review',
                 url=reverse('marketplace:public_profile', args=[instance.reviewer.username]),
             )
 
@@ -45,7 +49,9 @@ def notify_forum_reply(sender, instance, created, **kwargs):
     if instance.author_id != post.author_id:
         Notification.objects.create(
             user=post.author,
+            related_user=instance.author,
             message=f"New reply from {instance.author.username} on your forum post \"{post.title}\"",
+            notification_type='forum',
             url=reverse('marketplace:forum_post', args=[post.pk]),
         )
 

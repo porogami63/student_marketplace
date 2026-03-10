@@ -1,0 +1,312 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Bank Transfer Payment - {{ transaction.listing.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .payment-container {
+        max-width: 900px;
+        margin: 0 auto;
+        animation: slideIn 0.5s ease-out;
+    }
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .payment-header {
+        background: linear-gradient(135deg, #1F1F1F 0%, #97C2EC 100%);
+        color: white;
+        padding: 1.25rem 2rem;
+        border-radius: 0;
+        margin-bottom: 1.25rem;
+        text-align: center;
+    }
+    .payment-header h1 {
+        font-family: 'Space Grotesk', sans-serif;
+        margin-bottom: 0.25rem;
+        font-size: 1.8rem;
+        font-weight: 700;
+    }
+    .payment-content {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 2rem;
+        padding: 0 1rem;
+    }
+    @media (max-width: 768px) {
+        .payment-content {
+            grid-template-columns: 1fr;
+        }
+    }
+    .payment-main {
+        background: white;
+        border-radius: 0;
+        padding: 2rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .payment-summary {
+        background: #f8f9fa;
+        border-radius: 0;
+        padding: 1.5rem;
+        border: 1px solid #e0e0e0;
+        height: fit-content;
+    }
+    .payment-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #1f1f1f;
+        margin-bottom: 1.5rem;
+        text-align: center;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    .instruction-box {
+        background: #e7f3ff;
+        border-left: 4px solid #17a2b8;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-radius: 6px;
+    }
+    .instruction-box h6 {
+        color: #0c5460;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+    .instruction-box ol {
+        color: #0c5460;
+        margin: 0;
+    }
+    .instruction-box li {
+        margin-bottom: 0.75rem;
+        line-height: 1.6;
+    }
+    .bank-details-box {
+        background: #f8f9fa;
+        border: 2px dashed #667eea;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-radius: 6px;
+    }
+    .bank-detail-item {
+        margin-bottom: 1rem;
+    }
+    .bank-detail-item:last-child {
+        margin-bottom: 0;
+    }
+    .bank-detail-label {
+        font-size: 0.85rem;
+        color: #666;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.25rem;
+    }
+    .bank-detail-value {
+        font-family: monospace;
+        font-size: 1.1rem;
+        color: #1f1f1f;
+        padding: 0.75rem;
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        word-break: break-all;
+    }
+    .info-box {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        padding: 1rem;
+        border-radius: 6px;
+        margin-bottom: 1.5rem;
+    }
+    .info-box h6 {
+        color: #856404;
+        margin-bottom: 0.5rem;
+    }
+    .info-box p {
+        color: #856404;
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+    .warning-box {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        padding: 1rem;
+        border-radius: 6px;
+        margin-bottom: 1.5rem;
+    }
+    .warning-box h6 {
+        color: #721c24;
+        margin-bottom: 0.5rem;
+    }
+    .warning-box p {
+        color: #721c24;
+        margin: 0;
+        font-size: 0.9rem;
+    }
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .summary-item.total {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #667eea;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 2px solid #e0e0e0;
+        border-bottom: none;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 2rem;
+    }
+    .btn-confirm {
+        flex: 1;
+        padding: 1rem;
+        font-size: 1.05rem;
+        font-weight: 600;
+    }
+    .btn-cancel {
+        flex: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="payment-container">
+    <div class="payment-header">
+        <h1><i class="bi bi-bank2"></i> Bank Transfer Payment</h1>
+        <p>Complete your payment securely</p>
+    </div>
+    
+    <div class="payment-content">
+        <!-- Main Payment Section -->
+        <div class="payment-main">
+            <div class="payment-title">
+                <i class="bi bi-transfer"></i> Bank Transfer Details
+            </div>
+            
+            <div class="instruction-box">
+                <h6>How to Pay via Bank Transfer:</h6>
+                <ol>
+                    <li>Open your bank's mobile app or online banking portal</li>
+                    <li>Contact the seller to get their complete bank account details</li>
+                    <li>Initiate a transfer of ₱{{ transaction.price }} to their account</li>
+                    <li>Send the transaction receipt/reference number to the seller via chat</li>
+                    <li>The seller will verify the deposit and confirm receipt (usually within 24 hours)</li>
+                </ol>
+            </div>
+            
+            <div class="warning-box">
+                <h6><i class="bi bi-exclamation-triangle"></i> Important Security Notice</h6>
+                <p>
+                    <strong>Always verify the seller's bank account directly with them in a chat message.</strong>
+                    Never trust bank information from sources other than the seller themselves. 
+                    Keep all payment correspondence for your records.
+                </p>
+            </div>
+            
+            <!-- Seller Info -->
+            <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
+                <h6 style="margin-bottom: 0.75rem; color: #495057;">Seller Contact Information:</h6>
+                <div style="margin-bottom: 0.5rem;">
+                    <strong>Name:</strong> {{ seller_name }}
+                </div>
+                {% if seller_phone %}
+                    <div style="margin-bottom: 0.5rem;">
+                        <strong>Phone:</strong> {{ seller_phone }}
+                    </div>
+                {% endif %}
+                <div style="margin-bottom: 0.5rem; font-size: 0.9rem; color: #666;">
+                    <i class="bi bi-chat-dots"></i> Please contact them directly to request their bank account details
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <h6><i class="bi bi-info-circle"></i> Pro Tips</h6>
+                <p>
+                    • Take screenshots of the payment confirmation message<br>
+                    • Include the transaction reference number as the description/reference<br>
+                    • This provides proof of payment in case of disputes
+                </p>
+            </div>
+            
+            <!-- Confirmation Form -->
+            <form method="post" id="bank-form">
+                {% csrf_token %}
+                
+                <div style="background: #e7f3ff; border-left: 4px solid #17a2b8; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
+                    <h6 style="color: #0c5460; margin-bottom: 0.5rem;">
+                        <i class="bi bi-check-circle"></i> Ready to Transfer?
+                    </h6>
+                    <p style="color: #0c5460; margin: 0; font-size: 0.9rem;">
+                        Click below to confirm that you will send ₱{{ transaction.price }} to the seller's account. 
+                        Make sure you've already discussed the bank details with them.
+                    </p>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <a href="{% url 'marketplace:transaction_detail' transaction_id=transaction.id %}" class="btn btn-secondary btn-cancel">
+                        Back to Transaction
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-confirm">
+                        <i class="bi bi-check-circle"></i> Confirm Transfer Intent
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Summary Sidebar -->
+        <div class="payment-summary">
+            <h6 style="font-weight: 700; color: #1f1f1f; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px;">Summary</h6>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <h6 style="font-size: 0.85rem; font-weight: 700; color: #495057; text-transform: uppercase; margin-bottom: 0.5rem;">Item</h6>
+                <div style="font-weight: 600; margin-bottom: 0.5rem;">{{ transaction.listing.title }}</div>
+                <div style="font-size: 0.85rem; color: #666;">
+                    {% if transaction.listing.school %}
+                        <div>{{ transaction.listing.school.name }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <h6 style="font-size: 0.85rem; font-weight: 700; color: #495057; text-transform: uppercase; margin-bottom: 0.5rem;">Seller</h6>
+                <div style="font-weight: 600;">{{ seller_name }}</div>
+            </div>
+            
+            <div style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 2px solid #e0e0e0;">
+                <div class="summary-item">
+                    <span>Item Price:</span>
+                    <span>₱{{ transaction.price }}</span>
+                </div>
+                <div class="summary-item total">
+                    <span>Total:</span>
+                    <span>₱{{ transaction.price }}</span>
+                </div>
+            </div>
+            
+            <div style="background: white; padding: 0.75rem; border-radius: 6px; border: 1px solid #e0e0e0;">
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 0.25rem;">Transaction ID</div>
+                <div style="font-family: monospace; font-size: 0.85rem; word-break: break-all;">
+                    #{{ transaction.id }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,405 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Receipts{% endblock %}
+
+{% block extra_css %}
+<style>
+    .receipts-container {
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+    .receipts-header {
+        background: linear-gradient(135deg, #1F1F1F 0%, #97C2EC 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 0;
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+    .receipts-header h1 {
+        font-family: 'Space Grotesk', sans-serif;
+        margin-bottom: 0.5rem;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    .receipts-header p {
+        opacity: 0.9;
+        margin: 0;
+    }
+    .filters-section {
+        background: white;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .filter-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    @media (max-width: 768px) {
+        .filter-group {
+            grid-template-columns: 1fr;
+        }
+    }
+    .filter-group:last-child {
+        margin-bottom: 0;
+    }
+    .filter-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .filter-item label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+    .filter-item input,
+    .filter-item select {
+        padding: 0.75rem;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 0.95rem;
+    }
+    .filter-buttons {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+    .filter-buttons button {
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+    }
+    .receipts-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .receipt-card {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    .receipt-card:hover {
+        border-color: #667eea;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+        transform: translateY(-2px);
+    }
+    .receipt-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+    @media (max-width: 768px) {
+        .receipt-card-header {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+    }
+    .receipt-card-title {
+        flex: 1;
+    }
+    .receipt-card-title h6 {
+        font-weight: 700;
+        color: #1f1f1f;
+        margin-bottom: 0.25rem;
+        font-size: 1rem;
+    }
+    .receipt-card-number {
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: #999;
+    }
+    .receipt-status {
+        display: inline-block;
+        padding: 0.4rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+    }
+    .receipt-status.pending {
+        background: #fff3cd;
+        color: #856404;
+    }
+    .receipt-status.confirmed {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+    .receipt-status.completed {
+        background: #d4edda;
+        color: #155724;
+    }
+    .receipt-status.failed {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    .receipt-card-content {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    @media (max-width: 1024px) {
+        .receipt-card-content {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+    @media (max-width: 768px) {
+        .receipt-card-content {
+            grid-template-columns: 1fr;
+        }
+    }
+    .receipt-card-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .receipt-card-label {
+        font-size: 0.75rem;
+        color: #999;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    .receipt-card-value {
+        color: #1f1f1f;
+        font-weight: 600;
+        word-break: break-word;
+    }
+    .receipt-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    @media (max-width: 768px) {
+        .receipt-card-footer {
+            flex-direction: column;
+            gap: 0.75rem;
+            align-items: flex-start;
+        }
+    }
+    .receipt-date {
+        font-size: 0.85rem;
+        color: #999;
+    }
+    .receipt-card-action {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        background: white;
+        border-radius: 8px;
+    }
+    .empty-state-icon {
+        font-size: 3rem;
+        color: #ccc;
+        margin-bottom: 1rem;
+    }
+    .empty-state h6 {
+        color: #666;
+        margin-bottom: 0.5rem;
+    }
+    .empty-state p {
+        color: #999;
+        margin: 0;
+    }
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+        text-align: center;
+    }
+    .stat-card h6 {
+        color: #999;
+        margin-bottom: 0.5rem;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .stat-card .value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1f1f1f;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="receipts-container">
+    <!-- Header -->
+    <div class="receipts-header">
+        <h1><i class="bi bi-receipt"></i> My Receipts</h1>
+        <p>View and manage all your transaction receipts</p>
+    </div>
+    
+    <!-- Stats -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <h6>Total Receipts</h6>
+            <div class="value">{{ receipts|length }}</div>
+        </div>
+        <div class="stat-card" style="border-left-color: #28a745;">
+            <h6>Completed</h6>
+            <div class="value" style="color: #28a745;">
+                {{ receipts|dictsort:"status"|length }}
+            </div>
+        </div>
+        <div class="stat-card" style="border-left-color: #ff9800;">
+            <h6>Pending Confirmation</h6>
+            <div class="value" style="color: #ff9800;">
+                {{ pending_count|default:0 }}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="filters-section">
+        <h6 style="margin-top: 0; margin-bottom: 1rem; color: #1f1f1f;">Filter Receipts</h6>
+        <form method="get" action="{% url 'marketplace:receipts_list' %}" class="filter-group-form">
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label for="status-filter">Status</label>
+                    <select name="status" id="status-filter" onchange="this.form.submit()">
+                        <option value="">All Statuses</option>
+                        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="confirmed" {% if status_filter == 'confirmed' %}selected{% endif %}>Confirmed</option>
+                        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+                        <option value="failed" {% if status_filter == 'failed' %}selected{% endif %}>Failed</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="search-filter">Search</label>
+                    <input 
+                        type="text" 
+                        id="search-filter" 
+                        name="q" 
+                        placeholder="Receipt #, Item, User..." 
+                        value="{{ search_query }}"
+                    >
+                </div>
+                <div class="filter-item" style="display: flex; align-items: flex-end;">
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Receipts List -->
+    {% if receipts %}
+        <div class="receipts-list">
+            {% for receipt in receipts %}
+                <div class="receipt-card" onclick="window.location='/receipts/{{ receipt.id }}/'" style="cursor: pointer;">
+                    <div class="receipt-card-header">
+                        <div class="receipt-card-title">
+                            <h6>{{ receipt.listing_title }}</h6>
+                            <div class="receipt-card-number">Receipt: #{{ receipt.receipt_number }}</div>
+                        </div>
+                        <span class="receipt-status {{ receipt.status|lower }}">
+                            {{ receipt.get_status_display }}
+                        </span>
+                    </div>
+                    
+                    <div class="receipt-card-content">
+                        <div class="receipt-card-item">
+                            <div class="receipt-card-label">
+                                {% if receipt.buyer == request.user %}
+                                    Seller
+                                {% else %}
+                                    Buyer
+                                {% endif %}
+                            </div>
+                            <div class="receipt-card-value">
+                                {% if receipt.buyer == request.user %}
+                                    {{ receipt.seller.profile.display_name|default:receipt.seller.username }}
+                                {% else %}
+                                    {{ receipt.buyer.profile.display_name|default:receipt.buyer.username }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="receipt-card-item">
+                            <div class="receipt-card-label">Amount</div>
+                            <div class="receipt-card-value">₱{{ receipt.total_amount|floatformat:2 }}</div>
+                        </div>
+                        
+                        <div class="receipt-card-item">
+                            <div class="receipt-card-label">Payment Method</div>
+                            <div class="receipt-card-value">
+                                {% if receipt.payment_method == 'credit_card' %}
+                                    Card
+                                {% elif receipt.payment_method == 'in_person' %}
+                                    Cash
+                                {% elif receipt.payment_method == 'gcash' %}
+                                    GCash
+                                {% elif receipt.payment_method == 'bank_transfer' %}
+                                    Bank
+                                {% else %}
+                                    Custom
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="receipt-card-item">
+                            <div class="receipt-card-label">Issue Date</div>
+                            <div class="receipt-card-value">{{ receipt.created_at|date:"M d, Y" }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="receipt-card-footer">
+                        <div class="receipt-date">
+                            {% if receipt.is_recent %}
+                                <i class="bi bi-star-fill" style="color: #ff9800;"></i> Recent
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'marketplace:receipt_detail' receipt_id=receipt.id %}" 
+                           class="btn btn-sm btn-outline-primary receipt-card-action"
+                           onclick="event.stopPropagation();">
+                            <i class="bi bi-eye"></i> View
+                        </a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <!-- Empty State -->
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="bi bi-inbox"></i>
+            </div>
+            <h6>No receipts found</h6>
+            <p>
+                {% if search_query or status_filter %}
+                    Try adjusting your filters to find what you're looking for.
+                {% else %}
+                    Start buying and selling to generate receipts!
+                {% endif %}
+            </p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

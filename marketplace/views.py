@@ -29,8 +29,10 @@ from .models import (
     TransactionMessage,
     ModerationLog,
     ProfilePost,
+    ProfilePostComment,
     SocialMedia,
     Payment,
+    Receipt,
 )
 from .forms import (
     CustomUserCreationForm,
@@ -43,6 +45,7 @@ from .forms import (
     PurchaseForm,
     TransactionConfirmForm,
     ProfilePostForm,
+    ProfilePostCommentForm,
 )
 from .utils import get_similar_listings_price_stats
 import stripe
@@ -534,6 +537,9 @@ def public_profile_view(request, username, is_owner=False):
         buyer_transactions = user.purchases.select_related('seller', 'listing').order_by('-created_at')
         seller_transactions = user.sales.select_related('buyer', 'listing').order_by('-created_at')
 
+    # Get social media accounts
+    social_media_accounts = profile.social_media.all().order_by('platform')
+    
     context = {
         'profile_user': user,
         'profile': profile,
@@ -549,6 +555,7 @@ def public_profile_view(request, username, is_owner=False):
         'form': form,
         'buyer_transactions': buyer_transactions,
         'seller_transactions': seller_transactions,
+        'social_media_accounts': social_media_accounts,
     }
     
     return render(request, 'marketplace/public_profile.html', context)
@@ -669,6 +676,50 @@ def pin_profile_post(request, pk):
     
     profile.save()
     return redirect('marketplace:public_profile', username=request.user.username)
+
+
+@login_required
+def create_profile_post_comment(request, post_id):
+    """Create a comment on a profile post."""
+    post = get_object_or_404(ProfilePost, pk=post_id)
+    
+    if request.method == 'POST':
+        form = ProfilePostCommentForm(request.POST, request.FILES)
+        if form.is_valid():
+            from .models import ProfilePostComment
+            comment = form.save(commit=False)
+            comment.post = post
+            comment.author = request.user
+            comment.save()
+            messages.success(request, 'Comment added!')
+            return redirect('marketplace:public_profile', username=post.author.username)
+    else:
+        form = ProfilePostCommentForm()
+    
+    return render(request, 'marketplace/post_comment_form.html', {
+        'form': form,
+        'post': post
+    })
+
+
+@login_required
+def delete_profile_post_comment(request, comment_id):
+    """Delete a comment on a profile post."""
+    from .models import ProfilePostComment
+    comment = get_object_or_404(ProfilePostComment, pk=comment_id)
+    post = comment.post
+    
+    # Check permissions - comment author or post author can delete
+    if comment.author != request.user and post.author != request.user:
+        messages.error(request, 'You can only delete your own comments.')
+        return redirect('marketplace:public_profile', username=post.author.username)
+    
+    if request.method == 'POST':
+        comment.delete()
+        messages.success(request, 'Comment deleted.')
+        return redirect('marketplace:public_profile', username=post.author.username)
+    
+    return render(request, 'marketplace/comment_confirm_delete.html', {'comment': comment})
 
 
 @login_required
@@ -893,29 +944,60 @@ def api_chat_message(request):
 
 @login_required
 def initiate_purchase(request, pk):
-    """Buyer initiates a purchase. Can be at listing price or an agreed offer price."""
+    """Buyer initiates a purchase. Can be at listing price or an agreed offer price.
+    
+    For WTS listings: request.user is the buyer, listing.seller is the seller
+    For WTB listings: listing.seller is the buyer, request.user is the seller (offering the item)
+    """
     listing = get_object_or_404(Listing, pk=pk)
     
     # Check if this is from an accepted offer
     offer_amount = None
     offer_id = request.GET.get('offer_id')
+    
+    # Determine if this is a WTB or WTS listing
+    is_wtb = listing.listing_type == 'wtb'
+
     if offer_id:
-        offer_msg = get_object_or_404(Message, pk=offer_id, is_offer=True, offer_status='accepted', sender=request.user)
+        # For WTS: offer is from the buyer (request.user)
+        # For WTB: offer is from the seller/item provider (not request.user)
+        if is_wtb:
+            # WTB: look for offer from anyone (the item provider), accepted by WTB creator (listing.seller)
+            offer_msg = get_object_or_404(Message, pk=offer_id, is_offer=True, offer_status='accepted')
+        else:
+            # WTS: look for offer from buyer (request.user)
+            offer_msg = get_object_or_404(Message, pk=offer_id, is_offer=True, offer_status='accepted', sender=request.user)
         offer_amount = offer_msg.offer_amount
 
-    # Can't buy own listing
-    if listing.seller == request.user:
+    # WTS: Can't buy own listing
+    # WTB: Can't offer own listing (request.user can't be the one who posted the WTB)
+    if not is_wtb and listing.seller == request.user:
         messages.error(request, "You can't buy your own listing!")
         return redirect(listing.get_absolute_url())
     
-    # Can't buy sold listings
+    if is_wtb and listing.seller == request.user:
+        messages.error(request, "You can't provide an item to your own WTB listing!")
+        return redirect(listing.get_absolute_url())
+    
+    # Can't buy/provide sold listings
     if listing.is_sold:
         messages.error(request, "This listing is no longer available.")
         return redirect(listing.get_absolute_url())
     
-    # Check if user already has a pending transaction for this listing
+    # Determine buyer and seller based on listing type
+    if is_wtb:
+        # WTB: listing.seller is the buyer, request.user is the seller (offering the item)
+        buyer = listing.seller
+        seller = request.user
+    else:
+        # WTS: request.user is the buyer, listing.seller is the seller
+        buyer = request.user
+        seller = listing.seller
+    
+    # Check if there's already a pending transaction for this listing between these parties
     existing_txn = Transaction.objects.filter(
-        buyer=request.user,
+        buyer=buyer,
+        seller=seller,
         listing=listing,
         status__in=['pending', 'confirmed']
     ).first()
@@ -928,8 +1010,8 @@ def initiate_purchase(request, pk):
         form = PurchaseForm(request.POST)
         if form.is_valid():
             transaction = Transaction.objects.create(
-                buyer=request.user,
-                seller=listing.seller,
+                buyer=buyer,
+                seller=seller,
                 listing=listing,
                 price=offer_amount if offer_amount else listing.price,
                 exchange_method=form.cleaned_data['exchange_method'],
@@ -937,14 +1019,25 @@ def initiate_purchase(request, pk):
                 status='pending'
             )
             
-            # Create notification for seller
+            # Create notification for the other party
+            if is_wtb:
+                # WTB: notify the seller (request.user) that buyer wants to confirm
+                notified_user = seller
+                notification_message = f"{buyer.username} is ready to buy your {listing.title} for ₱{transaction.price:,.2f}"
+            else:
+                # WTS: notify the seller (listing.seller) that buyer wants to buy
+                notified_user = seller
+                notification_message = f"{buyer.username} wants to buy {listing.title}"
+            
             Notification.objects.create(
-                user=listing.seller,
-                message=f"{request.user.username} wants to buy {listing.title}",
+                user=notified_user,
+                related_user=buyer,
+                message=notification_message,
+                notification_type='transaction',
                 url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk})
             )
             
-            messages.success(request, 'Purchase initiated! Waiting for seller confirmation.')
+            messages.success(request, 'Purchase initiated! Waiting for confirmation.')
             return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
     else:
         form = PurchaseForm()
@@ -952,9 +1045,10 @@ def initiate_purchase(request, pk):
     return render(request, 'marketplace/purchase_form.html', {
         'form': form,
         'listing': listing,
-        'seller': listing.seller,
+        'seller': seller if is_wtb else listing.seller,
         'meetup_points': SUGGESTED_MEETUP_POINTS,
         'offer_amount': offer_amount,
+        'is_wtb': is_wtb,
     })
 
 
@@ -1001,7 +1095,9 @@ def transaction_detail(request, transaction_id):
                 # Notify buyer
                 Notification.objects.create(
                     user=transaction.buyer,
+                    related_user=transaction.seller,
                     message=f"{transaction.seller.username} confirmed your purchase!",
+                    notification_type='transaction',
                     url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk})
                 )
                 
@@ -1024,7 +1120,9 @@ def transaction_detail(request, transaction_id):
                 other_user = transaction.seller if request.user == transaction.buyer else transaction.buyer
                 Notification.objects.create(
                     user=other_user,
+                    related_user=request.user,
                     message=f"New message about your transaction for {transaction.listing.title if transaction.listing else 'an item'}",
+                    notification_type='message',
                     url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
                 )
 
@@ -1035,6 +1133,9 @@ def transaction_detail(request, transaction_id):
     seller_profile = getattr(transaction.seller, 'profile', None) or Profile.objects.filter(user=transaction.seller).first()
     payment = getattr(transaction, 'payment', None)
     payment_completed = payment is not None and payment.status == 'completed'
+    
+    # Determine if this is a WTB transaction
+    is_wtb = transaction.listing and transaction.listing.listing_type == 'wtb'
 
     return render(request, 'marketplace/transaction_detail.html', {
         'transaction': transaction,
@@ -1047,6 +1148,7 @@ def transaction_detail(request, transaction_id):
         'message_form': message_form,
         'payment': payment,
         'payment_completed': payment_completed,
+        'is_wtb': is_wtb,
     })
 
 
@@ -1081,7 +1183,9 @@ def confirm_transaction(request, transaction_id):
             from django.urls import reverse
             Notification.objects.create(
                 user=transaction.buyer,
+                related_user=transaction.seller,
                 message=f"{transaction.seller.username} confirmed your purchase!",
+                notification_type='transaction',
                 url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk})
             )
             
@@ -1151,18 +1255,22 @@ def complete_transaction(request, transaction_id):
         Notification.objects.create(
             user=transaction.seller,
             message="Mutual confirmation received! Sale fully completed.",
+            notification_type='transaction',
             url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk})
         )
         Notification.objects.create(
             user=transaction.buyer,
             message="Mutual confirmation received! You can now leave a review.",
+            notification_type='transaction',
             url=reverse('marketplace:leave_review', kwargs={'username': transaction.seller.username})
         )
         messages.success(request, '✓ Transaction fully completed!')
     else:
         Notification.objects.create(
             user=other_party,
+            related_user=request.user,
             message=other_msg,
+            notification_type='transaction',
             url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk})
         )
         messages.info(request, f"{status_msg} Waiting for the other party to confirm.")
@@ -1201,7 +1309,9 @@ def cancel_transaction(request, transaction_id):
         from django.urls import reverse
         Notification.objects.create(
             user=other_user,
+            related_user=request.user,
             message=f"{request.user.username} cancelled the transaction for {transaction.listing.title if transaction.listing else 'an item'}",
+            notification_type='transaction',
             url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk})
         )
         
@@ -1215,11 +1325,113 @@ def cancel_transaction(request, transaction_id):
 
 @login_required
 def notifications_list(request):
-    """Show user's notifications and mark them as read."""
+    """Show user's notifications with filtering and pagination."""
+    from django.core.paginator import Paginator
+    
+    # Get filter parameter
+    filter_type = request.GET.get('filter', 'all')
+    
+    # Base queryset
     notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
-    # Mark all unread as read
-    notifications.filter(is_read=False).update(is_read=True)
-    return render(request, 'marketplace/notifications.html', {'notifications': notifications})
+    
+    # Apply type filter
+    if filter_type != 'all':
+        if filter_type == 'unread':
+            notifications = notifications.filter(is_read=False)
+        else:
+            notifications = notifications.filter(notification_type=filter_type)
+    
+    # Mark unread as read (only if viewing all unread)
+    if filter_type == 'all' or filter_type == 'unread':
+        Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+    
+    # Pagination
+    paginator = Paginator(notifications, 20)  # 20 per page
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'notifications': page_obj.object_list,
+        'filter_type': filter_type,
+        'notification_types': Notification.NOTIFICATION_TYPES,
+    }
+    
+    return render(request, 'marketplace/notifications.html', context)
+
+
+@login_required
+def get_recent_notifications(request):
+    """AJAX endpoint to fetch recent notifications for dropdown preview."""
+    from django.http import JsonResponse
+    
+    try:
+        notifications = list(Notification.objects.filter(user=request.user).order_by('-created_at')[:5])
+        
+        notifications_data = []
+        for n in notifications:
+            # Safely build related_user data
+            related_user_data = None
+            if n.related_user:
+                avatar_url = None
+                if hasattr(n.related_user, 'profile'):
+                    avatar_url = n.related_user.profile.get_avatar_url()
+                
+                related_user_data = {
+                    'username': n.related_user.username,
+                    'avatar_url': avatar_url,
+                }
+            
+            notification_data = {
+                'id': n.id,
+                'message': n.message,
+                'type': n.get_notification_type_display(),
+                'type_key': n.notification_type,
+                'url': n.url or '#',
+                'is_read': n.is_read,
+                'created_at': n.created_at.strftime('%I:%M %p'),
+                'created_at_full': n.created_at.strftime('%b %d, %Y %I:%M %p'),
+                'related_user': related_user_data,
+            }
+            notifications_data.append(notification_data)
+        
+        return JsonResponse({
+            'success': True,
+            'notifications': notifications_data,
+            'unread_count': sum(1 for n in notifications if not n.is_read),
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+        }, status=500)
+
+
+@login_required
+def delete_notifications(request):
+    """Delete selected notifications or clear old ones."""
+    if request.method == 'POST':
+        action = request.POST.get('action', 'delete')
+        
+        if action == 'delete_selected':
+            notification_ids = request.POST.getlist('notification_ids')
+            Notification.objects.filter(id__in=notification_ids, user=request.user).delete()
+        elif action == 'clear_old':
+            # Clear notifications older than 30 days
+            from datetime import timedelta
+            from django.utils import timezone
+            thirty_days_ago = timezone.now() - timedelta(days=30)
+            Notification.objects.filter(user=request.user, created_at__lt=thirty_days_ago).delete()
+        elif action == 'mark_as_read':
+            notification_ids = request.POST.getlist('notification_ids')
+            Notification.objects.filter(id__in=notification_ids, user=request.user).update(is_read=True)
+        elif action == 'mark_as_unread':
+            notification_ids = request.POST.getlist('notification_ids')
+            Notification.objects.filter(id__in=notification_ids, user=request.user).update(is_read=False)
+    
+    return redirect('marketplace:notifications')
 
 
 # ----- Messaging -----
@@ -1246,7 +1458,7 @@ def _get_or_create_conversation(user1, user2, listing=None):
 
 @login_required
 def inbox(request):
-    """List user's conversations and transactions."""
+    """List user's conversations, transactions, and receipts."""
     # Get conversations
     convs = Conversation.objects.filter(participants=request.user).prefetch_related(
         'participants', 'messages__sender', 'listing'
@@ -1270,9 +1482,15 @@ def inbox(request):
         Q(buyer=request.user) | Q(seller=request.user)
     ).select_related('listing', 'buyer', 'seller').order_by('-created_at')
     
+    # Get receipts
+    receipts = Receipt.objects.filter(
+        Q(buyer=request.user) | Q(seller=request.user)
+    ).select_related('transaction', 'buyer', 'seller').order_by('-created_at')
+    
     return render(request, 'marketplace/inbox.html', {
         'conversations': convs_with_preview,
         'transactions': transactions,
+        'receipts': receipts,
     })
 
 
@@ -1363,7 +1581,9 @@ def make_offer(request, pk):
                 
                 Notification.objects.create(
                     user=other_user,
+                    related_user=request.user,
                     message=f"New offer for {conversation.listing.title if conversation.listing else 'an item'}: ₱{amount:,.2f}",
+                    notification_type='offer',
                     url=reverse('marketplace:conversation', kwargs={'pk': conversation.pk})
                 )
                 
@@ -1391,7 +1611,9 @@ def respond_to_offer(request, pk):
         # For now just notify buyer.
         Notification.objects.create(
             user=message.sender,
+            related_user=message.conversation.listing.seller if message.conversation.listing else None,
             message=f"Your offer for {message.conversation.listing.title} was ACCEPTED!",
+            notification_type='offer',
             url=reverse('marketplace:conversation', kwargs={'pk': message.conversation.pk})
         )
         messages.success(request, "Offer accepted!")
@@ -1400,7 +1622,9 @@ def respond_to_offer(request, pk):
         message.body = f"DECLINED OFFER: ₱{message.offer_amount:,.2f}"
         Notification.objects.create(
             user=message.sender,
+            related_user=message.conversation.listing.seller if message.conversation.listing else None,
             message=f"Your offer for {message.conversation.listing.title} was declined.",
+            notification_type='offer',
             url=reverse('marketplace:conversation', kwargs={'pk': message.conversation.pk})
         )
         messages.info(request, "Offer declined.")
@@ -1909,40 +2133,41 @@ def payment_checkout(request, transaction_id):
             'stripe_public_key': settings.STRIPE_PUBLIC_KEY,
         }
 
-        # For credit card payments, create PaymentIntent
-        if exchange_method == 'credit_card':
-            try:
-                amount_cents = int(float(transaction.price) * 100)
-                intent = stripe.PaymentIntent.create(
-                    amount=amount_cents,
-                    currency='php',
-                    description=f'Marketplace Purchase: {transaction.listing.title if transaction.listing else "Item"}',
-                    metadata={
-                        'transaction_id': str(transaction.id),
-                        'buyer': transaction.buyer.username,
-                        'seller': transaction.seller.username,
-                    },
-                    automatic_payment_methods={'enabled': True},
-                )
-                context['client_secret'] = intent.client_secret
-            except stripe.error.CardError as e:
-                context['error'] = f"Card error: {e.user_message}"
-            except stripe.error.RateLimitError:
-                context['error'] = "Too many requests. Please try again in a moment."
-            except stripe.error.InvalidRequestError:
-                context['error'] = "Invalid payment details. Please check your information."
-            except stripe.error.AuthenticationError:
-                context['error'] = "Authentication failed. Please try again."
-            except stripe.error.APIConnectionError:
-                context['error'] = "Network error. Please check your connection and try again."
-            except stripe.error.StripeError:
-                context['error'] = "An error occurred with Stripe. Please try again."
+        # ALWAYS create PaymentIntent for credit card transactions
+        # This ensures clientSecret is available even if user changes payment method on frontend
+        try:
+            amount_cents = int(float(transaction.price) * 100)
+            intent = stripe.PaymentIntent.create(
+                amount=amount_cents,
+                currency='php',
+                description=f'Marketplace Purchase: {transaction.listing.title if transaction.listing else "Item"}',
+                metadata={
+                    'transaction_id': str(transaction.id),
+                    'buyer': transaction.buyer.username,
+                    'seller': transaction.seller.username,
+                },
+                automatic_payment_methods={'enabled': True},
+            )
+            context['client_secret'] = intent.client_secret
+        except stripe.error.CardError as e:
+            context['error'] = f"Card error: {e.user_message}"
+        except stripe.error.RateLimitError:
+            context['error'] = "Too many requests. Please try again in a moment."
+        except stripe.error.InvalidRequestError:
+            context['error'] = "Invalid payment details. Please check your information."
+        except stripe.error.AuthenticationError:
+            context['error'] = "Authentication failed. Please try again."
+        except stripe.error.APIConnectionError:
+            context['error'] = "Network error. Please check your connection and try again."
+        except stripe.error.StripeError:
+            context['error'] = "An error occurred with Stripe. Please try again."
 
         return render(request, 'marketplace/payment_checkout.html', context)
 
     elif request.method == 'POST':
         exchange_method = request.POST.get('exchange_method', transaction.exchange_method)
 
+        # Route to appropriate payment method page
         if exchange_method == 'credit_card':
             # The frontend sends the PaymentIntent ID after confirmCardPayment succeeds
             payment_intent_id = request.POST.get('payment_intent_id', '').strip()
@@ -1969,12 +2194,27 @@ def payment_checkout(request, transaction_id):
                         }
                     )
 
+                    # Create receipt for credit card payment
+                    receipt = _create_receipt(transaction, payment)
+                    receipt.status = 'confirmed'
+                    receipt.confirmed_at = timezone.now()
+                    receipt.save()
+
                     transaction.status = 'confirmed'
                     transaction.confirmed_at = timezone.now()
                     transaction.save()
 
-                    messages.success(request, "Payment successful! Please meet the seller to complete the exchange.")
-                    return redirect('marketplace:payment_success', transaction_id=transaction_id)
+                    # Notify seller
+                    Notification.objects.create(
+                        user=transaction.seller,
+                        related_user=transaction.buyer,
+                        message=f'{transaction.buyer.username} paid ₱{transaction.price} via credit card for {transaction.listing.title if transaction.listing else "your item"}',
+                        notification_type='transaction',
+                        url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
+                    )
+
+                    messages.success(request, "Payment successful! Your receipt has been saved to your inbox.")
+                    return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
                 else:
                     messages.error(request, f"Payment not completed. Status: {intent.status}")
                     return redirect('marketplace:payment_cancel', transaction_id=transaction_id)
@@ -1986,38 +2226,21 @@ def payment_checkout(request, transaction_id):
                 messages.error(request, f"Payment error: {str(e)}")
                 return redirect('marketplace:payment_cancel', transaction_id=transaction_id)
 
+        elif exchange_method == 'gcash':
+            return redirect('marketplace:payment_gcash', transaction_id=transaction_id)
+        
+        elif exchange_method == 'bank_transfer':
+            return redirect('marketplace:payment_bank_transfer', transaction_id=transaction_id)
+        
+        elif exchange_method == 'in_person':
+            return redirect('marketplace:payment_cash_arrangement', transaction_id=transaction_id)
+        
+        elif exchange_method == 'other':
+            return redirect('marketplace:payment_other_arrangement', transaction_id=transaction_id)
+        
         else:
-            # For non-Stripe payment methods (gcash, bank_transfer, in_person, other)
-            payment, created = Payment.objects.update_or_create(
-                transaction=transaction,
-                defaults={
-                    'stripe_charge_id': f'{exchange_method}_{transaction.id}',
-                    'amount': transaction.price,
-                    'status': 'completed' if exchange_method in ['in_person', 'gcash'] else 'pending',
-                    'payment_method': exchange_method,
-                }
-            )
-
-            # Update transaction
-            if exchange_method in ['in_person', 'gcash']:
-                transaction.status = 'confirmed'
-                transaction.confirmed_at = timezone.now()
-            transaction.exchange_method = exchange_method
-            transaction.save()
-
-            # Send notification to seller
-            seller_notification = Notification.objects.create(
-                user=transaction.seller,
-                message=f'{transaction.buyer.username} sent payment via {exchange_method} for {transaction.listing.title if transaction.listing else "your item"}',
-                url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
-            )
-
-            if exchange_method == 'in_person':
-                messages.success(request, "You selected in-person payment. Please meet the seller to complete the exchange.")
-                return redirect('marketplace:payment_success', transaction_id=transaction_id)
-            else:
-                messages.success(request, f"Payment method '{exchange_method}' registered. The seller will verify receipt.")
-                return redirect('marketplace:payment_success', transaction_id=transaction_id)
+            messages.error(request, "Invalid payment method selected.")
+            return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
 
     return render(request, 'marketplace/payment_checkout.html', {'transaction': transaction})
 
@@ -2058,4 +2281,321 @@ def payment_cancel(request, transaction_id):
     }
 
     return render(request, 'marketplace/payment_failure.html', context)
+
+
+def _generate_receipt_number():
+    """Generate a unique receipt number in format RCP-2024-XXXXX."""
+    from datetime import datetime
+    import random
+    year = datetime.now().year
+    random_suffix = str(random.randint(10000, 99999))
+    receipt_num = f"RCP-{year}-{random_suffix}"
+    
+    # Ensure uniqueness
+    while Receipt.objects.filter(receipt_number=receipt_num).exists():
+        random_suffix = str(random.randint(10000, 99999))
+        receipt_num = f"RCP-{year}-{random_suffix}"
+    
+    return receipt_num
+
+
+def _create_receipt(transaction, payment=None):
+    """Create and return a Receipt object for a transaction."""
+    receipt_number = _generate_receipt_number()
+    
+    # Calculate processing fee based on payment method
+    processing_fee = 0
+    if payment and payment.payment_method == 'credit_card':
+        processing_fee = float(transaction.price) * 0.02
+    
+    total_amount = float(transaction.price) + processing_fee
+    
+    receipt, created = Receipt.objects.get_or_create(
+        transaction=transaction,
+        defaults={
+            'payment': payment,
+            'receipt_number': receipt_number,
+            'buyer': transaction.buyer,
+            'seller': transaction.seller,
+            'listing_title': transaction.listing.title if transaction.listing else 'Item',
+            'listing_price': transaction.price,
+            'payment_method': payment.payment_method if payment else transaction.exchange_method,
+            'processing_fee': processing_fee,
+            'total_amount': total_amount,
+            'status': 'pending',
+            'notes': transaction.notes,
+        }
+    )
+    
+    return receipt
+
+
+@login_required
+def payment_gcash(request, transaction_id):
+    """GCash/E-wallet payment page with payment instructions."""
+    try:
+        transaction = get_object_or_404(Transaction, id=transaction_id, buyer=request.user)
+    except:
+        messages.error(request, "Transaction not found.")
+        return redirect('marketplace:home')
+    
+    if transaction.status != 'confirmed':
+        messages.error(request, "This transaction is not ready for payment.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+    
+    if request.method == 'POST':
+        # Create payment record
+        payment, created = Payment.objects.update_or_create(
+            transaction=transaction,
+            defaults={
+                'stripe_charge_id': f'gcash_{transaction.id}_{timezone.now().timestamp()}',
+                'amount': transaction.price,
+                'status': 'completed',
+                'payment_method': 'gcash',
+            }
+        )
+        
+        # Create receipt
+        receipt = _create_receipt(transaction, payment)
+        receipt.status = 'confirmed'
+        receipt.confirmed_at = timezone.now()
+        receipt.save()
+        
+        # Notify seller
+        Notification.objects.create(
+            user=transaction.seller,
+            related_user=transaction.buyer,
+            message=f'{transaction.buyer.username} paid ₱{transaction.price} via GCash for {transaction.listing.title if transaction.listing else "your item"}',
+            notification_type='transaction',
+            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
+        )
+        
+        messages.success(request, "Payment recorded! Your receipt has been saved to your inbox.")
+        return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
+    
+    context = {
+        'transaction': transaction,
+        'payment_method': 'gcash',
+    }
+    return render(request, 'marketplace/payment_gcash.html', context)
+
+
+@login_required
+def payment_bank_transfer(request, transaction_id):
+    """Bank transfer payment page with bank details."""
+    try:
+        transaction = get_object_or_404(Transaction, id=transaction_id, buyer=request.user)
+    except:
+        messages.error(request, "Transaction not found.")
+        return redirect('marketplace:home')
+    
+    if transaction.status != 'confirmed':
+        messages.error(request, "This transaction is not ready for payment.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+    
+    if request.method == 'POST':
+        # Get seller's bank details from profile or use placeholder
+        seller_bank_info = transaction.seller.profile.contact_info or "Bank details to be provided by seller"
+        
+        # Create payment record
+        payment, created = Payment.objects.update_or_create(
+            transaction=transaction,
+            defaults={
+                'stripe_charge_id': f'bank_{transaction.id}_{timezone.now().timestamp()}',
+                'amount': transaction.price,
+                'status': 'pending',  # Pending until seller confirms receipt
+                'payment_method': 'bank_transfer',
+            }
+        )
+        
+        # Create receipt
+        receipt = _create_receipt(transaction, payment)
+        receipt.status = 'pending'
+        receipt.save()
+        
+        # Notify seller
+        Notification.objects.create(
+            user=transaction.seller,
+            related_user=transaction.buyer,
+            message=f'{transaction.buyer.username} has initiated a bank transfer of ₱{transaction.price} for {transaction.listing.title if transaction.listing else "your item"}. Please confirm receipt.',
+            notification_type='transaction',
+            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
+        )
+        
+        messages.success(request, "Bank transfer request registered. Your receipt has been saved. The seller will confirm receipt.")
+        return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
+    
+    context = {
+        'transaction': transaction,
+        'payment_method': 'bank_transfer',
+        'seller_phone': transaction.seller.profile.phone or '',
+        'seller_name': transaction.seller.profile.display_name or transaction.seller.username,
+    }
+    return render(request, 'marketplace/payment_bank_transfer.html', context)
+
+
+@login_required
+def payment_cash_arrangement(request, transaction_id):
+    """Cash on hand arrangement page for when meeting in person."""
+    try:
+        transaction = get_object_or_404(Transaction, id=transaction_id, buyer=request.user)
+    except:
+        messages.error(request, "Transaction not found.")
+        return redirect('marketplace:home')
+    
+    if transaction.status != 'confirmed':
+        messages.error(request, "This transaction is not ready for payment.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+    
+    if request.method == 'POST':
+        # Create payment record
+        payment, created = Payment.objects.update_or_create(
+            transaction=transaction,
+            defaults={
+                'stripe_charge_id': f'cash_{transaction.id}_{timezone.now().timestamp()}',
+                'amount': transaction.price,
+                'status': 'completed',
+                'payment_method': 'in_person',
+            }
+        )
+        
+        # Create receipt
+        receipt = _create_receipt(transaction, payment)
+        receipt.status = 'confirmed'
+        receipt.confirmed_at = timezone.now()
+        receipt.save()
+        
+        # Notify seller
+        Notification.objects.create(
+            user=transaction.seller,
+            related_user=transaction.buyer,
+            message=f'{transaction.buyer.username} is ready to meet and pay ₱{transaction.price} in cash for {transaction.listing.title if transaction.listing else "your item"}',
+            notification_type='transaction',
+            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
+        )
+        
+        messages.success(request, "Cash meeting arrangement confirmed. Your receipt has been saved to your inbox.")
+        return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
+    
+    context = {
+        'transaction': transaction,
+        'payment_method': 'in_person',
+        'suggested_meetup_points': SUGGESTED_MEETUP_POINTS.get(
+            transaction.listing.school.short_name if transaction.listing and transaction.listing.school else 'Public',
+            SUGGESTED_MEETUP_POINTS['Public']
+        ),
+    }
+    return render(request, 'marketplace/payment_cash_arrangement.html', context)
+
+
+@login_required
+def payment_other_arrangement(request, transaction_id):
+    """Other arrangement page for custom payment methods."""
+    try:
+        transaction = get_object_or_404(Transaction, id=transaction_id, buyer=request.user)
+    except:
+        messages.error(request, "Transaction not found.")
+        return redirect('marketplace:home')
+    
+    if transaction.status != 'confirmed':
+        messages.error(request, "This transaction is not ready for payment.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+    
+    if request.method == 'POST':
+        arrangement_details = request.POST.get('arrangement_details', '').strip()
+        
+        if not arrangement_details:
+            messages.error(request, "Please provide details of your arrangement with the seller.")
+            return redirect('marketplace:payment_other_arrangement', transaction_id=transaction_id)
+        
+        # Create payment record
+        payment, created = Payment.objects.update_or_create(
+            transaction=transaction,
+            defaults={
+                'stripe_charge_id': f'other_{transaction.id}_{timezone.now().timestamp()}',
+                'amount': transaction.price,
+                'status': 'pending',
+                'payment_method': 'other',
+            }
+        )
+        
+        # Create receipt with arrangement details in notes
+        receipt = _create_receipt(transaction, payment)
+        receipt.status = 'pending'
+        receipt.notes = f"Custom Arrangement: {arrangement_details}"
+        receipt.save()
+        
+        # Notify seller with the arrangement details
+        Notification.objects.create(
+            user=transaction.seller,
+            related_user=transaction.buyer,
+            message=f'{transaction.buyer.username} has proposed a custom arrangement for ₱{transaction.price}: {arrangement_details}. Please confirm in the transaction details.',
+            notification_type='transaction',
+            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
+        )
+        
+        messages.success(request, "Your arrangement has been sent to the seller. Your receipt has been saved. They will confirm shortly.")
+        return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
+    
+    context = {
+        'transaction': transaction,
+        'payment_method': 'other',
+    }
+    return render(request, 'marketplace/payment_other_arrangement.html', context)
+
+
+@login_required
+def receipt_detail(request, receipt_id):
+    """Display a detailed receipt for a transaction."""
+    try:
+        receipt = get_object_or_404(Receipt, id=receipt_id)
+    except:
+        messages.error(request, "Receipt not found.")
+        return redirect('marketplace:inbox')
+    
+    # Ensure user is either buyer or seller
+    if request.user not in [receipt.buyer, receipt.seller]:
+        messages.error(request, "You don't have permission to view this receipt.")
+        return redirect('marketplace:inbox')
+    
+    context = {
+        'receipt': receipt,
+        'is_buyer': request.user == receipt.buyer,
+        'is_seller': request.user == receipt.seller,
+    }
+    
+    return render(request, 'marketplace/receipt_detail.html', context)
+
+
+@login_required
+def receipts_list(request):
+    """List all receipts for the current user."""
+    # Get receipts where user is buyer or seller, ordered by most recent
+    receipts = Receipt.objects.filter(
+        Q(buyer=request.user) | Q(seller=request.user)
+    ).select_related('transaction', 'buyer', 'seller', 'payment').order_by('-created_at')
+    
+    # Filtering
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        receipts = receipts.filter(status=status_filter)
+    
+    search_query = request.GET.get('q', '').strip()
+    if search_query:
+        receipts = receipts.filter(
+            Q(listing_title__icontains=search_query) |
+            Q(receipt_number__icontains=search_query) |
+            Q(buyer__username__icontains=search_query) |
+            Q(seller__username__icontains=search_query)
+        )
+    
+    context = {
+        'receipts': receipts,
+        'status_filter': status_filter,
+        'search_query': search_query,
+    }
+    
+    return render(request, 'marketplace/receipts_list.html', context)
+
+
 

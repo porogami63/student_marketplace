@@ -1,0 +1,324 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cash Meeting Arrangement - {{ transaction.listing.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .payment-container {
+        max-width: 900px;
+        margin: 0 auto;
+        animation: slideIn 0.5s ease-out;
+    }
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .payment-header {
+        background: linear-gradient(135deg, #1F1F1F 0%, #97C2EC 100%);
+        color: white;
+        padding: 1.25rem 2rem;
+        border-radius: 0;
+        margin-bottom: 1.25rem;
+        text-align: center;
+    }
+    .payment-header h1 {
+        font-family: 'Space Grotesk', sans-serif;
+        margin-bottom: 0.25rem;
+        font-size: 1.8rem;
+        font-weight: 700;
+    }
+    .payment-content {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 2rem;
+        padding: 0 1rem;
+    }
+    @media (max-width: 768px) {
+        .payment-content {
+            grid-template-columns: 1fr;
+        }
+    }
+    .payment-main {
+        background: white;
+        border-radius: 0;
+        padding: 2rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .payment-summary {
+        background: #f8f9fa;
+        border-radius: 0;
+        padding: 1.5rem;
+        border: 1px solid #e0e0e0;
+        height: fit-content;
+    }
+    .payment-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #1f1f1f;
+        margin-bottom: 1.5rem;
+        text-align: center;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    .checklist-box {
+        background: #e7f3ff;
+        border-left: 4px solid #17a2b8;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-radius: 6px;
+    }
+    .checklist-box h6 {
+        color: #0c5460;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+    .checklist-item {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+        color: #0c5460;
+        line-height: 1.5;
+    }
+    .checklist-item:last-child {
+        margin-bottom: 0;
+    }
+    .checklist-item i {
+        min-width: 24px;
+        color: #17a2b8;
+        font-weight: 600;
+    }
+    .safety-box {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-radius: 6px;
+    }
+    .safety-box h6 {
+        color: #856404;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+    .safety-tip {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+        color: #856404;
+        font-size: 0.95rem;
+    }
+    .safety-tip:last-child {
+        margin-bottom: 0;
+    }
+    .safety-tip i {
+        min-width: 24px;
+        color: #ff9800;
+    }
+    .meetup-suggest-box {
+        background: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-radius: 6px;
+    }
+    .meetup-suggest-box h6 {
+        color: #1f1f1f;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+    .meetup-suggest-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .meetup-suggest-list li {
+        padding: 0.5rem;
+        margin-bottom: 0.5rem;
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        color: #495057;
+    }
+    .meetup-suggest-list li:last-child {
+        margin-bottom: 0;
+    }
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .summary-item.total {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #667eea;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 2px solid #e0e0e0;
+        border-bottom: none;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 2rem;
+    }
+    .btn-confirm {
+        flex: 1;
+        padding: 1rem;
+        font-size: 1.05rem;
+        font-weight: 600;
+    }
+    .btn-cancel {
+        flex: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="payment-container">
+    <div class="payment-header">
+        <h1><i class="bi bi-chat-left-handshake"></i> Cash Meeting Arrangement</h1>
+        <p>Coordinate an in-person meetup to complete your purchase</p>
+    </div>
+    
+    <div class="payment-content">
+        <!-- Main Payment Section -->
+        <div class="payment-main">
+            <div class="payment-title">
+                <i class="bi bi-map"></i> In-Person Cash Payment
+            </div>
+            
+            <div class="checklist-box">
+                <h6>Before You Meet:</h6>
+                <div class="checklist-item">
+                    <i class="bi bi-check2-circle"></i>
+                    <span>Contact the seller via chat to propose a meetup date and time</span>
+                </div>
+                <div class="checklist-item">
+                    <i class="bi bi-check2-circle"></i>
+                    <span>Agree on a public, safe location that's convenient for both parties</span>
+                </div>
+                <div class="checklist-item">
+                    <i class="bi bi-check2-circle"></i>
+                    <span>Prepare cash in the exact or close amount: ₱{{ transaction.price }}</span>
+                </div>
+                <div class="checklist-item">
+                    <i class="bi bi-check2-circle"></i>
+                    <span>Bring a phone to call the seller if you can't find them</span>
+                </div>
+                <div class="checklist-item">
+                    <i class="bi bi-check2-circle"></i>
+                    <span>Arrive on time and inspect the item carefully before handing over cash</span>
+                </div>
+            </div>
+            
+            <div class="safety-box">
+                <h6><i class="bi bi-shield-check"></i> Safety Tips</h6>
+                <div class="safety-tip">
+                    <i class="bi bi-pin-map"></i>
+                    <span><strong>Choose public locations:</strong> Meet at busy malls, universities, or transit hubs with security/cameras</span>
+                </div>
+                <div class="safety-tip">
+                    <i class="bi bi-person-check"></i>
+                    <span><strong>Verify seller identity:</strong> Ask for ID if needed. Confirm they match their profile picture</span>
+                </div>
+                <div class="safety-tip">
+                    <i class="bi bi-eye"></i>
+                    <span><strong>Inspect the item:</strong> Check the condition, functionality, and authenticity before paying</span>
+                </div>
+                <div class="safety-tip">
+                    <i class="bi bi-people"></i>
+                    <span><strong>Bring someone:</strong> Consider bringing a friend for extra safety and peace of mind</span>
+                </div>
+                <div class="safety-tip">
+                    <i class="bi bi-telephone"></i>
+                    <span><strong>Keep contact info:</strong> Save the seller's number and share your location with a trusted person</span>
+                </div>
+            </div>
+            
+            <!-- Suggested Meetup Points -->
+            <div class="meetup-suggest-box">
+                <h6><i class="bi bi-geo-alt"></i> Suggested Meetup Points Near Your Campus:</h6>
+                <ul class="meetup-suggest-list">
+                    {% for point in suggested_meetup_points %}
+                        <li><i class="bi bi-geo-alt-fill" style="color: #667eea; margin-right: 0.5rem;"></i>{{ point }}</li>
+                    {% empty %}
+                        <li>Discuss a public location with the seller in the chat</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <!-- Confirmation Form -->
+            <form method="post" id="cash-form">
+                {% csrf_token %}
+                
+                <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
+                    <h6 style="color: #155724; margin-bottom: 0.5rem;">
+                        <i class="bi bi-check-circle"></i> Ready to Arrange Meeting?
+                    </h6>
+                    <p style="color: #155724; margin: 0; font-size: 0.9rem;">
+                        Click below to confirm your in-person meeting arrangement. 
+                        You'll receive a receipt once the meeting details are registered.
+                    </p>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <a href="{% url 'marketplace:transaction_detail' transaction_id=transaction.id %}" class="btn btn-secondary btn-cancel">
+                        Back to Transaction
+                    </a>
+                    <button type="submit" class="btn btn-success btn-confirm">
+                        <i class="bi bi-check-circle"></i> Confirm Meeting Arrangement
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Summary Sidebar -->
+        <div class="payment-summary">
+            <h6 style="font-weight: 700; color: #1f1f1f; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px;">Summary</h6>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <h6 style="font-size: 0.85rem; font-weight: 700; color: #495057; text-transform: uppercase; margin-bottom: 0.5rem;">Item</h6>
+                <div style="font-weight: 600; margin-bottom: 0.5rem;">{{ transaction.listing.title }}</div>
+                <div style="font-size: 0.85rem; color: #666;">
+                    {% if transaction.listing.school %}
+                        <div>{{ transaction.listing.school.name }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <h6 style="font-size: 0.85rem; font-weight: 700; color: #495057; text-transform: uppercase; margin-bottom: 0.5rem;">Seller</h6>
+                <div style="font-weight: 600;">{{ transaction.seller.profile.display_name|default:transaction.seller.username }}</div>
+            </div>
+            
+            <div style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 2px solid #e0e0e0;">
+                <div class="summary-item">
+                    <span>Item Price:</span>
+                    <span>₱{{ transaction.price }}</span>
+                </div>
+                <div class="summary-item total">
+                    <span>Total Cash Needed:</span>
+                    <span>₱{{ transaction.price }}</span>
+                </div>
+            </div>
+            
+            <div style="background: white; padding: 0.75rem; border-radius: 6px; border: 1px solid #e0e0e0;">
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 0.25rem;">Transaction ID</div>
+                <div style="font-family: monospace; font-size: 0.85rem; word-break: break-all;">
+                    #{{ transaction.id }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

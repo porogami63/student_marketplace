@@ -16,6 +16,7 @@ from .models import (
     Transaction,
     ModerationLog,
     Payment,
+    Receipt,
 )
 
 
@@ -139,4 +140,20 @@ class PaymentAdmin(admin.ModelAdmin):
         ('Payment Identification', {'fields': ('stripe_charge_id', 'transaction')}),
         ('Payment Details', {'fields': ('amount', 'status', 'payment_method')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at'), 'classes': ('collapse',)}),
+    )
+
+
+@admin.register(Receipt)
+class ReceiptAdmin(admin.ModelAdmin):
+    list_display = ['receipt_number', 'buyer', 'seller', 'listing_title', 'total_amount', 'status', 'created_at']
+    list_filter = ['status', 'payment_method', 'created_at']
+    search_fields = ['receipt_number', 'buyer__username', 'seller__username', 'listing_title']
+    date_hierarchy = 'created_at'
+    readonly_fields = ['created_at', 'confirmed_at', 'completed_at']
+    fieldsets = (
+        ('Receipt Information', {'fields': ('receipt_number', 'transaction', 'payment')}),
+        ('Parties Involved', {'fields': ('buyer', 'seller')}),
+        ('Item & Pricing', {'fields': ('listing_title', 'listing_price', 'payment_method', 'processing_fee', 'total_amount')}),
+        ('Status & Notes', {'fields': ('status', 'notes')}),
+        ('Timestamps', {'fields': ('created_at', 'confirmed_at', 'completed_at'), 'classes': ('collapse',)}),
     )

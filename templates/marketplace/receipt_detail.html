@@ -1,0 +1,407 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Receipt {{ receipt.receipt_number }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .receipt-container {
+        max-width: 900px;
+        margin: 0 auto;
+        animation: slideIn 0.5s ease-out;
+    }
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .receipt-wrapper {
+        background: white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+    .receipt-header {
+        background: linear-gradient(135deg, #1F1F1F 0%, #97C2EC 100%);
+        color: white;
+        padding: 2rem;
+        text-align: center;
+        border-radius: 0;
+    }
+    .receipt-header h1 {
+        font-family: 'Space Grotesk', sans-serif;
+        margin-bottom: 0.5rem;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    .receipt-number {
+        font-family: monospace;
+        font-size: 1.1rem;
+        letter-spacing: 1px;
+        opacity: 0.9;
+    }
+    .receipt-content {
+        padding: 2rem;
+    }
+    .receipt-section {
+        margin-bottom: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .receipt-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    .section-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #1f1f1f;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .section-title i {
+        color: #667eea;
+        font-size: 1.25rem;
+    }
+    .detail-row {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    .detail-label {
+        font-weight: 600;
+        color: #495057;
+    }
+    .detail-value {
+        color: #1f1f1f;
+    }
+    .user-info {
+        display: flex;
+        gap: 1.5rem;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+    }
+    .user-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea, #97c2ec);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 700;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+    .user-details h6 {
+        font-weight: 700;
+        color: #1f1f1f;
+        margin-bottom: 0.25rem;
+    }
+    .user-details p {
+        color: #666;
+        margin: 0;
+        font-size: 0.9rem;
+    }
+    .pricing-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+    }
+    .pricing-table tr {
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .pricing-table td {
+        padding: 0.75rem 0;
+    }
+    .pricing-table td:first-child {
+        text-align: left;
+        color: #495057;
+    }
+    .pricing-table td:last-child {
+        text-align: right;
+        color: #1f1f1f;
+        font-weight: 600;
+    }
+    .pricing-table tr.total td {
+        border-top: 2px solid #e0e0e0;
+        padding-top: 1rem;
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #667eea;
+    }
+    .status-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .status-badge.pending {
+        background: #fff3cd;
+        color: #856404;
+    }
+    .status-badge.confirmed {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+    .status-badge.completed {
+        background: #d4edda;
+        color: #155724;
+    }
+    .status-badge.failed {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    .timestamp {
+        display: flex;
+        justify-content: space-between;
+        color: #999;
+        font-size: 0.85rem;
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e0e0e0;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 2rem;
+    }
+    .btn-print {
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+    }
+    .btn-back {
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+    }
+    .notes-box {
+        background: #f8f9fa;
+        border-left: 4px solid #667eea;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-top: 1rem;
+    }
+    .notes-box h6 {
+        color: #495057;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+    .notes-box p {
+        color: #666;
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
+    @media print {
+        .action-buttons, .receipt-container > a {
+            display: none;
+        }
+        .receipt-wrapper {
+            box-shadow: none;
+            page-break-inside: avoid;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="receipt-container">
+    <div class="receipt-wrapper">
+        <!-- Receipt Header -->
+        <div class="receipt-header">
+            <h1><i class="bi bi-receipt"></i> Purchase Receipt</h1>
+            <div class="receipt-number">#{{ receipt.receipt_number }}</div>
+        </div>
+        
+        <!-- Receipt Content -->
+        <div class="receipt-content">
+            <!-- Status -->
+            <div class="receipt-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div>
+                        <h6 style="margin: 0 0 0.25rem 0; color: #495057;">Payment Status</h6>
+                        <span class="status-badge {{ receipt.status|lower }}">{{ receipt.get_status_display }}</span>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="color: #999; font-size: 0.85rem;">Issued</div>
+                        <div style="color: #1f1f1f; font-weight: 600;">{{ receipt.created_at|date:"M d, Y" }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Item Details -->
+            <div class="receipt-section">
+                <div class="section-title">
+                    <i class="bi bi-box"></i> Item Purchased
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Item Name:</div>
+                    <div class="detail-value">{{ receipt.listing_title }}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Item Price:</div>
+                    <div class="detail-value">₱{{ receipt.listing_price|floatformat:2 }}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Transaction ID:</div>
+                    <div class="detail-value" style="font-family: monospace;">{{ receipt.transaction.id }}</div>
+                </div>
+            </div>
+            
+            <!-- Parties Involved -->
+            <div class="receipt-section">
+                <div class="section-title">
+                    <i class="bi bi-people"></i> Transaction Parties
+                </div>
+                
+                {% if is_buyer %}
+                    <!-- Seller Info for Buyer -->
+                    <h6 style="margin-bottom: 1rem; color: #495057;">Sold By:</h6>
+                    <div class="user-info">
+                        <div class="user-avatar">{{ receipt.seller.username|first|upper }}</div>
+                        <div class="user-details">
+                            <h6>{{ receipt.seller.profile.display_name|default:receipt.seller.username }}</h6>
+                            <p>@{{ receipt.seller.username }}</p>
+                            {% if receipt.seller.profile.phone %}
+                                <p><i class="bi bi-telephone"></i> {{ receipt.seller.profile.phone }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <!-- Buyer Info for Seller -->
+                    <h6 style="margin-bottom: 1rem; color: #495057;">Sold To:</h6>
+                    <div class="user-info">
+                        <div class="user-avatar">{{ receipt.buyer.username|first|upper }}</div>
+                        <div class="user-details">
+                            <h6>{{ receipt.buyer.profile.display_name|default:receipt.buyer.username }}</h6>
+                            <p>@{{ receipt.buyer.username }}</p>
+                            {% if receipt.buyer.profile.phone %}
+                                <p><i class="bi bi-telephone"></i> {{ receipt.buyer.profile.phone }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Payment Details -->
+            <div class="receipt-section">
+                <div class="section-title">
+                    <i class="bi bi-credit-card"></i> Payment Details
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Payment Method:</div>
+                    <div class="detail-value">
+                        {% if receipt.payment_method == 'credit_card' %}
+                            Credit/Debit Card (via Stripe)
+                        {% elif receipt.payment_method == 'in_person' %}
+                            Cash - In Person
+                        {% elif receipt.payment_method == 'gcash' %}
+                            GCash / E-Wallet
+                        {% elif receipt.payment_method == 'bank_transfer' %}
+                            Bank Transfer
+                        {% elif receipt.payment_method == 'other' %}
+                            Custom Arrangement
+                        {% else %}
+                            {{ receipt.payment_method }}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <table class="pricing-table">
+                    <tr>
+                        <td>Item Price:</td>
+                        <td>₱{{ receipt.listing_price|floatformat:2 }}</td>
+                    </tr>
+                    {% if receipt.processing_fee > 0 %}
+                        <tr>
+                            <td>Processing Fee (2%):</td>
+                            <td>₱{{ receipt.processing_fee|floatformat:2 }}</td>
+                        </tr>
+                    {% endif %}
+                    <tr class="total">
+                        <td>Total Amount:</td>
+                        <td>₱{{ receipt.total_amount|floatformat:2 }}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <!-- Payment Instructions/Notes -->
+            {% if receipt.notes %}
+                <div class="receipt-section">
+                    <div class="notes-box">
+                        <h6>Additional Information</h6>
+                        <p>{{ receipt.notes }}</p>
+                    </div>
+                </div>
+            {% endif %}
+            
+            <!-- Timeline -->
+            <div class="receipt-section">
+                <div class="section-title">
+                    <i class="bi bi-clock-history"></i> Timeline
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <div style="display: flex; align-items: flex-start; gap: 1.5rem; margin-bottom: 1.5rem;">
+                        <div style="color: #667eea; font-size: 1.2rem;"><i class="bi bi-check-circle-fill"></i></div>
+                        <div>
+                            <div style="font-weight: 600; color: #1f1f1f;">Receipt Created</div>
+                            <div style="color: #999; font-size: 0.9rem;">{{ receipt.created_at|date:"M d, Y \a\t g:i A" }}</div>
+                        </div>
+                    </div>
+                    
+                    {% if receipt.confirmed_at %}
+                        <div style="display: flex; align-items: flex-start; gap: 1.5rem; margin-bottom: 1.5rem;">
+                            <div style="color: #28a745; font-size: 1.2rem;"><i class="bi bi-check-circle-fill"></i></div>
+                            <div>
+                                <div style="font-weight: 600; color: #1f1f1f;">Payment Confirmed</div>
+                                <div style="color: #999; font-size: 0.9rem;">{{ receipt.confirmed_at|date:"M d, Y \a\t g:i A" }}</div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    {% if receipt.completed_at %}
+                        <div style="display: flex; align-items: flex-start; gap: 1.5rem;">
+                            <div style="color: #17a2b8; font-size: 1.2rem;"><i class="bi bi-check-circle-fill"></i></div>
+                            <div>
+                                <div style="font-weight: 600; color: #1f1f1f;">Transaction Completed</div>
+                                <div style="color: #999; font-size: 0.9rem;">{{ receipt.completed_at|date:"M d, Y \a\t g:i A" }}</div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="timestamp">
+                <div>Receipt #{{ receipt.receipt_number }}</div>
+                <div>Student Marketplace</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+        <button onclick="window.print()" class="btn btn-outline-primary btn-print">
+            <i class="bi bi-printer"></i> Print Receipt
+        </button>
+        <a href="{% url 'marketplace:receipts_list' %}" class="btn btn-secondary btn-back">
+            <i class="bi bi-arrow-left"></i> Back to Receipts
+        </a>
+    </div>
+</div>
+{% endblock %}
