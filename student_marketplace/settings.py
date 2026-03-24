@@ -42,6 +42,9 @@ INSTALLED_APPS = [
     'marketplace',
 ]
 
+# Security & Compliance (Information Assurance)
+INSTALLED_APPS += []  # AuditLog and LoginAttempt in marketplace app
+
 MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -52,7 +55,15 @@ MIDDLEWARE = [
     'allauth.account.middleware.AccountMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Security & Compliance Middleware (Information Assurance)
+    'marketplace.middleware.SecurityHeadersMiddleware',
+    'marketplace.middleware.AuditLoggingMiddleware',
+    'marketplace.middleware.RateLimitMiddleware',
+    # 'marketplace.middleware.IPWhitelistMiddleware',  # Optional - uncomment to enable IP whitelisting
 ]
+
+if DEBUG:
+    MIDDLEWARE.append('marketplace.middleware.OAuthFlowDebugMiddleware')
 
 ROOT_URLCONF = 'student_marketplace.urls'
 
@@ -131,13 +142,16 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 # Allauth configuration
-ACCOUNT_SIGNUP_FIELDS = ['email', 'username', 'password1', 'password2']
+# allauth v65+ expects required fields to be marked with '*'.
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
+ACCOUNT_LOGIN_METHODS = {'email', 'username'}
 ACCOUNT_EMAIL_VERIFICATION = 'optional'
 ACCOUNT_SIGNUP_REDIRECT_URL = LOGIN_REDIRECT_URL
 
 # Social account settings
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_QUERY_EMAIL = True
+SOCIALACCOUNT_LOGIN_ON_GET = True
 
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
@@ -157,8 +171,24 @@ STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY', '')
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 
+# If you add Stripe webhooks (refunds, payment status sync, disputes), set this to True in production.
+STRIPE_WEBHOOK_REQUIRED = os.environ.get('STRIPE_WEBHOOK_REQUIRED', 'False').lower() == 'true'
+
+# Optional CSP extension points for future integrations (e.g., Google Maps).
+# Use full origins like "https://maps.googleapis.com".
+CSP_SCRIPT_SRC_EXTRA = [v.strip() for v in os.environ.get('CSP_SCRIPT_SRC_EXTRA', '').split(',') if v.strip()]
+CSP_STYLE_SRC_EXTRA = [v.strip() for v in os.environ.get('CSP_STYLE_SRC_EXTRA', '').split(',') if v.strip()]
+CSP_IMG_SRC_EXTRA = [v.strip() for v in os.environ.get('CSP_IMG_SRC_EXTRA', '').split(',') if v.strip()]
+CSP_CONNECT_SRC_EXTRA = [v.strip() for v in os.environ.get('CSP_CONNECT_SRC_EXTRA', '').split(',') if v.strip()]
+CSP_FRAME_SRC_EXTRA = [v.strip() for v in os.environ.get('CSP_FRAME_SRC_EXTRA', '').split(',') if v.strip()]
+
 # Security Settings for Production
 if not DEBUG:
+    # When behind a reverse proxy (Render, nginx), honor forwarded HTTPS.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    USE_X_FORWARDED_HOST = True
+    ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
+
     SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True') == 'True'
     SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'True') == 'True'
     CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', 'True') == 'True'
@@ -167,16 +197,107 @@ else:
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
 
+# Enhanced Security Headers (NIST/ISO 27001)
+SESSION_COOKIE_HTTPONLY = True
+# OAuth (Google allauth) requires cookies on top-level cross-site redirects.
+# SameSite=Strict breaks the callback flow (state/session mismatch).
+SESSION_COOKIE_SAMESITE = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = os.environ.get('CSRF_COOKIE_SAMESITE', 'Lax')
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_SECURITY_POLICY = {
+    'default-src': ("'self'",),
+    'script-src': ("'self'", "'unsafe-inline'"),
+    'style-src': ("'self'", "'unsafe-inline'"),
+    'img-src': ("'self'", "data:", "https:"),
+}
+X_FRAME_OPTIONS = 'DENY'
+
 CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS if origin.strip()]
 
-# Logging Configuration
+# Compliance Settings (FERPA, PCI DSS, NIST, ISO 27001)
+DATA_RETENTION_DAYS = 90
+
+# Login & Account Lockout Settings (NIST AC-7)
+# Adjust for testing: Set MAX_LOGIN_ATTEMPTS=20 and LOCKOUT_DURATION_MINUTES=5 in .env
+MAX_LOGIN_ATTEMPTS = int(os.environ.get('MAX_LOGIN_ATTEMPTS', '20'))  # Increased for testing
+LOCKOUT_DURATION_MINUTES = int(os.environ.get('LOCKOUT_DURATION_MINUTES', '5'))  # Reduced for testing
+
+# Rate Limiting Thresholds (NIST AC-2)
+# Environment variables for flexibility in testing/production
+RATE_LIMIT_LOGIN_ATTEMPTS = int(os.environ.get('RATE_LIMIT_LOGIN_ATTEMPTS', '20'))  # 20 attempts
+RATE_LIMIT_LOGIN_WINDOW = int(os.environ.get('RATE_LIMIT_LOGIN_WINDOW', '300'))  # per 5 minutes
+RATE_LIMIT_API_REQUESTS = int(os.environ.get('RATE_LIMIT_API_REQUESTS', '100'))  # 100 requests
+RATE_LIMIT_API_WINDOW = int(os.environ.get('RATE_LIMIT_API_WINDOW', '3600'))  # per hour
+RATE_LIMIT_SEARCH_REQUESTS = int(os.environ.get('RATE_LIMIT_SEARCH_REQUESTS', '30'))  # 30 searches
+RATE_LIMIT_SEARCH_WINDOW = int(os.environ.get('RATE_LIMIT_SEARCH_WINDOW', '60'))  # per minute
+
+# Enhanced Logging Configuration (Security Audit Trail)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {asctime} {name} {funcName}:{lineno} - {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'security_file': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'security.log'),
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 10,
+            'formatter': 'verbose',
+        },
+        'auth_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'authentication.log'),
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 10,
+            'formatter': 'verbose',
+        },
+        'payment_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'payments.log'),
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 10,
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'security': {
+            'handlers': ['security_file', 'console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'authentication': {
+            'handlers': ['auth_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'payments': {
+            'handlers': ['payment_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
         },
     },
     'root': {

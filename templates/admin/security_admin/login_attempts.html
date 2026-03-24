@@ -1,0 +1,32 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div id="content-main">
+    <h1>{{ title }}</h1>
+    <p class="help">{{ subtitle }}</p>
+
+    <div class="module" style="padding:12px;">
+        <h2>Last 24 Hours</h2>
+        <ul>
+            <li>Failed: {{ failed_24h }}</li>
+            <li>Successful: {{ successful_24h }}</li>
+        </ul>
+    </div>
+
+    <div class="module" style="padding:12px;">
+        <h2>Suspicious IPs</h2>
+        <table>
+            <thead><tr><th>IP</th><th>Failed attempts (24h)</th></tr></thead>
+            <tbody>
+                {% for row in suspicious_ips %}
+                    <tr><td>{{ row.ip_address }}</td><td>{{ row.count }}</td></tr>
+                {% empty %}
+                    <tr><td colspan="2" class="help">None detected.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <p class="help"><a href="{% url 'admin:marketplace_loginattempt_changelist' %}">Open LoginAttempt changelist</a></p>
+</div>
+{% endblock %}

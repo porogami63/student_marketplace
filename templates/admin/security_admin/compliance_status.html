@@ -1,0 +1,214 @@
+{% extends "admin/base_site.html" %}
+{% load admin_extras %}
+
+{% block content %}
+<style>
+  .ubx-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .ubx-card {
+    padding: 12px;
+  }
+  .ubx-card h2 {
+    margin-top: 0;
+  }
+  .ubx-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin: 6px 0 10px 0;
+  }
+  .ubx-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    border: 1px solid #dcdcdc;
+    background: #f6f6f6;
+    color: #222;
+  }
+  .ubx-badge--ok { background: #e6f4ea; border-color: #b7e1c1; color: #0b5f2a; }
+  .ubx-badge--warn { background: #fff4e5; border-color: #ffd7a3; color: #7a3b00; }
+  .ubx-badge--bad { background: #fce8e6; border-color: #f6b8b2; color: #8a1f11; }
+
+  .ubx-checklist { margin: 0; padding-left: 18px; }
+  .ubx-checklist li { margin: 4px 0; }
+
+  .ubx-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .ubx-actions a.ubx-btn {
+    display: inline-block;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #dcdcdc);
+    background: var(--primary, #0b57d0);
+    color: #fff !important;
+    text-decoration: none;
+    font-weight: 700;
+  }
+  .ubx-actions a.ubx-btn--secondary {
+    background: #fff;
+    color: var(--primary, #0b57d0) !important;
+  }
+  .ubx-kv {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 6px 12px;
+    font-size: 13px;
+  }
+  .ubx-kv div { padding: 2px 0; }
+  .ubx-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+</style>
+
+<div id="content-main">
+    <h1>{{ title }}</h1>
+    <p class="help">{{ subtitle }}</p>
+
+    <div class="ubx-actions">
+        <a class="ubx-btn" href="{% url 'admin:audit_report_download' %}">Download Audit Report (JSON)</a>
+        <a class="ubx-btn ubx-btn--secondary" href="{% url 'admin:security_dashboard' %}">Open Security Interface</a>
+        <a class="ubx-btn ubx-btn--secondary" href="{% url 'admin:marketplace_auditlog_changelist' %}">Open Audit Logs</a>
+    </div>
+
+    <div class="ubx-grid">
+
+        <div class="module ubx-card">
+            <h2>FERPA</h2>
+            <div class="ubx-badges">
+                {% with s=ferpa_compliance.overall_status|default:'UNKNOWN' %}
+                    <span class="ubx-badge {% if s == 'COMPLIANT' %}ubx-badge--ok{% elif s == 'NON-COMPLIANT' %}ubx-badge--bad{% else %}ubx-badge--warn{% endif %}">{{ s }}</span>
+                {% endwith %}
+                <span class="ubx-badge ubx-mono">{{ ferpa_compliance.timestamp|default:'' }}</span>
+            </div>
+            <p class="help" style="margin-top:0;">Access controls + auditability of student-related data.</p>
+            <ul class="ubx-checklist">
+                {% for key, ok in ferpa_compliance.ferpa_checks.items %}
+                    <li>
+                        <strong>{{ key|humanize_key }}</strong>: {{ ok|yesno:"OK,Needs attention" }}
+                    </li>
+                {% empty %}
+                    <li class="help">No checks available.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="module ubx-card">
+            <h2>PCI DSS</h2>
+            <div class="ubx-badges">
+                {% with s=pci_compliance.overall_status|default:'UNKNOWN' %}
+                    <span class="ubx-badge {% if s == 'COMPLIANT' %}ubx-badge--ok{% elif s == 'NON-COMPLIANT' %}ubx-badge--bad{% else %}ubx-badge--warn{% endif %}">{{ s }}</span>
+                {% endwith %}
+                <span class="ubx-badge ubx-mono">{{ pci_compliance.timestamp|default:'' }}</span>
+            </div>
+            <p class="help" style="margin-top:0;">Payment security baseline (Stripe integration, HTTPS, webhook validation).</p>
+            <ul class="ubx-checklist">
+                {% for key, ok in pci_compliance.pci_checks.items %}
+                    <li>
+                        <strong>{{ key|humanize_key }}</strong>: {{ ok|yesno:"OK,Needs attention" }}
+                    </li>
+                {% empty %}
+                    <li class="help">No checks available.</li>
+                {% endfor %}
+            </ul>
+            {% if pci_compliance.ignored_in_debug %}
+                <div class="help" style="margin-top:10px;">
+                    Dev mode: ignoring {{ pci_compliance.ignored_in_debug|join:", "|humanize_key }} for the overall status.
+                </div>
+            {% endif %}
+            <div class="help" style="margin-top:10px;">
+                Webhook validation is only required when `STRIPE_WEBHOOK_REQUIRED=True` (recommended once you add refunds/webhooks).
+            </div>
+        </div>
+
+        <div class="module ubx-card">
+            <h2>NIST</h2>
+            <div class="ubx-badges">
+                {% with s=nist_compliance.overall_status|default:'UNKNOWN' %}
+                    <span class="ubx-badge {% if s == 'COMPLIANT' %}ubx-badge--ok{% elif s == 'NON-COMPLIANT' %}ubx-badge--bad{% else %}ubx-badge--warn{% endif %}">{{ s }}</span>
+                {% endwith %}
+                <span class="ubx-badge ubx-mono">{{ nist_compliance.timestamp|default:'' }}</span>
+            </div>
+            <p class="help" style="margin-top:0;">Technical control snapshot (TLS, cookies, audit logging, rate limiting).</p>
+            <ul class="ubx-checklist">
+                {% for key, ok in nist_compliance.nist_checks.items %}
+                    <li>
+                        <strong>{{ key|humanize_key }}</strong>: {{ ok|yesno:"OK,Needs attention" }}
+                    </li>
+                {% empty %}
+                    <li class="help">No checks available.</li>
+                {% endfor %}
+            </ul>
+            {% if nist_compliance.ignored_in_debug %}
+                <div class="help" style="margin-top:10px;">
+                    Dev mode: ignoring {{ nist_compliance.ignored_in_debug|join:", "|humanize_key }} for the overall status.
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="module ubx-card">
+            <h2>ISO 27001</h2>
+            <div class="ubx-badges">
+                {% with s=iso27001_compliance.overall_status|default:'UNKNOWN' %}
+                    <span class="ubx-badge {% if s == 'COMPLIANT' %}ubx-badge--ok{% elif s == 'NON-COMPLIANT' %}ubx-badge--bad{% else %}ubx-badge--warn{% endif %}">{{ s }}</span>
+                {% endwith %}
+                <span class="ubx-badge ubx-mono">{{ iso27001_compliance.timestamp|default:'' }}</span>
+            </div>
+            <p class="help" style="margin-top:0;">ISMS-aligned technical snapshot (audit trail, headers, retention, HTTPS).</p>
+            <ul class="ubx-checklist">
+                {% for key, ok in iso27001_compliance.iso27001_checks.items %}
+                    <li>
+                        <strong>{{ key|humanize_key }}</strong>: {{ ok|yesno:"OK,Needs attention" }}
+                    </li>
+                {% empty %}
+                    <li class="help">No checks available.</li>
+                {% endfor %}
+            </ul>
+            {% if iso27001_compliance.ignored_in_debug %}
+                <div class="help" style="margin-top:10px;">
+                    Dev mode: ignoring {{ iso27001_compliance.ignored_in_debug|join:", "|humanize_key }} for the overall status.
+                </div>
+            {% endif %}
+            <div class="help" style="margin-top:10px;">
+                Note: ISO 27001 compliance also requires documented policies/processes; this page shows only technical signals.
+            </div>
+        </div>
+
+        <div class="module ubx-card" style="grid-column: 1 / -1;">
+            <h2>Security Audit Report</h2>
+            <p class="help" style="margin-top:0;">Summary of security-relevant activity (default: last 90 days).</p>
+
+            <div class="ubx-kv">
+                <div><strong>Report date</strong></div><div class="ubx-mono">{{ audit_report.report_date|default:'' }}</div>
+                <div><strong>Period</strong></div>
+                <div class="ubx-mono">{{ audit_report.period.start|default:'' }} → {{ audit_report.period.end|default:'' }}</div>
+                <div><strong>Total events</strong></div><div>{{ audit_report.summary.total_events|default:0 }}</div>
+                <div><strong>Warnings</strong></div><div>{{ audit_report.summary.warning_events|default:0 }}</div>
+                <div><strong>Errors</strong></div><div>{{ audit_report.summary.error_events|default:0 }}</div>
+                <div><strong>Critical</strong></div><div>{{ audit_report.summary.critical_events|default:0 }}</div>
+            </div>
+
+            <h3 style="margin-top:14px;">Top Users (by audit events)</h3>
+            <table>
+                <thead><tr><th>User</th><th>Events</th></tr></thead>
+                <tbody>
+                    {% for u in audit_report.top_users %}
+                        <tr><td>{{ u.username }}</td><td>{{ u.events }}</td></tr>
+                    {% empty %}
+                        <tr><td colspan="2" class="help">No users recorded.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="ubx-actions" style="margin-top:10px;">
+                <a class="ubx-btn" href="{% url 'admin:audit_report_download' %}">Download Full Report (JSON)</a>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

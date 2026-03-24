@@ -1,0 +1,156 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/login.css' %}">
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+{% if request.current_app == 'security_admin' %}
+<style>
+    .login #container {
+        background: transparent;
+    }
+
+    .login #content {
+        padding: 32px 12px;
+    }
+
+    .login .backoffice-login {
+        max-width: 440px;
+        margin: 0 auto;
+        border: 1px solid var(--ubx-border);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+        background: #fff;
+    }
+
+    .login .backoffice-login__top {
+        background: var(--ubx-navy);
+        border-bottom: 2px solid var(--ubx-accent);
+        padding: 22px 22px 18px 22px;
+    }
+
+    .login .backoffice-login__title {
+        color: #fff;
+        margin: 0;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: 0.2px;
+    }
+
+    .login .backoffice-login__subtitle {
+        color: rgba(255,255,255,0.85);
+        margin: 6px 0 0 0;
+        font-size: 13px;
+    }
+
+    .login .backoffice-login__body {
+        padding: 18px 22px 22px 22px;
+    }
+
+    .login .form-row {
+        padding: 0;
+        border: none;
+        margin: 0 0 14px 0;
+    }
+
+    .login .form-row label {
+        color: var(--ubx-navy);
+        font-weight: 700;
+        margin-bottom: 6px;
+        display: inline-block;
+    }
+
+    .login .form-row input {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--ubx-border);
+        box-sizing: border-box;
+    }
+
+    .login .form-row input:focus {
+        outline: none;
+        border-color: var(--ubx-accent);
+        box-shadow: 0 0 0 3px rgba(151, 194, 236, 0.25);
+    }
+
+    .login .submit-row {
+        padding: 0;
+        margin-top: 8px;
+        border: none;
+        background: transparent;
+    }
+
+    .login .submit-row input[type=submit] {
+        width: 100%;
+        padding: 10px 14px;
+        border-radius: 12px;
+        font-weight: 800;
+        background: var(--ubx-accent);
+        color: #fff;
+        border: none;
+    }
+
+    .login .submit-row input[type=submit]:hover {
+        filter: brightness(0.95);
+    }
+
+    .login .errornote {
+        border-radius: 12px;
+        border: 1px solid rgba(220, 53, 69, 0.35);
+    }
+</style>
+{% endif %}
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} login{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+<div class="backoffice-login">
+    <div class="backoffice-login__top">
+        <h1 class="backoffice-login__title">UBXchange Backoffice</h1>
+        <p class="backoffice-login__subtitle">Sign in to manage moderation, operations, and security.</p>
+    </div>
+
+    <div class="backoffice-login__body">
+        {% if form.errors and not form.non_field_errors %}
+            <p class="errornote">
+                {% if form.errors.items|length == 1 %}
+                    {% translate "Please correct the error below." %}
+                {% else %}
+                    {% translate "Please correct the errors below." %}
+                {% endif %}
+            </p>
+        {% endif %}
+
+        {% if form.non_field_errors %}
+            {% for error in form.non_field_errors %}
+                <p class="errornote">{{ error }}</p>
+            {% endfor %}
+        {% endif %}
+
+        <form action="{{ app_path }}" method="post" id="login-form">{% csrf_token %}
+            <div class="form-row">
+                <label for="id_username">{% translate 'Username' %}</label>
+                {{ form.username }}
+            </div>
+            <div class="form-row">
+                <label for="id_password">{% translate 'Password' %}</label>
+                {{ form.password }}
+                <input type="hidden" name="next" value="{{ next }}">
+            </div>
+
+            <div class="submit-row">
+                <input type="submit" value="{% translate 'Log in' %}">
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

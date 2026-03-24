@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.utils.html import format_html
+from django.urls import reverse
 from .models import (
     School,
     Category,
@@ -18,6 +20,7 @@ from .models import (
     Payment,
     Receipt,
 )
+from .security import AuditLog, LoginAttempt
 
 
 @admin.register(School)
@@ -157,3 +160,132 @@ class ReceiptAdmin(admin.ModelAdmin):
         ('Status & Notes', {'fields': ('status', 'notes')}),
         ('Timestamps', {'fields': ('created_at', 'confirmed_at', 'completed_at'), 'classes': ('collapse',)}),
     )
+
+
+# ============================================================================
+# SECURITY & COMPLIANCE ADMIN CLASSES
+# ============================================================================
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    """Admin interface for security audit logs (FERPA, PCI DSS, NIST, ISO 27001)"""
+    
+    list_display = ['timestamp', 'event_type_badge', 'severity_badge', 'user', 'ip_address', 'resource']
+    list_filter = ['event_type', 'severity', 'timestamp']
+    search_fields = ['user__username', 'ip_address', 'resource']
+    date_hierarchy = 'timestamp'
+    readonly_fields = ['timestamp', 'event_type', 'severity', 'user', 'ip_address', 'user_agent', 'resource', 'details_formatted']
+    
+    fieldsets = (
+        ('Security Event', {
+            'fields': ('event_type', 'severity_badge', 'timestamp')
+        }),
+        ('User Information', {
+            'fields': ('user', 'ip_address', 'user_agent')
+        }),
+        ('Resource Accessed', {
+            'fields': ('resource', 'details_formatted')
+        }),
+    )
+    
+    def event_type_badge(self, obj):
+        """Display event type with color coding"""
+        colors = {
+            'login_success': '#28a745',
+            'login_failure': '#dc3545',
+            'unauthorized_access': '#fd7e14',
+            'data_access': '#0275d8',
+            'payment_processed': '#20c997',
+            'security_alert': '#e74c3c',
+        }
+        color = colors.get(obj.event_type, '#6c757d')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 3px;">{}</span>',
+            color,
+            obj.get_event_type_display()
+        )
+    event_type_badge.short_description = 'Event Type'
+    
+    def severity_badge(self, obj):
+        """Display severity level with color coding"""
+        colors = {
+            'info': '#0275d8',
+            'warning': '#ffc107',
+            'error': '#dc3545',
+            'critical': '#a82833',
+        }
+        color = colors.get(obj.severity, '#6c757d')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 3px;">{}</span>',
+            color,
+            obj.get_severity_display()
+        )
+    severity_badge.short_description = 'Severity'
+    
+    def details_formatted(self, obj):
+        """Display JSON details in a readable format"""
+        import json
+        try:
+            return format_html(
+                '<pre style="background-color: #f5f5f5; padding: 10px; border-radius: 3px; max-height: 300px; overflow: auto;">{}</pre>',
+                json.dumps(obj.details, indent=2)
+            )
+        except:
+            return format_html('<pre>{}</pre>', str(obj.details))
+    details_formatted.short_description = 'Event Details'
+    
+    def has_add_permission(self, request):
+        """Prevent manual creation of audit logs"""
+        return False
+    
+    def has_delete_permission(self, request, obj=None):
+        """Prevent deletion of audit logs"""
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        """Allow viewing only"""
+        return True
+
+
+@admin.register(LoginAttempt)
+class LoginAttemptAdmin(admin.ModelAdmin):
+    """Admin interface for login attempt tracking (Account Lockout - NIST AC-7)"""
+    
+    list_display = ['attempt_time', 'user', 'status_badge', 'ip_address']
+    list_filter = ['success', 'attempt_time']
+    search_fields = ['user__username', 'ip_address']
+    date_hierarchy = 'attempt_time'
+    readonly_fields = ['user', 'ip_address', 'success', 'attempt_time']
+    
+    fieldsets = (
+        ('Login Attempt Details', {
+            'fields': ('user', 'status_badge', 'attempt_time')
+        }),
+        ('Connection Information', {
+            'fields': ('ip_address',)
+        }),
+    )
+    
+    def status_badge(self, obj):
+        """Display login status with color coding"""
+        if obj.success:
+            return format_html(
+                '<span style="background-color: #28a745; color: white; padding: 3px 8px; border-radius: 3px;">✓ Success</span>'
+            )
+        else:
+            return format_html(
+                '<span style="background-color: #dc3545; color: white; padding: 3px 8px; border-radius: 3px;">✗ Failed</span>'
+            )
+    status_badge.short_description = 'Login Status'
+    
+    def has_add_permission(self, request):
+        """Prevent manual creation of login attempts"""
+        return False
+    
+    def has_delete_permission(self, request, obj=None):
+        """Prevent deletion of login attempts"""
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        """Allow viewing only"""
+        return True

@@ -1,0 +1,287 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<style>
+    .ubx-action-buttons {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .ubx-action-buttons a.ubx-btn {
+        display: inline-block;
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color, #dcdcdc);
+        background: var(--primary, #0b57d0);
+        color: #fff !important;
+        text-decoration: none;
+        font-weight: 700;
+        line-height: 1.1;
+    }
+    .ubx-action-buttons a.ubx-btn--secondary {
+        background: #fff;
+        color: var(--primary, #0b57d0) !important;
+    }
+    .ubx-charts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+    }
+    .ubx-chart-card {
+        padding: 12px;
+    }
+    .ubx-chart-card h3 {
+        margin-top: 0;
+    }
+</style>
+
+<div id="content-main">
+    <h1>{{ site_header }}</h1>
+    <p class="help">One portal for moderation, operations, and security monitoring.</p>
+
+    <h2>Moderation Overview</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px;">
+        <div class="module">
+            <h3>Total Revenue</h3>
+            <p style="font-size:20px;margin:0;">₱{{ moderation_metrics.total_revenue|floatformat:0 }}</p>
+        </div>
+        <div class="module">
+            <h3>Today</h3>
+            <p style="font-size:20px;margin:0;">₱{{ moderation_metrics.today_revenue|floatformat:0 }}</p>
+        </div>
+        <div class="module">
+            <h3>This Week</h3>
+            <p style="font-size:20px;margin:0;">₱{{ moderation_metrics.week_revenue|floatformat:0 }}</p>
+        </div>
+        <div class="module">
+            <h3>This Month</h3>
+            <p style="font-size:20px;margin:0;">₱{{ moderation_metrics.month_revenue|floatformat:0 }}</p>
+        </div>
+        <div class="module">
+            <h3>Users</h3>
+            <p style="font-size:20px;margin:0;">{{ moderation_metrics.user_count }}</p>
+            <p class="help" style="margin:4px 0 0 0;">+{{ moderation_metrics.new_users_week }} this week</p>
+        </div>
+        <div class="module">
+            <h3>Active Listings</h3>
+            <p style="font-size:20px;margin:0;">{{ moderation_metrics.listing_count }}</p>
+        </div>
+        <div class="module">
+            <h3>Forum Posts</h3>
+            <p style="font-size:20px;margin:0;">{{ moderation_metrics.forum_post_count }}</p>
+            <p class="help" style="margin:4px 0 0 0;">Hidden: {{ moderation_metrics.hidden_forum_count }}</p>
+        </div>
+        <div class="module">
+            <h3>Transactions</h3>
+            <p class="help" style="margin:0;">
+                Pending: {{ moderation_metrics.status_counts.pending|default:0 }} ·
+                Confirmed: {{ moderation_metrics.status_counts.confirmed|default:0 }} ·
+                Completed: {{ moderation_metrics.status_counts.completed|default:0 }}
+            </p>
+        </div>
+    </div>
+
+    <h2>Security Overview</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px;">
+        <div class="module">
+            <h3>Critical Level</h3>
+            <p style="font-size:20px;margin:0;">{{ security_metrics.critical_level }}</p>
+        </div>
+        <div class="module">
+            <h3>Critical Events</h3>
+            <p style="font-size:20px;margin:0;">{{ security_metrics.critical_events }}</p>
+        </div>
+        <div class="module">
+            <h3>Errors (24h)</h3>
+            <p style="font-size:20px;margin:0;">{{ security_metrics.errors_24h }}</p>
+        </div>
+        <div class="module">
+            <h3>Failed Logins (24h)</h3>
+            <p style="font-size:20px;margin:0;">{{ security_metrics.failed_logins_24h }}</p>
+        </div>
+        <div class="module">
+            <h3>Successful Logins (24h)</h3>
+            <p style="font-size:20px;margin:0;">{{ security_metrics.successful_logins_24h }}</p>
+        </div>
+        <div class="module">
+            <h3>Suspicious Users (30m)</h3>
+            <p style="font-size:20px;margin:0;">{{ security_metrics.suspicious_users_count }}</p>
+        </div>
+    </div>
+
+    <div class="module" style="padding:12px;margin-bottom:16px;">
+        <h3 style="margin-top:0;">Security & Compliance</h3>
+        <p class="help" style="margin-top:0;">
+            This dashboard summarizes authentication activity and security events from the last 24 hours.
+            Successful/failed login counts come from backoffice telemetry (recorded on login and login-failure signals).
+        </p>
+
+        <p style="margin:0 0 8px 0;">
+            <strong>Compliance snapshot:</strong>
+            FERPA: {{ compliance_snapshot.ferpa }} · PCI DSS: {{ compliance_snapshot.pci_dss }}
+        </p>
+
+        <div class="ubx-action-buttons">
+            <a class="ubx-btn" href="{% url 'admin:security_dashboard' %}">Security Interface</a>
+            <a class="ubx-btn ubx-btn--secondary" href="{% url 'admin:compliance' %}">Compliance Status</a>
+            <a class="ubx-btn" href="{% url 'admin:audit_report_download' %}">Download Audit Report (JSON)</a>
+            <a class="ubx-btn ubx-btn--secondary" href="{% url 'admin:marketplace_auditlog_changelist' %}">Open Audit Logs</a>
+            <a class="ubx-btn ubx-btn--secondary" href="{% url 'admin:marketplace_loginattempt_changelist' %}">Open Login Attempts</a>
+        </div>
+
+        <div class="help" style="margin-top:10px;">
+            <strong>What these standards mean here:</strong>
+            FERPA focuses on access control + auditability of student data.
+            PCI DSS focuses on secure payment handling (no raw card storage; Stripe integration; HTTPS).
+        </div>
+    </div>
+
+    <h2>Metrics</h2>
+    <div class="ubx-charts">
+        <div class="module ubx-chart-card">
+            <h3>Logins (24h)</h3>
+            <canvas id="ubx-logins-chart" height="140"></canvas>
+            <p class="help" style="margin:8px 0 0 0;">Source: `LoginAttempt` records (signals on login + login-failed).</p>
+        </div>
+        <div class="module ubx-chart-card">
+            <h3>Transactions (Current)</h3>
+            <canvas id="ubx-tx-chart" height="140"></canvas>
+            <p class="help" style="margin:8px 0 0 0;">Source: `Transaction.status` counts.</p>
+        </div>
+    </div>
+
+    <h2>Recent Security Events</h2>
+    <div class="module" style="padding:12px;margin-bottom:16px;">
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Type</th>
+                    <th>Severity</th>
+                    <th>User</th>
+                    <th>IP</th>
+                    <th>Resource</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in recent_security_events %}
+                    <tr>
+                        <td>{{ e.timestamp }}</td>
+                        <td>{{ e.event_type }}</td>
+                        <td>{{ e.severity }}</td>
+                        <td>{{ e.user|default:'—' }}</td>
+                        <td>{{ e.ip_address }}</td>
+                        <td>{{ e.resource|default:'—' }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="6" class="help">No security events recorded yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="help" style="margin:8px 0 0 0;">Tip: if this table is empty after logging in/out, check that migrations are applied and that the login signal receivers are loaded.</p>
+    </div>
+
+    <h2>Quick Links</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:16px;">
+        {% for group in quick_link_groups %}
+            <div class="module" style="padding:12px;">
+                <h3 style="margin:0;">{{ group.title }}</h3>
+                <p class="help" style="margin:6px 0 0 0;">{{ group.subtitle }}</p>
+                <div class="ubx-quicklinks">
+                    {% for item in group.items %}
+                        <a class="ubx-quicklink" href="{{ item.url }}">
+                            <span>{{ item.label }}</span>
+                            <span class="ubx-quicklink__chev">›</span>
+                        </a>
+                    {% empty %}
+                        <span class="help" style="margin-top:8px;display:block;">No links available.</span>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <h2>Recent Moderation</h2>
+    <div class="module" style="padding:12px;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Actor</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>When</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in recent_moderation_logs %}
+                    <tr>
+                        <td>{{ log.actor }}</td>
+                        <td>{{ log.action }}</td>
+                        <td>{{ log.target_model }} #{{ log.target_id }}</td>
+                        <td>{{ log.created_at }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="help">No moderation actions yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    (function () {
+        if (!window.Chart) return;
+
+        const failed = Number('{{ security_metrics.failed_logins_24h|default:0 }}');
+        const success = Number('{{ security_metrics.successful_logins_24h|default:0 }}');
+
+        const pending = Number('{{ moderation_metrics.status_counts.pending|default:0 }}');
+        const confirmed = Number('{{ moderation_metrics.status_counts.confirmed|default:0 }}');
+        const completed = Number('{{ moderation_metrics.status_counts.completed|default:0 }}');
+
+        const loginsCtx = document.getElementById('ubx-logins-chart');
+        if (loginsCtx) {
+            new Chart(loginsCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Successful', 'Failed'],
+                    datasets: [{
+                        label: 'Login attempts',
+                        data: [success, failed],
+                        backgroundColor: ['rgba(16, 185, 129, 0.65)', 'rgba(239, 68, 68, 0.65)'],
+                        borderColor: ['rgba(16, 185, 129, 1)', 'rgba(239, 68, 68, 1)'],
+                        borderWidth: 1,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+        }
+
+        const txCtx = document.getElementById('ubx-tx-chart');
+        if (txCtx) {
+            new Chart(txCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Pending', 'Confirmed', 'Completed'],
+                    datasets: [{
+                        data: [pending, confirmed, completed],
+                        backgroundColor: ['rgba(59, 130, 246, 0.65)', 'rgba(245, 158, 11, 0.65)', 'rgba(16, 185, 129, 0.65)'],
+                        borderColor: ['rgba(59, 130, 246, 1)', 'rgba(245, 158, 11, 1)', 'rgba(16, 185, 129, 1)'],
+                        borderWidth: 1,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+    })();
+</script>
+{% endblock %}

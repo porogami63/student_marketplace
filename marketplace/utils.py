@@ -238,8 +238,15 @@ Guidelines:
         messages = []
         if conversation_history:
             for msg in conversation_history[-10:]:  # Keep last 10 messages for context
+                if not isinstance(msg, dict):
+                    continue
+
+                raw_role = (msg.get('role') or 'user').strip().lower()
+                # Gemini expects roles: 'user' and 'model'
+                role = 'model' if raw_role in {'assistant', 'model'} else 'user'
+
                 messages.append({
-                    'role': msg.get('role', 'user'),
+                    'role': role,
                     'parts': [msg.get('content', '')]
                 })
         

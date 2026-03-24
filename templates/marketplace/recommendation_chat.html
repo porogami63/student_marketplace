@@ -329,14 +329,15 @@
         </div>
     </div>
     
-    <div class="chat-input-area">
+    <form class="chat-input-area" id="chat-form" onsubmit="event.preventDefault(); sendMessage();">
+        {% csrf_token %}
         <div class="chat-input-wrapper" style="flex: 1;">
             <textarea id="chat-input" placeholder="Ask me about items... (e.g., 'Show me iPhones' or 'What budget phones do you have?')" rows="1"></textarea>
         </div>
-        <button id="send-btn" onclick="sendMessage()">
+        <button id="send-btn" type="submit">
             <i class="bi bi-send-fill"></i>
         </button>
-    </div>
+    </form>
 </div>
 
 <script>
@@ -518,6 +519,13 @@ function addMessageToChat(role, text, recommendations = []) {
 }
 
 function getCSRFToken() {
+    // Prefer token rendered into the DOM. This works even when CSRF cookie is HttpOnly.
+    const tokenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (tokenInput && tokenInput.value) {
+        return tokenInput.value;
+    }
+
+    // Fallback: read from cookie (only works when CSRF_COOKIE_HTTPONLY is False)
     const name = 'csrftoken';
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {

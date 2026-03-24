@@ -1,0 +1,59 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div id="content-main">
+    <h1>{{ title }}</h1>
+    <p class="help">{{ subtitle }}</p>
+
+    <div class="module" style="padding:12px;">
+        <h2>Key Metrics</h2>
+        <ul>
+            <li>Total events: {{ security_metrics.total_events }}</li>
+            <li>Critical events: {{ security_metrics.critical_events }}</li>
+            <li>Errors (24h): {{ security_metrics.errors_24h }}</li>
+            <li>Failed logins (24h): {{ security_metrics.failed_logins_24h }}</li>
+            <li>Successful logins (24h): {{ security_metrics.successful_logins_24h }}</li>
+            <li>Suspicious users (30m): {{ security_metrics.suspicious_users_count }}</li>
+        </ul>
+    </div>
+
+    <div class="module" style="padding:12px;">
+        <h2>Compliance Snapshot</h2>
+        <ul>
+            <li>FERPA: {{ ferpa_status.overall_status|default:'UNKNOWN' }}</li>
+            <li>PCI DSS: {{ pci_status.overall_status|default:'UNKNOWN' }}</li>
+        </ul>
+        <p class="help"><a href="{% url 'admin:compliance' %}">View full compliance report</a></p>
+    </div>
+
+    <div class="module" style="padding:12px;">
+        <h2>Recent Critical Events</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Type</th>
+                    <th>Severity</th>
+                    <th>User</th>
+                    <th>IP</th>
+                    <th>Resource</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in recent_critical_events %}
+                    <tr>
+                        <td>{{ e.timestamp }}</td>
+                        <td>{{ e.event_type }}</td>
+                        <td>{{ e.severity }}</td>
+                        <td>{{ e.user|default:'—' }}</td>
+                        <td>{{ e.ip_address }}</td>
+                        <td>{{ e.resource }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="6" class="help">No critical events yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

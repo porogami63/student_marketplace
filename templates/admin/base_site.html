@@ -1,0 +1,181 @@
+{% extends "admin/base.html" %}
+{% load i18n static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a>
+</h1>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+{% if request.current_app == 'security_admin' %}
+<style>
+    :root {
+        --ubx-navy: #1F1F1F;
+        --ubx-accent: #97C2EC;
+        --ubx-bg: #F5F5F5;
+        --ubx-border: #E5E5E5;
+        --ubx-text-muted: #666666;
+    }
+
+    /* Header */
+    #header {
+        background: var(--ubx-navy);
+        color: #fff;
+        border-bottom: 2px solid var(--ubx-accent);
+    }
+    #header a:link, #header a:visited { color: #fff; }
+    #site-name a {
+        font-weight: 800;
+        letter-spacing: 0.2px;
+    }
+
+    /* Page background */
+    body {
+        background: var(--ubx-bg);
+    }
+
+    /* Modules -> cards */
+    .module {
+        border: 1px solid var(--ubx-border);
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+    }
+    .module h2, .module caption, .module h3 {
+        color: var(--ubx-navy);
+    }
+
+    /* Links + buttons */
+    a:link, a:visited { color: #0b5ea6; }
+    a:hover { color: #084c86; }
+    .button, input[type=submit], input[type=button], .submit-row input {
+        border-radius: 10px;
+    }
+    .button.default, input[type=submit].default {
+        background: var(--ubx-accent);
+        color: #fff;
+        border: none;
+        font-weight: 700;
+    }
+    .button.default:hover, input[type=submit].default:hover {
+        filter: brightness(0.95);
+    }
+
+    /* Breadcrumbs */
+    .breadcrumbs {
+        background: transparent;
+        color: var(--ubx-text-muted);
+    }
+
+    /* Dashboard headings spacing */
+    #content h1 { color: var(--ubx-navy); }
+
+    /* Backoffice nav (defined below) */
+    .backoffice-nav a {
+        background: rgba(151, 194, 236, 0.18);
+        color: var(--ubx-navy);
+        border: 1px solid rgba(151, 194, 236, 0.35);
+        font-weight: 700;
+    }
+    .backoffice-nav a:hover {
+        background: rgba(151, 194, 236, 0.28);
+    }
+
+    /* Quick link buttons */
+    .ubx-quicklinks {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+    }
+
+    .ubx-quicklink {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--ubx-border);
+        background: #fff;
+        text-decoration: none;
+        font-weight: 800;
+        color: var(--ubx-navy);
+    }
+    .ubx-quicklink:hover {
+        border-color: rgba(151, 194, 236, 0.75);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+        transform: translateY(-1px);
+    }
+    .ubx-quicklink__chev {
+        color: rgba(31, 31, 31, 0.55);
+        font-weight: 900;
+    }
+
+    /* Left sidebar (nav) */
+    #nav-sidebar {
+        background: #fff;
+        border-right: 1px solid var(--ubx-border);
+    }
+    #nav-sidebar .current-app > a,
+    #nav-sidebar .current-model > a {
+        background: rgba(151, 194, 236, 0.22);
+        border-left: 3px solid var(--ubx-accent);
+        color: var(--ubx-navy);
+        font-weight: 800;
+    }
+    #nav-sidebar a {
+        color: var(--ubx-navy);
+        border-radius: 10px;
+        margin: 2px 8px;
+        padding: 8px 10px;
+        text-decoration: none;
+    }
+    #nav-sidebar a:hover {
+        background: rgba(151, 194, 236, 0.16);
+    }
+    .toggle-nav-sidebar {
+        border-radius: 10px;
+    }
+</style>
+{% endif %}
+{% endblock %}
+
+{% block nav-global %}
+{% if request.current_app == 'security_admin' %}
+    <style>
+        .backoffice-nav {
+            margin: 12px 0 0 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .backoffice-nav a {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            text-decoration: none;
+            background: rgba(2, 117, 216, 0.08);
+        }
+        .backoffice-nav a:hover {
+            background: rgba(2, 117, 216, 0.14);
+        }
+    </style>
+
+    <div class="backoffice-nav" aria-label="Backoffice navigation">
+        <a href="{% url 'admin:index' %}">Dashboard</a>
+        <a href="{% url 'admin:security_dashboard' %}">Security</a>
+        <a href="{% url 'admin:audit_logs' %}">Audit</a>
+        <a href="{% url 'admin:login_attempts' %}">Logins</a>
+        <a href="{% url 'admin:compliance' %}">Compliance</a>
+        <a href="{% url 'admin:app_list' app_label='marketplace' %}">Marketplace Models</a>
+        <a href="{% url 'admin:app_list' app_label='auth' %}">Auth Models</a>
+    </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div id="content-main">
+    <h1>{{ title }}</h1>
+    <p class="help">{{ subtitle }}</p>
+
+    <div class="module" style="padding:12px;">
+        <h2>Summary</h2>
+        <ul>
+            <li>Total logs: {{ total_logs }}</li>
+            <li>Logs (7d): {{ logs_7d }}</li>
+        </ul>
+    </div>
+
+    <div class="module" style="padding:12px;">
+        <h2>Event Types (7d)</h2>
+        <table>
+            <thead><tr><th>Event Type</th><th>Count</th></tr></thead>
+            <tbody>
+                {% for row in event_stats %}
+                    <tr><td>{{ row.event_type }}</td><td>{{ row.count }}</td></tr>
+                {% empty %}
+                    <tr><td colspan="2" class="help">No data.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="module" style="padding:12px;">
+        <h2>Severities (7d)</h2>
+        <table>
+            <thead><tr><th>Severity</th><th>Count</th></tr></thead>
+            <tbody>
+                {% for row in severity_stats %}
+                    <tr><td>{{ row.severity }}</td><td>{{ row.count }}</td></tr>
+                {% empty %}
+                    <tr><td colspan="2" class="help">No data.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <p class="help"><a href="{% url 'admin:marketplace_auditlog_changelist' %}">Open AuditLog changelist</a></p>
+</div>
+{% endblock %}

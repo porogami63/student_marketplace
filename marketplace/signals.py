@@ -2,8 +2,10 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.urls import reverse
 from django.contrib.auth.models import User
+from django.contrib.auth.signals import user_logged_in, user_login_failed
 from allauth.socialaccount.signals import social_account_updated, pre_social_login
 from .models import Message, ForumReply, Notification, Profile, Review
+from .security import AuditLog, get_client_ip, record_login_attempt
 
 
 @receiver(post_save, sender=Message)
@@ -61,6 +63,49 @@ def create_user_profile(sender, instance, created, **kwargs):
     """Automatically create a profile when a new user is created."""
     if created:
         Profile.objects.get_or_create(user=instance)
+
+
+@receiver(user_logged_in)
+def record_successful_login(sender, request, user, **kwargs):
+    """Record successful logins for the backoffice Security Overview."""
+    try:
+        ip_address = get_client_ip(request)
+        record_login_attempt(user=user, ip_address=ip_address, success=True)
+    except Exception:
+        # Never block login due to audit telemetry.
+        pass
+
+
+@receiver(user_login_failed)
+def record_failed_login(sender, credentials, request, **kwargs):
+    """Record failed logins (best effort)."""
+    if request is None:
+        return
+
+    try:
+        ip_address = get_client_ip(request)
+        attempted = (credentials or {}).get('username') or (credentials or {}).get('email') or ''
+
+        matched_user = None
+        if attempted:
+            matched_user = User.objects.filter(username=attempted).first() or User.objects.filter(email=attempted).first()
+
+        if matched_user is not None:
+            record_login_attempt(user=matched_user, ip_address=ip_address, success=False)
+        else:
+            # Still create an audit log even if the user doesn't exist.
+            AuditLog.objects.create(
+                event_type='login_failure',
+                severity='warning',
+                user=None,
+                ip_address=ip_address,
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:255],
+                resource=request.path,
+                details={'attempted_username': attempted},
+            )
+    except Exception:
+        # Never block authentication due to audit telemetry.
+        pass
 
 
 @receiver(social_account_updated)
