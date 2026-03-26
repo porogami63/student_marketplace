@@ -17,6 +17,8 @@ from .models import (
     Review,
     Transaction,
     ModerationLog,
+    UserReport,
+    SupportTicket,
     Payment,
     Receipt,
 )
@@ -130,6 +132,177 @@ class ModerationLogAdmin(admin.ModelAdmin):
     search_fields = ['actor__username']
     date_hierarchy = 'created_at'
     readonly_fields = ['actor', 'action', 'target_model', 'target_id', 'created_at']
+
+
+@admin.register(UserReport)
+class UserReportAdmin(admin.ModelAdmin):
+    list_display = [
+        'listing_thumbnail',
+        'id',
+        'created_at',
+        'status',
+        'reason',
+        'priority',
+        'reporter',
+        'reported_user',
+        'target_link',
+    ]
+    list_filter = ['status', 'reason', 'priority', 'created_at']
+    search_fields = ['reporter__username', 'reported_user__username', 'description']
+    date_hierarchy = 'created_at'
+    readonly_fields = [
+        'created_at',
+        'updated_at',
+        'content_type',
+        'object_id',
+        'reporter',
+        'target_link',
+        'listing_thumbnail_large',
+    ]
+    fieldsets = (
+        ('Report', {'fields': ('reporter', 'reported_user', 'reason', 'description', 'priority')}),
+        ('Target', {'fields': ('target_link', 'listing_thumbnail_large', 'content_type', 'object_id', 'context_url')}),
+        ('Triage', {'fields': ('status', 'resolved_at', 'resolved_by', 'resolution_notes')}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at')}),
+    )
+
+    def target_link(self, obj):
+        """Link to the reported object inside the same admin site."""
+        if not obj.content_type_id or not obj.object_id:
+            return '—'
+        try:
+            url = reverse(
+                f"admin:{obj.content_type.app_label}_{obj.content_type.model}_change",
+                args=[obj.object_id],
+                current_app=self.admin_site.name,
+            )
+            label = f"{obj.content_type.model.replace('_', ' ').title()} #{obj.object_id}"
+            return format_html('<a href="{}">{}</a>', url, label)
+        except Exception:
+            return f"{obj.content_type} #{obj.object_id}"
+
+    target_link.short_description = 'Target'
+
+    def _listing_image_url(self, obj):
+        try:
+            if obj.content_type and obj.content_type.model == 'listing':
+                target = obj.content_object
+                if target and getattr(target, 'image', None):
+                    return target.image.url
+        except Exception:
+            return ''
+        return ''
+
+    def listing_thumbnail(self, obj):
+        url = self._listing_image_url(obj)
+        if not url:
+            return '—'
+        return format_html(
+            '<img src="{}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />',
+            url,
+        )
+
+    listing_thumbnail.short_description = 'Image'
+
+    def listing_thumbnail_large(self, obj):
+        url = self._listing_image_url(obj)
+        if not url:
+            return '—'
+        return format_html(
+            '<img src="{}" style="max-width:420px;width:100%;height:auto;object-fit:cover;border-radius:12px;border:1px solid #e5e7eb;" />',
+            url,
+        )
+
+    listing_thumbnail_large.short_description = 'Listing Image'
+
+
+@admin.register(SupportTicket)
+class SupportTicketAdmin(admin.ModelAdmin):
+    list_display = [
+        'listing_thumbnail',
+        'id',
+        'created_at',
+        'status',
+        'priority',
+        'assigned_to',
+        'report_reason',
+        'reporter',
+        'title',
+    ]
+    list_filter = ['status', 'priority', 'assigned_to', 'created_at']
+    search_fields = ['title', 'internal_notes', 'public_response', 'report__reporter__username']
+    date_hierarchy = 'created_at'
+    readonly_fields = ['created_at', 'updated_at', 'resolved_at', 'report_link', 'listing_thumbnail_large']
+    fieldsets = (
+        ('Ticket', {'fields': ('title', 'status', 'priority', 'assigned_to')}),
+        ('Linked Report', {'fields': ('report_link', 'listing_thumbnail_large', 'report')}),
+        ('Notes', {'fields': ('internal_notes', 'public_response')}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at', 'resolved_at')}),
+    )
+
+    def report_reason(self, obj):
+        try:
+            return obj.report.get_reason_display()
+        except Exception:
+            return '—'
+
+    report_reason.short_description = 'Reason'
+
+    def reporter(self, obj):
+        try:
+            return obj.report.reporter
+        except Exception:
+            return '—'
+
+    reporter.short_description = 'Reporter'
+
+    def report_link(self, obj):
+        if not obj.report_id:
+            return '—'
+        try:
+            url = reverse(
+                'admin:marketplace_userreport_change',
+                args=[obj.report_id],
+                current_app=self.admin_site.name,
+            )
+            return format_html('<a href="{}">Report #{}</a>', url, obj.report_id)
+        except Exception:
+            return f"Report #{obj.report_id}"
+
+    report_link.short_description = 'Report'
+
+    def _listing_image_url(self, obj):
+        try:
+            report = obj.report
+            if report and report.content_type and report.content_type.model == 'listing':
+                target = report.content_object
+                if target and getattr(target, 'image', None):
+                    return target.image.url
+        except Exception:
+            return ''
+        return ''
+
+    def listing_thumbnail(self, obj):
+        url = self._listing_image_url(obj)
+        if not url:
+            return '—'
+        return format_html(
+            '<img src="{}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />',
+            url,
+        )
+
+    listing_thumbnail.short_description = 'Image'
+
+    def listing_thumbnail_large(self, obj):
+        url = self._listing_image_url(obj)
+        if not url:
+            return '—'
+        return format_html(
+            '<img src="{}" style="max-width:420px;width:100%;height:auto;object-fit:cover;border-radius:12px;border:1px solid #e5e7eb;" />',
+            url,
+        )
+
+    listing_thumbnail_large.short_description = 'Listing Image'
 
 
 @admin.register(Payment)

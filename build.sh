@@ -21,4 +21,7 @@ python manage.py create_superuser
 echo "Running setup_site..."
 python manage.py setup_site
 
+echo "Running setup_socialapps..."
+python manage.py setup_socialapps
+
 echo "Build completed successfully!"

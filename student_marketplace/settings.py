@@ -59,6 +59,7 @@ MIDDLEWARE = [
     'marketplace.middleware.SecurityHeadersMiddleware',
     'marketplace.middleware.AuditLoggingMiddleware',
     'marketplace.middleware.RateLimitMiddleware',
+    'marketplace.middleware.MaintenanceModeMiddleware',
     # 'marketplace.middleware.IPWhitelistMiddleware',  # Optional - uncomment to enable IP whitelisting
 ]
 
@@ -96,10 +97,11 @@ if os.environ.get('DATABASE_URL'):
         )
     }
 else:
+    sqlite_path = os.environ.get('SQLITE_PATH', '').strip()
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            'NAME': sqlite_path or (BASE_DIR / 'db.sqlite3'),
         }
     }
 
@@ -121,7 +123,11 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+
+# Render note: local filesystem is ephemeral unless you attach a Persistent Disk.
+# Set MEDIA_ROOT to the mounted disk path (e.g., /var/data/media) in production.
+_media_root_env = os.environ.get('MEDIA_ROOT', '').strip()
+MEDIA_ROOT = Path(_media_root_env) if _media_root_env else (BASE_DIR / 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -192,6 +198,12 @@ if not DEBUG:
     SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True') == 'True'
     SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'True') == 'True'
     CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', 'True') == 'True'
+
+    # HSTS (enable only when you are confident HTTPS is always used).
+    # Keep defaults conservative but present for `check --deploy`.
+    SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '3600'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = os.environ.get('SECURE_HSTS_INCLUDE_SUBDOMAINS', 'False').lower() == 'true'
+    SECURE_HSTS_PRELOAD = os.environ.get('SECURE_HSTS_PRELOAD', 'False').lower() == 'true'
 else:
     SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = False
@@ -218,6 +230,10 @@ CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS if ori
 
 # Compliance Settings (FERPA, PCI DSS, NIST, ISO 27001)
 DATA_RETENTION_DAYS = 90
+
+# Optional: enable a temporary write-freeze for safe database cutovers.
+# When true, non-superusers cannot perform POST/PUT/PATCH/DELETE.
+MAINTENANCE_MODE = os.environ.get('MAINTENANCE_MODE', 'False').lower() == 'true'
 
 # Login & Account Lockout Settings (NIST AC-7)
 # Adjust for testing: Set MAX_LOGIN_ATTEMPTS=20 and LOCKOUT_DURATION_MINUTES=5 in .env

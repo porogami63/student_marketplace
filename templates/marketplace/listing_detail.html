@@ -190,6 +190,21 @@
         padding: 2px;
         border-radius: 4px;
     }
+    .price-tip-block {
+        font-size: 0.9rem;
+    }
+    .price-tip-overpriced {
+        background-color: #fef2f2;
+        color: #991b1b;
+    }
+    .price-tip-great-deal {
+        background-color: #f0fdf4;
+        color: #166534;
+    }
+    .price-tip-fair {
+        background-color: #f0f9ff;
+        color: #0369a1;
+    }
     @media (max-width: 992px) {
         .listing-main {
             grid-template-columns: 1fr;
@@ -282,7 +297,7 @@
                 </div>
             </div>
             {% if price_stats %}
-            <div class="rounded-3 py-2 px-3 mb-2" style="font-size: 0.9rem; {% if price_stats.tip == 'overpriced' %}background-color: #fef2f2; color: #991b1b;{% elif price_stats.tip == 'great_deal' %}background-color: #f0fdf4; color: #166534;{% else %}background-color: #f0f9ff; color: #0369a1;{% endif %}">
+            <div class="rounded-3 py-2 px-3 mb-2 price-tip-block {% if price_stats.tip == 'overpriced' %}price-tip-overpriced{% elif price_stats.tip == 'great_deal' %}price-tip-great-deal{% else %}price-tip-fair{% endif %}">
                 <i class="bi bi-graph-up me-1"></i>
                 {% if price_stats.tip == 'overpriced' %}Overpriced — {% elif price_stats.tip == 'great_deal' %}Great deal — {% else %}Fair price — {% endif %}
                 Average similar listings: <strong>₱{{ price_stats.avg_price|floatformat:0 }}</strong> ({{ price_stats.count }} items)
@@ -342,7 +357,7 @@
                         </a>
                         {% if seller_profile.school %}
                         <div class="text-muted"><i class="bi bi-mortarboard me-1"></i>{{ seller_profile.school.name }}</div>
-                        {% endif %}
+                        <div class="rounded-3 py-2 px-3 mb-2 price-tip-block {% if price_stats.tip == 'overpriced' %}price-tip-overpriced{% elif price_stats.tip == 'great_deal' %}price-tip-great-deal{% else %}price-tip-fair{% endif %}">
                     </div>
                 </div>
                 {% if seller_profile.vouch_count > 0 or seller_profile.verification_tier != 'grey' %}
@@ -521,6 +536,14 @@
                 {% elif listing.is_sold %}
                 <div class="alert alert-secondary small mb-0">
                     <i class="bi bi-check2-circle me-1"></i>This item has been marked as sold.
+                </div>
+                {% endif %}
+
+                {% if user.is_authenticated and user != listing.seller %}
+                <div class="mt-2">
+                    <a href="{% url 'marketplace:report_create' 'listing' listing.pk %}" class="btn btn-sm btn-outline-danger w-100">
+                        <i class="bi bi-flag me-1"></i> Report this listing
+                    </a>
                 </div>
                 {% endif %}
             </div>

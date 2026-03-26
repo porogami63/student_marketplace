@@ -83,15 +83,11 @@ print("\n📦 DATABASE & MIGRATIONS\n")
 # Check AuditLog table exists
 def check_auditlog_table():
     """Verify AuditLog table created"""
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT EXISTS(
-                SELECT 1 FROM information_schema.tables
-                WHERE table_name = 'marketplace_auditlog'
-            )
-        """)
-        row = cursor.fetchone()
-        return row[0] if row else False
+    try:
+        tables = set(connection.introspection.table_names())
+        return 'marketplace_auditlog' in tables
+    except Exception:
+        return False
 
 check("AuditLog table exists", check_auditlog_table)
 
@@ -99,15 +95,11 @@ check("AuditLog table exists", check_auditlog_table)
 # Check LoginAttempt table exists
 def check_loginattempt_table():
     """Verify LoginAttempt table created"""
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT EXISTS(
-                SELECT 1 FROM information_schema.tables
-                WHERE table_name = 'marketplace_loginattempt'
-            )
-        """)
-        row = cursor.fetchone()
-        return row[0] if row else False
+    try:
+        tables = set(connection.introspection.table_names())
+        return 'marketplace_loginattempt' in tables
+    except Exception:
+        return False
 
 check("LoginAttempt table exists", check_loginattempt_table)
 
@@ -175,7 +167,7 @@ def check_loginattempt_model():
     try:
         from marketplace.security import LoginAttempt
         fields = {f.name for f in LoginAttempt._meta.fields}
-        required = {'user', 'ip_address', 'success', 'timestamp'}
+        required = {'user', 'ip_address', 'success', 'attempt_time'}
         return required.issubset(fields)
     except Exception:
         return False
@@ -229,10 +221,11 @@ print("\n🎛️  SETTINGS CONFIGURATION\n")
 def check_security_settings():
     """Verify security settings configured"""
     from django.conf import settings
+    # NOTE: OAuth (Google allauth) typically requires SameSite=Lax.
     return (
         settings.SESSION_COOKIE_HTTPONLY is True and
         settings.CSRF_COOKIE_HTTPONLY is True and
-        settings.SESSION_COOKIE_SAMESITE == 'Strict'
+        (settings.SESSION_COOKIE_SAMESITE in ('Lax', 'Strict'))
     )
 
 check("Security cookie settings configured", check_security_settings)
@@ -368,7 +361,7 @@ def check_ferpa_compliance():
     try:
         from marketplace.security import check_ferpa_compliance
         result = check_ferpa_compliance()
-        return isinstance(result, dict) and 'status' in result
+        return isinstance(result, dict) and 'overall_status' in result and 'ferpa_checks' in result
     except Exception:
         return False
 
@@ -380,7 +373,7 @@ def check_pci_dss_compliance():
     try:
         from marketplace.security import check_pci_dss_compliance
         result = check_pci_dss_compliance()
-        return isinstance(result, dict) and 'status' in result
+        return isinstance(result, dict) and 'overall_status' in result and 'pci_checks' in result
     except Exception:
         return False
 

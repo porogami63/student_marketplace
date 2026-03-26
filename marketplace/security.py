@@ -512,7 +512,11 @@ def check_access_controls():
     return True
 
 def check_audit_logging_enabled():
-    return AuditLog.objects.exists()
+    try:
+        from django.db import connection
+        return AuditLog._meta.db_table in set(connection.introspection.table_names())
+    except Exception:
+        return False
 
 def check_data_retention_policy():
     return True

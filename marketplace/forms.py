@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
-from .models import Listing, Profile, ForumPost, ForumReply, Transaction, Category, ProfilePost, ProfilePostComment, School
+from .models import Listing, Profile, ForumPost, ForumReply, Transaction, Category, ProfilePost, ProfilePostComment, School, UserReport
 import re
 
 # Category-specific product attribute definitions
@@ -257,12 +257,12 @@ class ListingForm(forms.ModelForm):
             listing_type = self.instance.listing_type
         else:
             listing_type = 'wts'
-        
+
         # Hide condition field for WTB listings since it's not applicable
         if listing_type == 'wtb':
             if 'condition' in self.fields:
                 self.fields['condition'].widget = forms.HiddenInput()
-        
+
         # Determine category from data or instance
         category = None
         if self.data:
@@ -274,7 +274,7 @@ class ListingForm(forms.ModelForm):
                     pass
         elif self.instance and self.instance.category:
             category = self.instance.category
-        
+
         if category:
             self._add_product_fields(category.slug)
     
@@ -613,3 +613,26 @@ class ProfilePostCommentForm(forms.ModelForm):
         if len(content) > 500:
             raise forms.ValidationError('Comment must be 500 characters or less.')
         return content
+
+
+class ReportForm(forms.ModelForm):
+    """Minimal report submission form."""
+
+    class Meta:
+        model = UserReport
+        fields = ['reason', 'description']
+        widgets = {
+            'reason': forms.Select(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 5,
+                'placeholder': 'Add context (optional but helpful). Include dates, what happened, and any screenshots/details you have.',
+                'maxlength': '2000',
+            }),
+        }
+
+    def clean_description(self):
+        description = (self.cleaned_data.get('description') or '').strip()
+        if len(description) > 2000:
+            raise forms.ValidationError('Description is too long (max 2000 characters).')
+        return description

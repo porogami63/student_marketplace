@@ -921,6 +921,12 @@
                 Edit Vouch
             </a>
         {% endif %}
+
+        {% if user.is_authenticated %}
+            <a href="{% url 'marketplace:report_create' 'user' profile_user.pk %}" class="btn-secondary">
+                Report User
+            </a>
+        {% endif %}
     </div>
     {% endif %}
 

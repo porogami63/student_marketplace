@@ -227,6 +227,28 @@ class RateLimitMiddleware(MiddlewareMixin):
         return None
 
 
+class MaintenanceModeMiddleware(MiddlewareMixin):
+    """Optional write-freeze mode for safe migrations/cutovers.
+
+    When settings.MAINTENANCE_MODE is True, this blocks non-idempotent requests
+    (POST/PUT/PATCH/DELETE) for non-superusers, while still allowing GET/HEAD.
+    """
+
+    SAFE_METHODS = {'GET', 'HEAD', 'OPTIONS'}
+
+    def process_request(self, request):
+        if not getattr(settings, 'MAINTENANCE_MODE', False):
+            return None
+
+        if request.method in self.SAFE_METHODS:
+            return None
+
+        if request.user.is_authenticated and request.user.is_superuser:
+            return None
+
+        return HttpResponse('Maintenance in progress. Please try again shortly.', status=503)
+
+
 class IPWhitelistMiddleware(MiddlewareMixin):
     """Optional: Whitelist admin paths to specific IPs"""
     

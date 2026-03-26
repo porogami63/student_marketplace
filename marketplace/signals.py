@@ -10,6 +10,8 @@ from .security import AuditLog, get_client_ip, record_login_attempt
 
 @receiver(post_save, sender=Message)
 def update_conversation_timestamp(sender, instance, created, **kwargs):
+    if kwargs.get('raw', False):
+        return
     if created:
         conversation = instance.conversation
         conversation.save()  # triggers auto_now on updated_at
@@ -29,6 +31,8 @@ def update_conversation_timestamp(sender, instance, created, **kwargs):
 @receiver(post_save, sender=Review)
 def notify_seller_on_review(sender, instance, created, **kwargs):
     """Notify seller when they receive a new review/vouch (but not their own reviews)."""
+    if kwargs.get('raw', False):
+        return
     if created:
         # Only notify if it's a new review and not a self-review
         if instance.reviewer_id != instance.seller_id:
@@ -44,6 +48,8 @@ def notify_seller_on_review(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=ForumReply)
 def notify_forum_reply(sender, instance, created, **kwargs):
+    if kwargs.get('raw', False):
+        return
     if not created:
         return
     post = instance.post
@@ -61,6 +67,10 @@ def notify_forum_reply(sender, instance, created, **kwargs):
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     """Automatically create a profile when a new user is created."""
+    # During fixture loading (loaddata), Django saves models with raw=True.
+    # Avoid creating related rows that the fixture will also provide.
+    if kwargs.get('raw', False):
+        return
     if created:
         Profile.objects.get_or_create(user=instance)
 

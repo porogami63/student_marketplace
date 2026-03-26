@@ -60,6 +60,9 @@ urlpatterns = [
     path('api/social-media/add/', views.add_social_media, name='add_social_media'),
     path('api/social-media/remove/<str:platform>/', views.remove_social_media, name='remove_social_media'),
     path('api/social-media/get/', views.get_social_media, name='get_social_media'),
+
+    # Reporting
+    path('report/<str:target>/<int:pk>/', views.report_create, name='report_create'),
     # Moderation (superuser only)
     path('mod/', views.mod_dashboard, name='mod_dashboard'),
     path('mod/sales/', views.mod_sales_analytics, name='mod_sales'),

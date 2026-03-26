@@ -25,6 +25,8 @@ from .models import (
     Listing,
     ModerationLog,
     Transaction,
+    UserReport,
+    SupportTicket,
 )
 from .security import AuditLog, LoginAttempt
 
@@ -170,6 +172,58 @@ class SecurityAdminSite(admin.AdminSite):
 
         recent_logs = ModerationLog.objects.select_related('actor').order_by('-created_at')[:10]
 
+        reports_open_count = UserReport.objects.filter(status__in=['new', 'reviewing']).count()
+        tickets_open_count = SupportTicket.objects.filter(status__in=['open', 'assigned', 'in_progress']).count()
+
+        def _safe_reverse(name, args=None):
+            try:
+                return reverse(name, args=args or [], current_app=self.name)
+            except Exception:
+                return ''
+
+        reports_changelist_url = _safe_reverse('admin:marketplace_userreport_changelist') or '/admin/marketplace/userreport/'
+        tickets_changelist_url = _safe_reverse('admin:marketplace_supportticket_changelist') or '/admin/marketplace/supportticket/'
+
+        recent_reports = UserReport.objects.select_related(
+            'reporter',
+            'reported_user',
+            'content_type',
+        ).order_by('-created_at')[:10]
+
+        recent_report_rows = []
+        for r in recent_reports:
+            report_url = _safe_reverse('admin:marketplace_userreport_change', args=[r.pk])
+            target_label = f"{r.content_type.model.replace('_', ' ').title()} #{r.object_id}" if r.content_type_id else f"#{r.object_id}"
+            target_url = ''
+            if r.content_type_id and r.object_id:
+                target_url = _safe_reverse(
+                    f"admin:{r.content_type.app_label}_{r.content_type.model}_change",
+                    args=[r.object_id],
+                )
+
+            thumb_url = ''
+            if r.content_type_id and r.content_type.model == 'listing':
+                try:
+                    listing_obj = r.content_object
+                    if listing_obj and getattr(listing_obj, 'image', None):
+                        thumb_url = listing_obj.image.url
+                except Exception:
+                    thumb_url = ''
+
+            recent_report_rows.append({
+                'id': r.pk,
+                'created_at': r.created_at,
+                'status': r.get_status_display(),
+                'reason': r.get_reason_display(),
+                'priority': r.priority,
+                'reporter': getattr(r.reporter, 'username', '—'),
+                'reported_user': getattr(getattr(r, 'reported_user', None), 'username', '—') if r.reported_user_id else '—',
+                'report_url': report_url,
+                'target_label': target_label,
+                'target_url': target_url,
+                'thumb_url': thumb_url,
+            })
+
         return {
             'moderation_metrics': {
                 'total_revenue': total_revenue,
@@ -182,8 +236,13 @@ class SecurityAdminSite(admin.AdminSite):
                 'listing_count': listing_count,
                 'forum_post_count': forum_post_count,
                 'hidden_forum_count': hidden_forum_count,
+                'reports_open_count': reports_open_count,
+                'tickets_open_count': tickets_open_count,
+                'reports_changelist_url': reports_changelist_url,
+                'tickets_changelist_url': tickets_changelist_url,
             },
             'recent_moderation_logs': recent_logs,
+            'recent_reports': recent_report_rows,
         }
 
     def get_quick_links(self, request):
@@ -205,6 +264,8 @@ class SecurityAdminSite(admin.AdminSite):
             'Forum Posts': _safe_reverse('admin:marketplace_forumpost_changelist'),
             'Forum Replies': _safe_reverse('admin:marketplace_forumreply_changelist'),
             'Messages': _safe_reverse('admin:marketplace_message_changelist'),
+            'Reports': _safe_reverse('admin:marketplace_userreport_changelist'),
+            'Support Tickets': _safe_reverse('admin:marketplace_supportticket_changelist'),
             'Moderation Logs': _safe_reverse('admin:marketplace_moderationlog_changelist'),
             'Audit Logs': _safe_reverse('admin:marketplace_auditlog_changelist'),
             'Login Attempts': _safe_reverse('admin:marketplace_loginattempt_changelist'),
@@ -230,6 +291,8 @@ class SecurityAdminSite(admin.AdminSite):
                     'Payments',
                     'Receipts',
                     'Messages',
+                    'Reports',
+                    'Support Tickets',
                 ],
             },
             {

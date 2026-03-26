@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
 from django.db.models import JSONField
 
@@ -505,6 +507,103 @@ class ModerationLog(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class UserReport(models.Model):
+    """User-submitted report about content or another user."""
+
+    REASON_CHOICES = [
+        ('fraud', 'Fraud / Scam'),
+        ('harassment', 'Harassment / Bullying'),
+        ('spam', 'Spam / Advertising'),
+        ('unsafe_meetup', 'Unsafe Meetup'),
+        ('suspicious', 'Suspicious Activity'),
+        ('refund_dispute', 'Refund / Dispute'),
+        ('other', 'Other'),
+    ]
+
+    STATUS_CHOICES = [
+        ('new', 'New'),
+        ('reviewing', 'Reviewing'),
+        ('resolved', 'Resolved'),
+        ('dismissed', 'Dismissed'),
+    ]
+
+    reporter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reports_submitted')
+    reported_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reports_received')
+
+    reason = models.CharField(max_length=30, choices=REASON_CHOICES)
+    description = models.TextField(blank=True)
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
+    priority = models.PositiveSmallIntegerField(default=0, help_text='Higher numbers are higher priority')
+
+    # Generic relation to the reported object (listing/message/forum/transaction/user/etc.)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    context_url = models.CharField(max_length=255, blank=True, help_text='Where the report was submitted from')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reports_resolved')
+    resolution_notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['reason', 'created_at']),
+            models.Index(fields=['content_type', 'object_id']),
+        ]
+
+    def __str__(self):
+        return f"Report #{self.pk} by {self.reporter.username} ({self.reason})"
+
+
+class SupportTicket(models.Model):
+    """Admin-facing ticket created from a user report."""
+
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('assigned', 'Assigned'),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+        ('closed', 'Closed'),
+    ]
+
+    report = models.OneToOneField(UserReport, on_delete=models.CASCADE, related_name='ticket')
+    title = models.CharField(max_length=200)
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    priority = models.PositiveSmallIntegerField(default=0)
+    assigned_to = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_support_tickets',
+        limit_choices_to={'is_staff': True},
+    )
+
+    internal_notes = models.TextField(blank=True)
+    public_response = models.TextField(blank=True, help_text='Optional response summary visible to the reporter')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'priority', 'created_at']),
+            models.Index(fields=['assigned_to', 'status']),
+        ]
+
+    def __str__(self):
+        return f"Ticket #{self.pk} ({self.status})"
 
 
 class ProfilePost(models.Model):

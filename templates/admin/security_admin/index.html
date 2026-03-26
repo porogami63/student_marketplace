@@ -80,6 +80,74 @@
                 Completed: {{ moderation_metrics.status_counts.completed|default:0 }}
             </p>
         </div>
+        <div class="module">
+            <h3>Open Reports</h3>
+            <p style="font-size:20px;margin:0;">{{ moderation_metrics.reports_open_count|default:0 }}</p>
+            <p class="help" style="margin:6px 0 0 0;"><a href="{{ moderation_metrics.reports_changelist_url }}">View reports</a></p>
+        </div>
+        <div class="module">
+            <h3>Open Tickets</h3>
+            <p style="font-size:20px;margin:0;">{{ moderation_metrics.tickets_open_count|default:0 }}</p>
+            <p class="help" style="margin:6px 0 0 0;"><a href="{{ moderation_metrics.tickets_changelist_url }}">View tickets</a></p>
+        </div>
+    </div>
+
+    <h2>Reports & Tickets</h2>
+    <div class="module" style="padding:12px;margin-bottom:16px;">
+        <div class="ubx-action-buttons" style="margin-bottom:10px;">
+            <a class="ubx-btn" href="{{ moderation_metrics.reports_changelist_url }}">Open Reports</a>
+            <a class="ubx-btn ubx-btn--secondary" href="{{ moderation_metrics.tickets_changelist_url }}">Open Tickets</a>
+        </div>
+
+        <h3 style="margin-top:0;">Recent Reports</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:64px;">Image</th>
+                    <th>Report</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Reporter</th>
+                    <th>Reported</th>
+                    <th>Target</th>
+                    <th>When</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in recent_reports %}
+                    <tr>
+                        <td>
+                            {% if r.thumb_url %}
+                                <img src="{{ r.thumb_url }}" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />
+                            {% else %}
+                                <span class="help">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if r.report_url %}
+                                <a href="{{ r.report_url }}">#{{ r.id }}</a>
+                            {% else %}
+                                #{{ r.id }}
+                            {% endif %}
+                        </td>
+                        <td>{{ r.reason }}</td>
+                        <td>{{ r.status }}</td>
+                        <td>{{ r.reporter }}</td>
+                        <td>{{ r.reported_user }}</td>
+                        <td>
+                            {% if r.target_url %}
+                                <a href="{{ r.target_url }}">{{ r.target_label }}</a>
+                            {% else %}
+                                {{ r.target_label }}
+                            {% endif %}
+                        </td>
+                        <td>{{ r.created_at }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="8" class="help">No reports yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 
     <h2>Security Overview</h2>

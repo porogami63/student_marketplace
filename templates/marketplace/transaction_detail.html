@@ -273,6 +273,12 @@
                 </a>
                 {% endif %}
             {% endif %}
+
+            {% if is_buyer or is_seller %}
+                <a href="{% url 'marketplace:report_create' 'transaction' transaction.pk %}" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-flag me-1"></i> Report
+                </a>
+            {% endif %}
             <a href="{% url 'marketplace:inbox' %}" class="btn btn-sm btn-outline-ubelt">
                 <i class="bi bi-arrow-left me-1"></i> Back to Inbox
             </a>

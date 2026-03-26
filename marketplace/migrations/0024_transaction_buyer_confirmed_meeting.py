@@ -15,9 +15,4 @@ class Migration(migrations.Migration):
             name='buyer_confirmed_meeting',
             field=models.BooleanField(default=False, help_text='Buyer confirmed attendance at meeting'),
         ),
-        migrations.AddField(
-            model_name='payment',
-            name='payment_method',
-            field=models.CharField(default='credit_card', help_text='credit_card, gcash, bank_transfer, in_person', max_length=50),
-        ),
     ]

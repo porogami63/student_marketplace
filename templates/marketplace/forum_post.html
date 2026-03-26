@@ -32,6 +32,12 @@
                 </span>
             {% endif %}
             · {{ post.created_at|timesince }} ago
+
+            {% if user.is_authenticated and user != post.author %}
+                <a href="{% url 'marketplace:report_create' 'forum_post' post.pk %}" class="btn btn-sm btn-outline-danger ms-2">
+                    <i class="bi bi-flag"></i> Report
+                </a>
+            {% endif %}
         </p>
         <p class="card-text">{{ post.body|linebreaks }}</p>
         {% if post.listing %}
@@ -64,6 +70,13 @@
             <strong>{{ reply.author.username }}</strong> <span class="text-muted small">{{ reply.created_at|timesince }} ago</span>
             <p class="mb-0 mt-1">{{ reply.body|linebreaks }}</p>
         </div>
+        <div class="d-flex align-items-start gap-2">
+        {% if user.is_authenticated and user != reply.author %}
+            <a href="{% url 'marketplace:report_create' 'forum_reply' reply.pk %}" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-flag"></i>
+            </a>
+        {% endif %}
+
         {% if user.is_superuser %}
         <form method="post" action="{% url 'marketplace:mod_forum_action' 'reply' reply.pk %}" class="d-inline">
             {% csrf_token %}
@@ -77,6 +90,7 @@
             {% endif %}
         </form>
         {% endif %}
+        </div>
     </div>
 </div>
 {% empty %}

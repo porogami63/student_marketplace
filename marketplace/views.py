@@ -8,10 +8,12 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.http import JsonResponse
+from django.http import HttpResponseForbidden
 import json
 from datetime import datetime, timedelta
 from django.db.models import Q, Count, Sum
 from django.utils import timezone
+from django.contrib.contenttypes.models import ContentType
 from .models import (
     Listing,
     Category,
@@ -28,6 +30,8 @@ from .models import (
     Transaction,
     TransactionMessage,
     ModerationLog,
+    UserReport,
+    SupportTicket,
     ProfilePost,
     ProfilePostComment,
     SocialMedia,
@@ -46,8 +50,10 @@ from .forms import (
     TransactionConfirmForm,
     ProfilePostForm,
     ProfilePostCommentForm,
+    ReportForm,
 )
 from .utils import get_similar_listings_price_stats
+from .security import rate_limit
 import stripe
 from django.conf import settings
 
@@ -76,6 +82,135 @@ SUGGESTED_MEETUP_POINTS = {
     'NU': ['NU Main Lobby', 'Jocson St. Entrance'],
     'Public': ['LRT-2 Legarda Station', 'SM San Lazaro (Main Entrance)', 'Isetann Recto', 'LRT-2 Recto Station'],
 }
+
+
+@login_required
+@rate_limit(max_attempts_per_period=5, period_seconds=60)
+def report_create(request, target, pk):
+    """Submit a user report about an allowed target object.
+
+    Creates a linked SupportTicket for admin triage.
+    """
+
+    allowed_targets = {
+        'user': User,
+        'listing': Listing,
+        'message': Message,
+        'forum_post': ForumPost,
+        'forum_reply': ForumReply,
+        'transaction': Transaction,
+    }
+
+    model = allowed_targets.get(target)
+    if model is None:
+        messages.error(request, 'Invalid report target.')
+        return redirect('marketplace:home')
+
+    obj = get_object_or_404(model, pk=pk)
+
+    # Basic permission checks for private objects
+    if isinstance(obj, Message):
+        if not request.user.is_superuser and not obj.conversation.participants.filter(pk=request.user.pk).exists():
+            return HttpResponseForbidden('You do not have permission to report this message.')
+    if isinstance(obj, Transaction):
+        if not request.user.is_superuser and request.user not in (obj.buyer, obj.seller):
+            return HttpResponseForbidden('You do not have permission to report this transaction.')
+    if isinstance(obj, User) and obj.pk == request.user.pk:
+        messages.error(request, "You can't report your own account.")
+        return redirect('marketplace:home')
+
+    if request.method == 'POST':
+        form = ReportForm(request.POST)
+        if form.is_valid():
+            content_type = ContentType.objects.get_for_model(obj.__class__)
+
+            # Lightweight de-dupe: one open report per reporter/target in last 24h
+            recent_open_exists = UserReport.objects.filter(
+                reporter=request.user,
+                content_type=content_type,
+                object_id=obj.pk,
+                status__in=['new', 'reviewing'],
+                created_at__gte=timezone.now() - timedelta(hours=24),
+            ).exists()
+            if recent_open_exists:
+                messages.error(request, 'You already submitted a report for this item recently.')
+            else:
+                report = form.save(commit=False)
+                report.reporter = request.user
+                report.content_type = content_type
+                report.object_id = obj.pk
+                report.context_url = (request.POST.get('context_url') or request.META.get('HTTP_REFERER') or '')[:255]
+
+                # Best-effort reported_user extraction for triage
+                if isinstance(obj, User):
+                    report.reported_user = obj
+                elif isinstance(obj, Listing):
+                    report.reported_user = obj.seller
+                elif isinstance(obj, Message):
+                    report.reported_user = obj.sender
+                elif isinstance(obj, ForumPost):
+                    report.reported_user = obj.author
+                elif isinstance(obj, ForumReply):
+                    report.reported_user = obj.author
+                elif isinstance(obj, Transaction):
+                    report.reported_user = obj.seller
+
+                # Priority mapping
+                priority_map = {
+                    'unsafe_meetup': 3,
+                    'fraud': 3,
+                    'harassment': 2,
+                    'suspicious': 2,
+                    'refund_dispute': 1,
+                    'spam': 1,
+                    'other': 0,
+                }
+                report.priority = priority_map.get(report.reason, 0)
+                report.save()
+
+                ticket_title = f"{report.get_reason_display()} — {target.replace('_', ' ').title()} #{obj.pk}"
+                SupportTicket.objects.create(
+                    report=report,
+                    title=ticket_title[:200],
+                    priority=report.priority,
+                )
+
+                # Notify superusers (uses existing notification system)
+                admin_users = User.objects.filter(is_superuser=True)
+                # Use the custom admin site namespace when present (Render deploy uses /admin/ -> security_admin_site).
+                notify_url = ''
+                for current_app in ('security_admin', None):
+                    try:
+                        notify_url = reverse('admin:marketplace_userreport_change', args=[report.pk], current_app=current_app)
+                        break
+                    except Exception:
+                        continue
+                if not notify_url:
+                    notify_url = f"/admin/marketplace/userreport/{report.pk}/change/"
+                for admin_user in admin_users:
+                    Notification.objects.create(
+                        user=admin_user,
+                        related_user=request.user,
+                        message=f"New report: {ticket_title}",
+                        notification_type='system',
+                        url=notify_url,
+                    )
+
+                messages.success(request, 'Report submitted. Our admins will review it soon.')
+
+                # Redirect back to the most relevant page
+                if hasattr(obj, 'get_absolute_url'):
+                    return redirect(obj.get_absolute_url())
+                return redirect('marketplace:home')
+    else:
+        form = ReportForm()
+
+    return render(request, 'marketplace/report_form.html', {
+        'form': form,
+        'target': target,
+        'object': obj,
+        'buyer_remorse_notice': "Buyer’s remorse is not a valid refund reason. Use ‘Refund / Dispute’ only for issues like misrepresentation, damage, non-delivery, or unsafe behavior.",
+    })
 
 
 def _get_listing_context(request):
@@ -1732,6 +1867,21 @@ def mod_dashboard(request):
     # Recent moderation log
     recent_logs = ModerationLog.objects.select_related('actor').order_by('-created_at')[:15]
 
+    # Reports / tickets
+    reports_open_count = UserReport.objects.filter(status__in=['new', 'reviewing']).count()
+    tickets_open_count = SupportTicket.objects.filter(status__in=['open', 'assigned', 'in_progress']).count()
+
+    def _admin_url(name: str) -> str:
+        for current_app in ('security_admin', None):
+            try:
+                return reverse(name, current_app=current_app)
+            except Exception:
+                continue
+        return ''
+
+    reports_admin_url = _admin_url('admin:marketplace_userreport_changelist') or '/admin/marketplace/userreport/'
+    tickets_admin_url = _admin_url('admin:marketplace_supportticket_changelist') or '/admin/marketplace/supportticket/'
+
     return render(request, 'marketplace/mod/dashboard.html', {
         'total_revenue': total_revenue,
         'today_revenue': today_revenue,
@@ -1744,6 +1894,10 @@ def mod_dashboard(request):
         'forum_post_count': forum_post_count,
         'hidden_forum_count': hidden_forum_count,
         'recent_logs': recent_logs,
+        'reports_open_count': reports_open_count,
+        'tickets_open_count': tickets_open_count,
+        'reports_admin_url': reports_admin_url,
+        'tickets_admin_url': tickets_admin_url,
     })
 
 
@@ -1822,14 +1976,14 @@ def mod_forum_action(request, content_type, pk):
             obj.moderation_notes = reason
             obj.save()
             log_action = 'hide_forum_post' if content_type == 'post' else 'hide_forum_reply'
-            ModerationLog.objects.create(actor=request.user, action=log_action, target_model=content_type, target_id=pk, reason=reason)
+            ModerationLog.objects.create(actor=request.user, action=log_action, target_model=content_type, target_id=pk)
             messages.success(request, f'{content_type.capitalize()} hidden.')
         elif action == 'restore':
             obj.is_hidden = False
             obj.moderation_notes = ''
             obj.save()
             log_action = 'restore_forum_post' if content_type == 'post' else 'restore_forum_reply'
-            ModerationLog.objects.create(actor=request.user, action=log_action, target_model=content_type, target_id=pk, reason=reason)
+            ModerationLog.objects.create(actor=request.user, action=log_action, target_model=content_type, target_id=pk)
             messages.success(request, f'{content_type.capitalize()} restored.')
 
         if content_type == 'post':
@@ -1882,13 +2036,13 @@ def mod_message_action(request, pk):
             msg.is_hidden = True
             msg.moderation_notes = reason
             msg.save()
-            ModerationLog.objects.create(actor=request.user, action='hide_message', target_model='message', target_id=pk, reason=reason)
+            ModerationLog.objects.create(actor=request.user, action='hide_message', target_model='message', target_id=pk)
             messages.success(request, 'Message hidden.')
         elif action == 'restore':
             msg.is_hidden = False
             msg.moderation_notes = ''
             msg.save()
-            ModerationLog.objects.create(actor=request.user, action='restore_message', target_model='message', target_id=pk, reason=reason)
+            ModerationLog.objects.create(actor=request.user, action='restore_message', target_model='message', target_id=pk)
             messages.success(request, 'Message restored.')
 
         return redirect('marketplace:mod_conversation', pk=msg.conversation_id)
@@ -1936,17 +2090,17 @@ def mod_transaction_detail(request, transaction_id):
         if action == 'add_note':
             transaction.admin_notes = request.POST.get('admin_notes', '')
             transaction.save()
-            ModerationLog.objects.create(actor=request.user, action='add_transaction_note', target_model='transaction', target_id=transaction_id, reason=transaction.admin_notes[:200])
+            ModerationLog.objects.create(actor=request.user, action='add_transaction_note', target_model='transaction', target_id=transaction_id)
             messages.success(request, 'Note saved.')
         elif action == 'flag':
             transaction.flagged_for_review = True
             transaction.save()
-            ModerationLog.objects.create(actor=request.user, action='flag_transaction', target_model='transaction', target_id=transaction_id, reason=request.POST.get('reason', ''))
+            ModerationLog.objects.create(actor=request.user, action='flag_transaction', target_model='transaction', target_id=transaction_id)
             messages.success(request, 'Transaction flagged for review.')
         elif action == 'unflag':
             transaction.flagged_for_review = False
             transaction.save()
-            ModerationLog.objects.create(actor=request.user, action='unflag_transaction', target_model='transaction', target_id=transaction_id, reason='')
+            ModerationLog.objects.create(actor=request.user, action='unflag_transaction', target_model='transaction', target_id=transaction_id)
             messages.success(request, 'Flag removed.')
         elif action == 'admin_cancel' and transaction.status in ('pending', 'confirmed'):
             reason = request.POST.get('admin_cancel_reason', '').strip()
@@ -1958,7 +2112,7 @@ def mod_transaction_detail(request, transaction_id):
                 transaction.admin_cancel_reason = reason
                 transaction.admin_cancelled_by = request.user
                 transaction.save()
-                ModerationLog.objects.create(actor=request.user, action='admin_cancel_transaction', target_model='transaction', target_id=transaction_id, reason=reason)
+                ModerationLog.objects.create(actor=request.user, action='admin_cancel_transaction', target_model='transaction', target_id=transaction_id)
                 messages.success(request, 'Transaction cancelled by admin. Reason logged for audit.')
         return redirect('marketplace:mod_transaction_detail', transaction_id=transaction_id)
 
