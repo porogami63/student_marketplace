@@ -10,6 +10,10 @@
         max-width: 1000px;
         margin: 0 auto;
         animation: slideIn 0.5s ease-out;
+    
+    .method-option {
+        cursor: pointer;
+    }
     }
     @keyframes slideIn {
         from {
@@ -239,6 +243,49 @@
         padding-right: 40px;
     }
     
+    
+    .method-option.selected {
+        border-color: #97C2EC;
+        box-shadow: 0 0 0 2px rgba(151, 194, 236, 0.18);
+    }
+    
+    .method-option.selected .method-title {
+        color: #0b4a7a;
+    }
+    
+    .payment-extra {
+        display: none;
+        background: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.25rem 0 1.25rem;
+    }
+    
+    .payment-extra.active {
+        display: block;
+    }
+    
+    .payment-extra label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+        display: block;
+    }
+    
+    .payment-extra input {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid #d8d8d8;
+        border-radius: 8px;
+        outline: none;
+    }
+    
+    .payment-extra .hint {
+        color: #666;
+        font-size: 0.8rem;
+        margin-top: 0.35rem;
+    }
     .method-title {
         font-weight: 600;
         font-size: 0.95rem;
@@ -539,6 +586,38 @@
                     <!-- Populated by JS after stripe.confirmCardPayment succeeds -->
                     <input type="hidden" name="payment_intent_id" id="payment-intent-id" value="">
                 </div>
+
+                <!-- GCash extra fields -->
+                <div class="payment-extra" id="gcash-extra">
+                    <h6 class="mb-3">Your E-Wallet Details</h6>
+                    <div class="mb-3">
+                        <label for="gcash_number">GCash / E-wallet number</label>
+                        <input type="text" id="gcash_number" name="gcash_number" placeholder="09XXXXXXXXX" autocomplete="tel">
+                        <div class="hint">Used by the seller to verify the sender.</div>
+                    </div>
+                    <div>
+                        <label for="gcash_name">Account name</label>
+                        <input type="text" id="gcash_name" name="gcash_name" placeholder="Full name" autocomplete="name">
+                    </div>
+                </div>
+
+                <!-- Bank transfer extra fields -->
+                <div class="payment-extra" id="bank-extra">
+                    <h6 class="mb-3">Your Bank Details</h6>
+                    <div class="mb-3">
+                        <label for="bank_name">Bank name</label>
+                        <input type="text" id="bank_name" name="bank_name" placeholder="e.g. BPI / BDO / Metrobank" autocomplete="organization">
+                    </div>
+                    <div class="mb-3">
+                        <label for="bank_account_name">Account name</label>
+                        <input type="text" id="bank_account_name" name="bank_account_name" placeholder="Full name" autocomplete="name">
+                    </div>
+                    <div>
+                        <label for="bank_account_last4">Account last 4 digits (optional)</label>
+                        <input type="text" id="bank_account_last4" name="bank_account_last4" placeholder="1234" inputmode="numeric" maxlength="4">
+                        <div class="hint">Optional; helps seller confirm the sender account.</div>
+                    </div>
+                </div>
                 
                 <!-- Confirmation Checklist -->
                 <div class="confirmation-checklist">
@@ -585,7 +664,7 @@
             <div class="summary-section">
                 <h6>Item Information</h6>
                 {% if transaction.listing.image %}
-                <img src="{{ transaction.listing.image.url }}" alt="{{ transaction.listing.title }}" class="item-image">
+                <img src="{{ transaction.listing.image|media_or_static }}" alt="{{ transaction.listing.title }}" class="item-image">
                 {% else %}
                 <div style="width: 100%; height: 180px; background: #e0e0e0; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #999; margin-bottom: 1rem;">
                     <i class="bi bi-image" style="font-size: 3rem;"></i>
@@ -604,7 +683,7 @@
                 <h6>Seller Information</h6>
                 <div class="item-seller" style="margin-bottom: 1rem;">
                     {% if transaction.seller.profile.avatar %}
-                    <img src="{{ transaction.seller.profile.avatar.url }}" alt="{{ transaction.seller.username }}" class="seller-avatar">
+                    <img src="{{ transaction.seller.profile.avatar|media_or_static }}" alt="{{ transaction.seller.username }}" class="seller-avatar">
                     {% elif transaction.seller.profile.google_avatar_url %}
                     <img src="{{ transaction.seller.profile.google_avatar_url }}" alt="{{ transaction.seller.username }}" class="seller-avatar">
                     {% else %}
@@ -667,8 +746,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmCheckboxes = document.querySelectorAll('input[name="confirm_item"]');
     const submitBtn = document.querySelector('button[type="submit"]');
     const stripeForm = document.querySelector('.stripe-payment-form');
+    const gcashExtra = document.getElementById('gcash-extra');
+    const bankExtra = document.getElementById('bank-extra');
     const feeDisplay = document.querySelector('#fee-display span:last-child');
     const totalDisplay = document.querySelector('#total-display');
+    const methodOptions = document.querySelectorAll('.method-option');
     
     // Handle finality warning info icon hover
     const finality = document.getElementById('finality-warning');
@@ -719,6 +801,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle payment method UI changes
     function updatePaymentForm() {
         const selectedMethod = document.querySelector('input[name="exchange_method"]:checked').value;
+
+        // Selected indicator
+        methodOptions.forEach(opt => opt.classList.remove('selected'));
+        const selectedRadio = document.querySelector('input[name="exchange_method"]:checked');
+        if (selectedRadio) {
+            const selectedLabel = selectedRadio.closest('.method-option');
+            if (selectedLabel) selectedLabel.classList.add('selected');
+        }
+
+        // Extra sections
+        if (gcashExtra) gcashExtra.classList.toggle('active', selectedMethod === 'gcash');
+        if (bankExtra) bankExtra.classList.toggle('active', selectedMethod === 'bank_transfer');
+
         if (selectedMethod === 'credit_card') {
             stripeForm.classList.add('active');
             if (!cardMounted) {
@@ -747,6 +842,7 @@ document.addEventListener('DOMContentLoaded', function() {
         cardElement.mount('#card-element');
         cardMounted = true;
     }
+    updatePaymentForm();
     updatePaymentSummary();
     updateSubmitButton();
     

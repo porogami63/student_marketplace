@@ -2332,7 +2332,12 @@ def payment_checkout(request, transaction_id):
                 intent = stripe.PaymentIntent.retrieve(payment_intent_id)
 
                 # Verify this PaymentIntent belongs to the correct transaction (prevent spoofing)
-                if intent.metadata.get('transaction_id') != str(transaction.id):
+                metadata = getattr(intent, 'metadata', {})
+                try:
+                    metadata_dict = dict(metadata) if metadata is not None else {}
+                except Exception:
+                    metadata_dict = {}
+                if metadata_dict.get('transaction_id') != str(transaction.id):
                     messages.error(request, "Payment reference mismatch. Please contact support.")
                     return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
 
@@ -2380,9 +2385,19 @@ def payment_checkout(request, transaction_id):
                 return redirect('marketplace:payment_cancel', transaction_id=transaction_id)
 
         elif exchange_method == 'gcash':
+            # Persist buyer details across redirect
+            request.session['payment_details_gcash'] = {
+                'gcash_number': (request.POST.get('gcash_number') or '').strip(),
+                'gcash_name': (request.POST.get('gcash_name') or '').strip(),
+            }
             return redirect('marketplace:payment_gcash', transaction_id=transaction_id)
         
         elif exchange_method == 'bank_transfer':
+            request.session['payment_details_bank'] = {
+                'bank_name': (request.POST.get('bank_name') or '').strip(),
+                'bank_account_name': (request.POST.get('bank_account_name') or '').strip(),
+                'bank_account_last4': (request.POST.get('bank_account_last4') or '').strip(),
+            }
             return redirect('marketplace:payment_bank_transfer', transaction_id=transaction_id)
         
         elif exchange_method == 'in_person':
@@ -2497,6 +2512,8 @@ def payment_gcash(request, transaction_id):
         return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
     
     if request.method == 'POST':
+        buyer_details = request.session.pop('payment_details_gcash', None) or {}
+
         # Create payment record
         payment, created = Payment.objects.update_or_create(
             transaction=transaction,
@@ -2512,6 +2529,15 @@ def payment_gcash(request, transaction_id):
         receipt = _create_receipt(transaction, payment)
         receipt.status = 'confirmed'
         receipt.confirmed_at = timezone.now()
+        if buyer_details:
+            parts = []
+            if buyer_details.get('gcash_name'):
+                parts.append(f"Name: {buyer_details.get('gcash_name')}")
+            if buyer_details.get('gcash_number'):
+                parts.append(f"Number: {buyer_details.get('gcash_number')}")
+            if parts:
+                receipt.notes = (receipt.notes or '').strip()
+                receipt.notes = (receipt.notes + "\n" if receipt.notes else "") + "GCash details (buyer): " + ", ".join(parts)
         receipt.save()
         
         # Notify seller
@@ -2529,6 +2555,7 @@ def payment_gcash(request, transaction_id):
     context = {
         'transaction': transaction,
         'payment_method': 'gcash',
+        'buyer_gcash_details': request.session.get('payment_details_gcash', {}),
     }
     return render(request, 'marketplace/payment_gcash.html', context)
 
@@ -2547,6 +2574,8 @@ def payment_bank_transfer(request, transaction_id):
         return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
     
     if request.method == 'POST':
+        buyer_details = request.session.pop('payment_details_bank', None) or {}
+
         # Get seller's bank details from profile or use placeholder
         seller_bank_info = transaction.seller.profile.contact_info or "Bank details to be provided by seller"
         
@@ -2564,6 +2593,17 @@ def payment_bank_transfer(request, transaction_id):
         # Create receipt
         receipt = _create_receipt(transaction, payment)
         receipt.status = 'pending'
+        if buyer_details:
+            parts = []
+            if buyer_details.get('bank_name'):
+                parts.append(f"Bank: {buyer_details.get('bank_name')}")
+            if buyer_details.get('bank_account_name'):
+                parts.append(f"Name: {buyer_details.get('bank_account_name')}")
+            if buyer_details.get('bank_account_last4'):
+                parts.append(f"Last4: {buyer_details.get('bank_account_last4')}")
+            if parts:
+                receipt.notes = (receipt.notes or '').strip()
+                receipt.notes = (receipt.notes + "\n" if receipt.notes else "") + "Bank transfer details (buyer): " + ", ".join(parts)
         receipt.save()
         
         # Notify seller
@@ -2583,6 +2623,7 @@ def payment_bank_transfer(request, transaction_id):
         'payment_method': 'bank_transfer',
         'seller_phone': transaction.seller.profile.phone or '',
         'seller_name': transaction.seller.profile.display_name or transaction.seller.username,
+        'buyer_bank_details': request.session.get('payment_details_bank', {}),
     }
     return render(request, 'marketplace/payment_bank_transfer.html', context)
 

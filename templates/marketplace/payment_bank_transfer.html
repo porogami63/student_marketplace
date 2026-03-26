@@ -234,6 +234,22 @@
                     <i class="bi bi-chat-dots"></i> Please contact them directly to request their bank account details
                 </div>
             </div>
+
+            {% if buyer_bank_details.bank_name or buyer_bank_details.bank_account_name or buyer_bank_details.bank_account_last4 %}
+            <div class="info-box" style="background: #f8f9fa; border-color: #e0e0e0;">
+                <h6 style="color: #495057;"><i class="bi bi-person-check"></i> Your bank details (for verification)</h6>
+                {% if buyer_bank_details.bank_name %}
+                    <div style="margin: 0.25rem 0;"><strong>Bank:</strong> {{ buyer_bank_details.bank_name }}</div>
+                {% endif %}
+                {% if buyer_bank_details.bank_account_name %}
+                    <div style="margin: 0.25rem 0;"><strong>Name:</strong> {{ buyer_bank_details.bank_account_name }}</div>
+                {% endif %}
+                {% if buyer_bank_details.bank_account_last4 %}
+                    <div style="margin: 0.25rem 0;"><strong>Last 4:</strong> {{ buyer_bank_details.bank_account_last4 }}</div>
+                {% endif %}
+                <div style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">These will be attached to your receipt notes for the seller to confirm.</div>
+            </div>
+            {% endif %}
             
             <div class="info-box">
                 <h6><i class="bi bi-info-circle"></i> Pro Tips</h6>
