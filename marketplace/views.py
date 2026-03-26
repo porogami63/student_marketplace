@@ -2337,9 +2337,23 @@ def payment_checkout(request, transaction_id):
                     metadata_dict = dict(metadata) if metadata is not None else {}
                 except Exception:
                     metadata_dict = {}
-                if metadata_dict.get('transaction_id') != str(transaction.id):
+                tx_meta = metadata_dict.get('transaction_id')
+                if tx_meta and tx_meta != str(transaction.id):
                     messages.error(request, "Payment reference mismatch. Please contact support.")
                     return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+
+                # If metadata is missing (or couldn't be read), fall back to strict amount/currency checks.
+                # This still blocks most spoofing attempts while avoiding false negatives.
+                if not tx_meta:
+                    try:
+                        expected_amount = int(float(transaction.price) * 100)
+                    except Exception:
+                        expected_amount = None
+                    intent_amount = getattr(intent, 'amount', None)
+                    intent_currency = (getattr(intent, 'currency', '') or '').lower()
+                    if expected_amount is None or intent_amount != expected_amount or intent_currency != 'php':
+                        messages.error(request, "Payment reference mismatch. Please contact support.")
+                        return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
 
                 if intent.status == 'succeeded':
                     payment, created = Payment.objects.update_or_create(
