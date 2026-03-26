@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
+{% load media_fallback %}
 {% block title %}Conversation with {{ other.username }}{% endblock %}
 
 {% block extra_css %}
@@ -334,7 +335,7 @@
     {% if conversation.listing %}
     <a href="{% url 'marketplace:listing_detail' conversation.listing.pk %}" class="chat-listing-preview">
         {% if conversation.listing.image %}
-        <img src="{{ conversation.listing.image.url }}" class="preview-img" alt="">
+        <img src="{{ conversation.listing.image|media_or_static }}" class="preview-img" alt="">
         {% else %}
         <div class="preview-img d-flex align-items-center justify-content-center">
             <i class="bi bi-image text-muted"></i>

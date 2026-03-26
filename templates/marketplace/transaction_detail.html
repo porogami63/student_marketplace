@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load utils %}
+{% load media_fallback %}
 {% block title %}Transaction Details{% endblock %}
 
 {% block extra_css %}
@@ -294,7 +295,7 @@
                         <div class="txn-avatar">
                             {% if is_buyer %}
                                 {% if seller_profile.avatar %}
-                                    <img src="{{ seller_profile.avatar.url }}" alt="">
+                                    <img src="{{ seller_profile.avatar|media_or_static }}" alt="">
                                 {% elif seller_profile.google_avatar_url %}
                                     <img src="{{ seller_profile.google_avatar_url }}" alt="">
                                 {% else %}
@@ -302,7 +303,7 @@
                                 {% endif %}
                             {% else %}
                                 {% if buyer_profile.avatar %}
-                                    <img src="{{ buyer_profile.avatar.url }}" alt="">
+                                    <img src="{{ buyer_profile.avatar|media_or_static }}" alt="">
                                 {% elif buyer_profile.google_avatar_url %}
                                     <img src="{{ buyer_profile.google_avatar_url }}" alt="">
                                 {% else %}
@@ -562,7 +563,7 @@
                     <div class="col-sm-5">
                         <div class="txn-item-thumb">
                             {% if transaction.listing and transaction.listing.image %}
-                                <img src="{{ transaction.listing.image.url }}" alt="Item">
+                                <img src="{{ transaction.listing.image|media_or_static }}" alt="Item">
                             {% else %}
                                 <i class="bi bi-image text-white-50" style="font-size: 2rem;"></i>
                             {% endif %}
@@ -594,7 +595,7 @@
                         <div class="d-flex align-items-center gap-2">
                             <div class="txn-avatar" style="width:32px;height:32px;">
                                 {% if buyer_profile.avatar %}
-                                    <img src="{{ buyer_profile.avatar.url }}" alt="">
+                                    <img src="{{ buyer_profile.avatar|media_or_static }}" alt="">
                                 {% elif buyer_profile.google_avatar_url %}
                                     <img src="{{ buyer_profile.google_avatar_url }}" alt="">
                                 {% else %}
@@ -612,7 +613,7 @@
                         <div class="d-flex align-items-center gap-2">
                             <div class="txn-avatar" style="width:32px;height:32px;">
                                 {% if seller_profile.avatar %}
-                                    <img src="{{ seller_profile.avatar.url }}" alt="">
+                                    <img src="{{ seller_profile.avatar|media_or_static }}" alt="">
                                 {% elif seller_profile.google_avatar_url %}
                                     <img src="{{ seller_profile.google_avatar_url }}" alt="">
                                 {% else %}

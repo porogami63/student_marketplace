@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load utils %}
+{% load media_fallback %}
 {% block title %}{{ listing.title }}{% endblock %}
 
 {% block extra_css %}
@@ -252,7 +253,7 @@
     <div class="listing-media">
         <div class="listing-media-inner">
             {% if listing.image %}
-            <img src="{{ listing.image.url }}" alt="{{ listing.title }}" loading="lazy">
+            <img src="{{ listing.image|media_or_static }}" alt="{{ listing.title }}" loading="lazy">
             {% else %}
             <i class="bi bi-image text-white-50" style="font-size: 4rem;"></i>
             {% endif %}
@@ -338,7 +339,7 @@
                 <div class="d-flex align-items-center gap-2">
                     <div class="listing-avatar">
                         {% if seller_profile.avatar %}
-                        <img src="{{ seller_profile.avatar.url }}" alt="">
+                        <img src="{{ seller_profile.avatar|media_or_static }}" alt="">
                         {% elif seller_profile.google_avatar_url %}
                         <img src="{{ seller_profile.google_avatar_url }}" alt="">
                         {% else %}
@@ -559,7 +560,7 @@
         <a href="{% url 'marketplace:listing_detail' item.pk %}" class="listing-more-card">
             <div class="listing-more-img">
                 {% if item.image %}
-                <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy">
+                <img src="{{ item.image|media_or_static }}" alt="{{ item.title }}" loading="lazy">
                 {% else %}
                 <i class="bi bi-image text-white-50" style="font-size: 1.6rem;"></i>
                 {% endif %}
@@ -585,7 +586,7 @@
         <a href="{% url 'marketplace:listing_detail' item.pk %}" class="listing-more-card">
             <div class="listing-more-img">
                 {% if item.image %}
-                <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy">
+                <img src="{{ item.image|media_or_static }}" alt="{{ item.title }}" loading="lazy">
                 {% else %}
                 <i class="bi bi-image text-white-50" style="font-size: 1.6rem;"></i>
                 {% endif %}

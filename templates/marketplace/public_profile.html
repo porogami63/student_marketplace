@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load utils %}
+{% load media_fallback %}
 {% load crispy_forms_tags %}
 {% block title %}{{ profile_user.get_full_name|default:profile_user.username }}'s Profile{% endblock %}
 {% block extra_css %}
@@ -819,14 +820,14 @@
 {% endblock %}
 
 {% block content %}
-<div class="profile-hero" {% if profile.header_image %}style="background-image: url('{{ profile.header_image.url }}');"{% endif %}>
+<div class="profile-hero" {% if profile.header_image %}style="background-image: url('{{ profile.header_image|media_or_static }}');"{% endif %}>
     <div class="content-wrapper">
         <div class="profile-container">
             <div style="position: relative;">
                 {% if profile.google_avatar_url %}
                     <img src="{{ profile.google_avatar_url }}" alt="Profile" class="profile-avatar">
                 {% elif profile.avatar %}
-                    <img src="{{ profile.avatar.url }}" alt="Profile" class="profile-avatar">
+                    <img src="{{ profile.avatar|media_or_static }}" alt="Profile" class="profile-avatar">
                 {% else %}
                     <div class="profile-avatar-placeholder"></div>
                 {% endif %}
@@ -1118,7 +1119,7 @@
                     <div style="display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1rem;">
                         <div style="flex-shrink: 0;">
                             {% if pinned_post.author.profile.avatar %}
-                                <img src="{{ pinned_post.author.profile.avatar.url }}" alt="{{ pinned_post.author.username }}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <img src="{{ pinned_post.author.profile.avatar|media_or_static }}" alt="{{ pinned_post.author.username }}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                             {% elif pinned_post.author.profile.google_avatar_url %}
                                 <img src="{{ pinned_post.author.profile.google_avatar_url }}" alt="{{ pinned_post.author.username }}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                             {% else %}
@@ -1147,7 +1148,7 @@
                     <!-- Post Image if exists -->
                     {% if pinned_post.image %}
                         <div style="margin: 1rem 0; border-radius: 8px; overflow: hidden;">
-                            <img src="{{ pinned_post.image.url }}" alt="Post image" style="width: 100%; max-height: 400px; object-fit: cover;">
+                            <img src="{{ pinned_post.image|media_or_static }}" alt="Post image" style="width: 100%; max-height: 400px; object-fit: cover;">
                         </div>
                     {% endif %}
                 </div>
@@ -1173,7 +1174,7 @@
                             <div class="post-header" style="display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1rem;">
                                 <div style="flex-shrink: 0;">
                                     {% if post.author.profile.avatar %}
-                                        <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.username }}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                        <img src="{{ post.author.profile.avatar|media_or_static }}" alt="{{ post.author.username }}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                                     {% elif post.author.profile.google_avatar_url %}
                                         <img src="{{ post.author.profile.google_avatar_url }}" alt="{{ post.author.username }}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                                     {% else %}
@@ -1202,7 +1203,7 @@
                             <!-- Post Image if exists -->
                             {% if post.image %}
                                 <div style="margin: 1rem 0; border-radius: 8px; overflow: hidden;">
-                                    <img src="{{ post.image.url }}" alt="Post image" style="width: 100%; max-height: 400px; object-fit: cover;">
+                                    <img src="{{ post.image|media_or_static }}" alt="Post image" style="width: 100%; max-height: 400px; object-fit: cover;">
                                 </div>
                             {% endif %}
 
@@ -1218,7 +1219,7 @@
                                             <!-- Comment Author & Meta -->
                                             <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
                                                 {% if comment.author.profile.avatar %}
-                                                    <img src="{{ comment.author.profile.avatar.url }}" alt="{{ comment.author.username }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                                                    <img src="{{ comment.author.profile.avatar|media_or_static }}" alt="{{ comment.author.username }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
                                                 {% elif comment.author.profile.google_avatar_url %}
                                                     <img src="{{ comment.author.profile.google_avatar_url }}" alt="{{ comment.author.username }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
                                                 {% else %}
@@ -1240,7 +1241,7 @@
                                             <!-- Comment Image if exists -->
                                             {% if comment.image %}
                                                 <div style="margin-top: 0.5rem; border-radius: 6px; overflow: hidden; max-width: 300px;">
-                                                    <img src="{{ comment.image.url }}" alt="Comment image" style="width: 100%; max-height: 200px; object-fit: cover;">
+                                                    <img src="{{ comment.image|media_or_static }}" alt="Comment image" style="width: 100%; max-height: 200px; object-fit: cover;">
                                                 </div>
                                             {% endif %}
                                         </div>
@@ -1256,7 +1257,7 @@
                                         {% csrf_token %}
                                         <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
                                             {% if request.user.profile.avatar %}
-                                                <img src="{{ request.user.profile.avatar.url }}" alt="Your avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">
+                                                <img src="{{ request.user.profile.avatar|media_or_static }}" alt="Your avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">
                                             {% elif request.user.profile.google_avatar_url %}
                                                 <img src="{{ request.user.profile.google_avatar_url }}" alt="Your avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">
                                             {% else %}
@@ -1324,7 +1325,7 @@
                             {% for listing in listings %}
                                 <a href="{{ listing.get_absolute_url }}" class="listing-card">
                                     {% if listing.image %}
-                                        <img src="{{ listing.image.url }}" alt="{{ listing.title }}" class="listing-image">
+                                        <img src="{{ listing.image|media_or_static }}" alt="{{ listing.title }}" class="listing-image">
                                     {% else %}
                                         <div class="listing-image" style="background: linear-gradient(135deg, var(--ubelt-navy), var(--ubelt-gold)); display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem;"></div>
                                     {% endif %}

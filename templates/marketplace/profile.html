@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
+{% load media_fallback %}
 {% block title %}Profile{% endblock %}
 {% block extra_css %}
 <style>
@@ -259,7 +260,7 @@
     <div class="avatar-section">
         <div class="avatar-display">
             {% if user.profile.avatar %}
-                <img src="{{ user.profile.avatar.url }}" alt="" class="avatar-image">
+                <img src="{{ user.profile.avatar|media_or_static }}" alt="" class="avatar-image">
             {% elif user.profile.google_avatar_url %}
                 <img src="{{ user.profile.google_avatar_url }}" alt="" class="avatar-image">
                 <div class="google-badge">🔵</div>

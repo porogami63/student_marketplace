@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
 {% load utils %}
+{% load media_fallback %}
 {% block title %}My Profile{% endblock %}
 
 {% block extra_css %}
@@ -1003,12 +1004,12 @@
 {% endblock %}
 
 {% block content %}
-<div class="profile-dashboard-hero" {% if user.profile.header_image %}style="background-image: url('{{ user.profile.header_image.url }}');"{% endif %}>
+<div class="profile-dashboard-hero" {% if user.profile.header_image %}style="background-image: url('{{ user.profile.header_image|media_or_static }}');"{% endif %}>
     <div class="dashboard-container">
         <div class="dashboard-header">
             <div>
                 {% if user.profile.avatar %}
-                    <img src="{{ user.profile.avatar.url }}" alt="Profile" class="dashboard-avatar">
+                    <img src="{{ user.profile.avatar|media_or_static }}" alt="Profile" class="dashboard-avatar">
                 {% elif user.profile.google_avatar_url %}
                     <img src="{{ user.profile.google_avatar_url }}" alt="Profile" class="dashboard-avatar">
                 {% else %}
@@ -1662,7 +1663,7 @@
                     <a href="{% url 'marketplace:listing_detail' listing.pk %}" class="listing-card">
                         <div class="listing-image">
                             {% if listing.image %}
-                                <img src="{{ listing.image.url }}" alt="{{ listing.title }}">
+                                <img src="{{ listing.image|media_or_static }}" alt="{{ listing.title }}">
                             {% else %}
                                 <i class="bi bi-image" style="font-size: 2rem; color: #ddd;"></i>
                             {% endif %}
@@ -1768,7 +1769,7 @@
                 <a href="{% url 'marketplace:listing_detail' listing.pk %}" class="listing-card">
                     <div class="listing-image">
                         {% if listing.image %}
-                            <img src="{{ listing.image.url }}" alt="{{ listing.title }}">
+                            <img src="{{ listing.image|media_or_static }}" alt="{{ listing.title }}">
                         {% else %}
                             <i class="bi bi-image" style="font-size: 2rem; color: #ddd;"></i>
                         {% endif %}

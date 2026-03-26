@@ -27,6 +27,7 @@
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
         gap: 1.25rem;
+        {% load media_fallback %}
     }
     .mylist-card {
         border-radius: 16px;
@@ -136,7 +137,7 @@
             <span class="small">
                 {% include 'marketplace/_school_badge.html' with school=listing.school %}
             </span>
-            {% else %}
+                        <img src="{{ listing.image|media_or_static }}" alt="{{ listing.title }}">
             <span></span>
             {% endif %}
             <a href="{% url 'marketplace:listing_edit' listing.pk %}" class="btn btn-sm btn-outline-ubelt">Edit</a>

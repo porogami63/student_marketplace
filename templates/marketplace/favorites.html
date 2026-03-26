@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load media_fallback %}
 {% block title %}My Favorites{% endblock %}
 
 {% block extra_css %}
@@ -124,7 +125,7 @@
     <a href="{% url 'marketplace:listing_detail' listing.pk %}" class="fav-card">
         <div class="fav-img">
             {% if listing.image %}
-            <img src="{{ listing.image.url }}" alt="{{ listing.title }}" loading="lazy">
+                <img src="{{ listing.image|media_or_static }}" alt="{{ listing.title }}" loading="lazy">
             {% else %}
             <i class="bi bi-image text-white-50" style="font-size: 2rem;"></i>
             {% endif %}

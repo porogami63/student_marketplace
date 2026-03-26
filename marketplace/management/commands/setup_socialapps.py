@@ -1,7 +1,10 @@
-from django.core.management.base import BaseCommand
-from django.contrib.sites.models import Site
-from django.conf import settings
+from __future__ import annotations
+
 import os
+
+from django.conf import settings
+from django.contrib.sites.models import Site
+from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
@@ -15,17 +18,23 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('django-allauth SocialApp model unavailable; skipping.'))
             return
 
-        google_client_id = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
-        google_secret = os.environ.get('GOOGLE_CLIENT_SECRET', '').strip()
+        google_client_id = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', os.environ.get('GOOGLE_CLIENT_ID', '')).strip()
+        google_secret = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', os.environ.get('GOOGLE_CLIENT_SECRET', '')).strip()
 
         if not google_client_id or not google_secret:
             self.stdout.write(self.style.WARNING('GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET not set; skipping Google SocialApp.'))
             return
 
-        try:
-            site = Site.objects.get(pk=getattr(settings, 'SITE_ID', 1))
-        except Site.DoesNotExist:
-            site = Site.objects.create(pk=getattr(settings, 'SITE_ID', 1), domain='localhost', name='U-Belt Student Marketplace')
+        site_id = getattr(settings, 'SITE_ID', 1)
+        allowed_hosts = [h.strip() for h in getattr(settings, 'ALLOWED_HOSTS', []) if h.strip()]
+        default_domain = allowed_hosts[0] if allowed_hosts else 'localhost'
+        site, _ = Site.objects.get_or_create(pk=site_id, defaults={'domain': default_domain, 'name': default_domain})
+        # Keep Site domain aligned with the deployed host.
+        if site.domain != default_domain:
+            site.domain = default_domain
+        if site.name != default_domain:
+            site.name = default_domain
+        site.save()
 
         app_name = os.environ.get('GOOGLE_SOCIALAPP_NAME', 'Google OAuth').strip() or 'Google OAuth'
 
@@ -39,7 +48,8 @@ class Command(BaseCommand):
             },
         )
 
-        app.sites.add(site)
+        if not app.sites.filter(pk=site.pk).exists():
+            app.sites.add(site)
 
         msg = 'Created' if created else 'Updated'
         self.stdout.write(self.style.SUCCESS(f'{msg} Google SocialApp and linked to Site {site.pk} ({site.domain}).'))

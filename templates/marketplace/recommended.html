@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load media_fallback %}
 {% block title %}Recommended for You{% endblock %}
 
 {% block extra_css %}
@@ -194,7 +195,7 @@
     <a href="{% url 'marketplace:listing_detail' item.listing.pk %}" class="rec-card">
         <div class="rec-img">
             {% if item.listing.image %}
-            <img src="{{ item.listing.image.url }}" alt="{{ item.listing.title }}" loading="lazy">
+            <img src="{{ item.listing.image|media_or_static }}" alt="{{ item.listing.title }}" loading="lazy">
             {% else %}
             <i class="bi bi-image text-white-50" style="font-size: 2rem;"></i>
             {% endif %}
