@@ -584,8 +584,8 @@
             <div class="featured-grid">
                 {% for card in category_cards %}
                     <a href="{% url 'marketplace:listing_list' %}?category={{ card.slug }}" class="category-card">
-                        {% if card.image %}
-                            <span class="category-image" style="background-image: url('{{ card.image|media_path_or_static }}');"></span>
+                        {% if card.image_field %}
+                            <span class="category-image" style="background-image: url('{{ card.image_field|media_or_static }}');"></span>
                         {% else %}
                             <span class="category-image placeholder"></span>
                         {% endif %}

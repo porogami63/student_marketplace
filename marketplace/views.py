@@ -308,15 +308,14 @@ def _get_listing_context(request):
             trending.append({'name': t})
 
     category_cards = []
-    listing_with_image = Listing.objects.filter(is_sold=False, image__isnull=False)
+    listing_with_image = Listing.objects.filter(is_sold=False, image__isnull=False).exclude(image='')
     for slug, title, subtitle in CATEGORY_OVERVIEW:
         card_listing = listing_with_image.filter(category__slug=slug).order_by('-created_at').first()
-        image_url = card_listing.image.url if card_listing and card_listing.image else None
         category_cards.append({
             'slug': slug,
             'name': title,
             'subtitle': subtitle,
-            'image': image_url,
+            'image_field': card_listing.image if card_listing and card_listing.image else None,
         })
 
     forum_posts = ForumPost.objects.filter(is_hidden=False).select_related('author', 'listing')[:3]
