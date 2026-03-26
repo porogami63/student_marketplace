@@ -15,6 +15,15 @@ except ImportError:
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Ensure log directory exists (Render build containers may not include it)
+LOG_DIR = BASE_DIR / 'logs'
+try:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    # If the filesystem is read-only or otherwise restricted,
+    # handlers will fall back to console-only where possible.
+    pass
+
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 if not SECRET_KEY and not os.environ.get('DEBUG', 'False') == 'True':
     raise ValueError("DJANGO_SECRET_KEY environment variable is required in production")
@@ -272,7 +281,7 @@ LOGGING = {
         'security_file': {
             'level': 'WARNING',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'security.log'),
+            'filename': str(LOG_DIR / 'security.log'),
             'maxBytes': 10485760,  # 10MB
             'backupCount': 10,
             'formatter': 'verbose',
@@ -280,7 +289,7 @@ LOGGING = {
         'auth_file': {
             'level': 'INFO',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'authentication.log'),
+            'filename': str(LOG_DIR / 'authentication.log'),
             'maxBytes': 10485760,  # 10MB
             'backupCount': 10,
             'formatter': 'verbose',
@@ -288,7 +297,7 @@ LOGGING = {
         'payment_file': {
             'level': 'INFO',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'payments.log'),
+            'filename': str(LOG_DIR / 'payments.log'),
             'maxBytes': 10485760,  # 10MB
             'backupCount': 10,
             'formatter': 'verbose',
