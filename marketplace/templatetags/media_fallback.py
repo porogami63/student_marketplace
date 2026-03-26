@@ -61,15 +61,31 @@ def media_or_static(media_field, static_fallback_prefix: str = "media/") -> str:
     if not name:
         return ""
 
+    static_url = settings.STATIC_URL.rstrip("/") + "/"
+    prefix = (static_fallback_prefix or "").lstrip("/")
+    static_fallback_url = static_url + prefix + name.lstrip("/")
+
+    def _static_fallback_exists() -> bool:
+        try:
+            base_dir = Path(getattr(settings, "BASE_DIR", "."))
+            static_path = base_dir / "static" / (static_fallback_prefix or "") / name
+            return static_path.exists()
+        except Exception:
+            return False
+
     # If we're on FileSystemStorage (default), only use MEDIA_URL when the file
-    # actually exists under MEDIA_ROOT. On Render the DB may reference files that
-    # aren't present on disk, so we intentionally fall back to static/media.
+    # actually exists under MEDIA_ROOT.
+    #
+    # Important: only fall back to static/media if the static copy exists. This
+    # avoids interfering with newly uploaded files that are present in MEDIA_ROOT
+    # but (correctly) not present in static/media.
     storage = getattr(media_field, "storage", None)
     if storage is not None and storage.__class__.__name__ == "FileSystemStorage":
         try:
             media_root = Path(getattr(settings, "MEDIA_ROOT", ""))
             if media_root and not (media_root / name).exists():
-                storage = None
+                if _static_fallback_exists():
+                    return static_fallback_url
         except Exception:
             # If we cannot verify, still attempt MEDIA_URL.
             pass
@@ -89,11 +105,11 @@ def media_or_static(media_field, static_fallback_prefix: str = "media/") -> str:
     except Exception:
         pass
 
-    # Static fallback: STATIC_ROOT is used on Render after collectstatic,
-    # but locally we can still generate the URL regardless.
-    static_url = settings.STATIC_URL.rstrip("/") + "/"
-    prefix = (static_fallback_prefix or "").lstrip("/")
-    return static_url + prefix + name.lstrip("/")
+    # Static fallback: only if the static copy exists.
+    if _static_fallback_exists():
+        return static_fallback_url
+
+    return ""
 
 
 @register.filter
