@@ -25,16 +25,36 @@ def media_or_static(media_field, static_fallback_prefix: str = "media/") -> str:
         return ""
 
     name = getattr(media_field, "name", "") or ""
-    # Try primary URL first.
+    if not name:
+        return ""
+
+    # If we're on FileSystemStorage (default), only use MEDIA_URL when the file
+    # actually exists under MEDIA_ROOT. On Render the DB may reference files that
+    # aren't present on disk, so we intentionally fall back to static/media.
+    storage = getattr(media_field, "storage", None)
+    if storage is not None and storage.__class__.__name__ == "FileSystemStorage":
+        try:
+            media_root = Path(getattr(settings, "MEDIA_ROOT", ""))
+            if media_root and not (media_root / name).exists():
+                storage = None
+        except Exception:
+            # If we cannot verify, still attempt MEDIA_URL.
+            pass
+
+    # Try primary URL (MEDIA_URL) if appropriate.
     try:
         url = getattr(media_field, "url", "")
-        if url:
+        if url and storage is not None:
+            return url
+        if url and storage is None and not (
+            getattr(media_field, "storage", None) is not None
+            and getattr(media_field.storage, "__class__", None) is not None
+            and media_field.storage.__class__.__name__ == "FileSystemStorage"
+        ):
+            # Non-filesystem storages (e.g. S3) should keep using their native URLs.
             return url
     except Exception:
         pass
-
-    if not name:
-        return ""
 
     # Static fallback: STATIC_ROOT is used on Render after collectstatic,
     # but locally we can still generate the URL regardless.

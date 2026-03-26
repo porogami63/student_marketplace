@@ -358,7 +358,7 @@
                         </a>
                         {% if seller_profile.school %}
                         <div class="text-muted"><i class="bi bi-mortarboard me-1"></i>{{ seller_profile.school.name }}</div>
-                        <div class="rounded-3 py-2 px-3 mb-2 price-tip-block {% if price_stats.tip == 'overpriced' %}price-tip-overpriced{% elif price_stats.tip == 'great_deal' %}price-tip-great-deal{% else %}price-tip-fair{% endif %}">
+                        {% endif %}
                     </div>
                 </div>
                 {% if seller_profile.vouch_count > 0 or seller_profile.verification_tier != 'grey' %}
