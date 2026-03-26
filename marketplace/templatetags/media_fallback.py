@@ -9,6 +9,39 @@ register = template.Library()
 
 
 @register.filter
+def media_path_or_static(value: str | None, static_fallback_prefix: str = "media/") -> str:
+    """Convert a stored MEDIA_URL path into a STATIC_URL fallback.
+
+    Used for cases where the DB stores a string path/URL (not a FileField), e.g.
+    category card background images.
+
+    - If value starts with MEDIA_URL (e.g. /media/xyz.jpg), return /static/media/xyz.jpg
+    - If value starts with "media/", treat it similarly.
+    - Otherwise return the value unchanged.
+    """
+
+    if not value:
+        return ""
+
+    value_str = str(value).strip()
+    if not value_str:
+        return ""
+
+    media_url = getattr(settings, "MEDIA_URL", "/media/") or "/media/"
+    if value_str.startswith(media_url):
+        rel = value_str[len(media_url) :].lstrip("/")
+        static_url = settings.STATIC_URL.rstrip("/") + "/"
+        prefix = (static_fallback_prefix or "").lstrip("/")
+        return static_url + prefix + rel
+
+    if value_str.startswith("media/"):
+        static_url = settings.STATIC_URL.rstrip("/") + "/"
+        return static_url + value_str
+
+    return value_str
+
+
+@register.filter
 def media_or_static(media_field, static_fallback_prefix: str = "media/") -> str:
     """Return a URL for a FileField/ImageField with a static fallback.
 
