@@ -11,8 +11,8 @@
         margin-right: calc(50% - 50vw);
         margin-top: -1.5rem;
         margin-bottom: -1.5rem;
-        min-height: clamp(740px, 92vh, 1100px);
-        padding: clamp(1rem, 2.5vw, 2.5rem);
+        min-height: clamp(720px, 90vh, 1040px);
+        padding: clamp(1rem, 2.2vw, 2.2rem);
         overflow: hidden;
     }
 
@@ -30,26 +30,26 @@
         content: '';
         position: absolute;
         inset: 0;
-        background: linear-gradient(125deg, rgba(11, 25, 43, 0.9), rgba(21, 48, 76, 0.76));
+        background: linear-gradient(125deg, rgba(11, 25, 43, 0.84), rgba(21, 48, 76, 0.67));
     }
 
     .register-shell {
         position: relative;
         z-index: 1;
-        width: min(1100px, 100%);
+        width: min(1020px, 100%);
         margin: 0 auto;
         display: grid;
-        grid-template-columns: minmax(250px, 330px) minmax(0, 1fr);
-        gap: clamp(1rem, 2vw, 1.8rem);
+        grid-template-columns: minmax(240px, 305px) minmax(0, 1fr);
+        gap: clamp(0.9rem, 1.8vw, 1.5rem);
         align-items: stretch;
     }
 
     .register-aside {
         border-radius: 24px;
         border: 1px solid rgba(255, 255, 255, 0.28);
-        background: rgba(6, 23, 42, 0.35);
+        background: rgba(6, 23, 42, 0.3);
         color: #eef5ff;
-        padding: clamp(1.2rem, 2.1vw, 1.7rem);
+        padding: clamp(1.05rem, 1.9vw, 1.45rem);
         box-shadow: 0 18px 44px rgba(8, 20, 36, 0.26);
         backdrop-filter: blur(3px);
         display: flex;
@@ -69,7 +69,7 @@
     .aside-title {
         margin: 0;
         font-family: 'Space Grotesk', sans-serif;
-        font-size: clamp(1.35rem, 2.5vw, 1.9rem);
+        font-size: clamp(1.25rem, 2.2vw, 1.7rem);
         line-height: 1.2;
         color: #ffffff;
     }
@@ -78,7 +78,7 @@
         margin: 0;
         color: rgba(236, 243, 252, 0.86);
         line-height: 1.55;
-        font-size: 0.95rem;
+        font-size: 0.92rem;
     }
 
     .aside-list {
@@ -90,11 +90,11 @@
     }
 
     .aside-list li {
-        padding: 0.65rem 0.7rem;
+        padding: 0.6rem 0.66rem;
         border-radius: 10px;
         border: 1px solid rgba(255, 255, 255, 0.2);
         background: rgba(255, 255, 255, 0.08);
-        font-size: 0.9rem;
+        font-size: 0.86rem;
     }
 
     .aside-tip {
@@ -103,7 +103,7 @@
         border-left: 3px solid #9ec7f0;
         background: rgba(255, 255, 255, 0.14);
         padding: 0.8rem 0.9rem;
-        font-size: 0.84rem;
+        font-size: 0.82rem;
         line-height: 1.45;
         color: #f3f8ff;
     }
@@ -118,24 +118,24 @@
     }
 
     .register-header {
-        padding: clamp(1.25rem, 2.6vw, 1.8rem) clamp(1.25rem, 2.6vw, 1.8rem) 1rem;
+        padding: clamp(1.1rem, 2.2vw, 1.55rem) clamp(1.15rem, 2.2vw, 1.6rem) 0.85rem;
     }
 
     .register-title {
         margin: 0;
         font-family: 'Space Grotesk', sans-serif;
-        font-size: clamp(1.5rem, 2.9vw, 2rem);
+        font-size: clamp(1.4rem, 2.5vw, 1.85rem);
         color: #122c48;
     }
 
     .register-subtitle {
         margin: 0.45rem 0 0;
         color: #506174;
-        font-size: 0.96rem;
+        font-size: 0.93rem;
     }
 
     .register-content {
-        padding: 0 clamp(1.25rem, 2.6vw, 1.8rem) clamp(1.35rem, 2.8vw, 1.8rem);
+        padding: 0 clamp(1.15rem, 2.2vw, 1.6rem) clamp(1.25rem, 2.4vw, 1.6rem);
     }
 
     .google-btn {
@@ -164,7 +164,7 @@
     .auth-divider {
         display: flex;
         align-items: center;
-        margin: 1rem 0 1.15rem;
+        margin: 0.95rem 0 1rem;
         color: #627286;
         font-size: 0.78rem;
         text-transform: uppercase;
@@ -189,7 +189,7 @@
 
     .required-note {
         margin-bottom: 1rem;
-        font-size: 0.82rem;
+        font-size: 0.8rem;
         color: #617286;
     }
 
@@ -213,9 +213,9 @@
 
     .section-title {
         margin-bottom: 0.85rem;
-        font-size: 0.8rem;
+        font-size: 0.82rem;
         text-transform: uppercase;
-        letter-spacing: 0.09em;
+        letter-spacing: 0.08em;
         font-weight: 700;
         color: #2f557a;
     }
@@ -223,7 +223,7 @@
     .form-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.95rem;
+        gap: 0.85rem;
     }
 
     .form-grid .span-2 {
@@ -237,11 +237,11 @@
 
     .auth-field label {
         margin-bottom: 0.42rem;
-        font-size: 0.83rem;
+        font-size: 0.8rem;
         font-weight: 700;
         color: #17304e;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.05em;
     }
 
     .auth-field input,
@@ -250,12 +250,12 @@
     .auth-field .form-control,
     .auth-field .form-select {
         width: 100%;
-        padding: 0.78rem 0.9rem;
+        padding: 0.72rem 0.88rem;
         border-radius: 10px;
         border: 1px solid #c8d4e2;
         background: #fdfefe;
         color: #112842;
-        font-size: 0.95rem;
+        font-size: 0.93rem;
         transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
@@ -344,7 +344,16 @@
         }
 
         .register-aside {
-            gap: 0.8rem;
+            gap: 0.65rem;
+            padding: 1rem 1.1rem;
+        }
+
+        .aside-copy {
+            font-size: 0.9rem;
+        }
+
+        .aside-list {
+            display: none;
         }
 
         .aside-tip {
@@ -360,6 +369,22 @@
         .register-panel,
         .register-aside {
             border-radius: 18px;
+        }
+
+        .register-header {
+            padding: 1rem 1rem 0.75rem;
+        }
+
+        .register-content {
+            padding: 0 1rem 1rem;
+        }
+
+        .register-title {
+            font-size: 1.35rem;
+        }
+
+        .aside-title {
+            font-size: 1.2rem;
         }
 
         .form-grid {

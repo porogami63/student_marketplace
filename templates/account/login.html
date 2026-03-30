@@ -11,11 +11,11 @@
         margin-right: calc(50% - 50vw);
         margin-top: -1.5rem;
         margin-bottom: -1.5rem;
-        min-height: clamp(620px, 84vh, 920px);
+        min-height: clamp(640px, 86vh, 940px);
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: clamp(1rem, 3vw, 2.75rem);
+        padding: clamp(1.1rem, 3vw, 3rem);
         overflow: hidden;
     }
 
@@ -33,20 +33,20 @@
         content: '';
         position: absolute;
         inset: 0;
-        background: linear-gradient(130deg, rgba(12, 28, 47, 0.88), rgba(14, 38, 63, 0.75));
+        background: linear-gradient(130deg, rgba(12, 28, 47, 0.82), rgba(14, 38, 63, 0.66));
     }
 
     .auth-panel {
         position: relative;
         z-index: 1;
         width: 100%;
-        max-width: 500px;
-        border-radius: 26px;
+        max-width: 470px;
+        border-radius: 24px;
         border: 1px solid rgba(255, 255, 255, 0.42);
         background: rgba(250, 252, 255, 0.95);
         box-shadow: 0 28px 60px rgba(7, 18, 36, 0.42);
         backdrop-filter: blur(5px);
-        padding: clamp(1.5rem, 2.8vw, 2.5rem);
+        padding: clamp(1.35rem, 2.4vw, 2.2rem);
     }
 
     .auth-kicker {
@@ -60,7 +60,7 @@
 
     .auth-title {
         font-family: 'Space Grotesk', sans-serif;
-        font-size: clamp(1.65rem, 3.1vw, 2.1rem);
+        font-size: clamp(1.75rem, 2.9vw, 2.25rem);
         font-weight: 700;
         color: #0f243e;
         margin-bottom: 0.55rem;
@@ -69,7 +69,8 @@
     .auth-subtitle {
         margin-bottom: 1.5rem;
         color: #4b5e73;
-        font-size: 0.98rem;
+        font-size: 1rem;
+        line-height: 1.45;
     }
 
     .social-btn {
@@ -122,7 +123,7 @@
     }
 
     .auth-field {
-        margin-bottom: 1.05rem;
+        margin-bottom: 0.95rem;
     }
 
     .auth-field label {
@@ -132,12 +133,12 @@
         font-weight: 700;
         color: #17304e;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.045em;
     }
 
     .auth-field input {
         width: 100%;
-        padding: 0.8rem 0.95rem;
+        padding: 0.74rem 0.9rem;
         border-radius: 10px;
         border: 1px solid #c8d4e2;
         background: #fdfefe;
@@ -184,10 +185,10 @@
         width: 100%;
         border: none;
         border-radius: 12px;
-        padding: 0.85rem 1rem;
+        padding: 0.82rem 1rem;
         background: linear-gradient(135deg, #2f5981, #3f79aa);
         color: #ffffff;
-        font-size: 0.98rem;
+        font-size: 1rem;
         font-weight: 700;
         letter-spacing: 0.02em;
         transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -242,7 +243,12 @@
         }
 
         .auth-title {
-            font-size: 1.5rem;
+            font-size: 1.45rem;
+        }
+
+        .auth-subtitle {
+            margin-bottom: 1.2rem;
+            font-size: 0.92rem;
         }
     }
 
