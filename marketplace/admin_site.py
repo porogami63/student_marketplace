@@ -39,7 +39,7 @@ class SecurityAdminSite(admin.AdminSite):
     index_title = 'Backoffice Dashboard'
     index_template = 'admin/security_admin/index.html'
     
-    def get_urls(self):
+    def get_urls(self): # type: ignore[override]
         """Add custom security dashboard URL"""
         urls = super().get_urls()
         custom_urls = [
@@ -195,16 +195,17 @@ class SecurityAdminSite(admin.AdminSite):
         recent_report_rows = []
         for r in recent_reports:
             report_url = _safe_reverse('admin:marketplace_userreport_change', args=[r.pk])
-            target_label = f"{r.content_type.model.replace('_', ' ').title()} #{r.object_id}" if r.content_type_id else f"#{r.object_id}"
+            ctype_id = getattr(r, 'content_type_id', None)
+            target_label = f"{r.content_type.model.replace('_', ' ').title()} #{r.object_id}" if ctype_id else f"#{r.object_id}"
             target_url = ''
-            if r.content_type_id and r.object_id:
+            if ctype_id and r.object_id:
                 target_url = _safe_reverse(
                     f"admin:{r.content_type.app_label}_{r.content_type.model}_change",
                     args=[r.object_id],
                 )
 
             thumb_url = ''
-            if r.content_type_id and r.content_type.model == 'listing':
+            if ctype_id and r.content_type.model == 'listing':
                 try:
                     listing_obj = r.content_object
                     if listing_obj and getattr(listing_obj, 'image', None):
@@ -212,14 +213,18 @@ class SecurityAdminSite(admin.AdminSite):
                 except Exception:
                     thumb_url = ''
 
+            status_display = getattr(r, 'get_status_display', lambda: r.status)()
+            reason_display = getattr(r, 'get_reason_display', lambda: r.reason)()
+            reported_uid = getattr(r, 'reported_user_id', None)
+
             recent_report_rows.append({
                 'id': r.pk,
                 'created_at': r.created_at,
-                'status': r.get_status_display(),
-                'reason': r.get_reason_display(),
+                'status': status_display,
+                'reason': reason_display,
                 'priority': r.priority,
                 'reporter': getattr(r.reporter, 'username', '—'),
-                'reported_user': getattr(getattr(r, 'reported_user', None), 'username', '—') if r.reported_user_id else '—',
+                'reported_user': getattr(getattr(r, 'reported_user', None), 'username', '—') if reported_uid else '—',
                 'report_url': report_url,
                 'target_label': target_label,
                 'target_url': target_url,
@@ -510,20 +515,20 @@ class SecurityAdminSite(admin.AdminSite):
             # Log the action
             AuditLog.objects.create(
                 user=request.user,
-                action='Security audit triggered manually',
+                event_type='security_alert',
                 severity='info',
-                ip_address=request.META.get('REMOTE_ADDR'),
-                details='User successfully ran security audit view via the backoffice.'
+                ip_address=request.META.get('REMOTE_ADDR') or '127.0.0.1',
+                details=dict(message='User successfully ran security audit view via the backoffice.')
             )
         except Exception as e:
             output = str(e)
             try:
                 AuditLog.objects.create(
                     user=request.user,
-                    action='Security audit trigger failed',
+                    event_type='security_alert',
                     severity='error',
-                    ip_address=request.META.get('REMOTE_ADDR'),
-                    details=f'Error: {str(e)}'
+                    ip_address=request.META.get('REMOTE_ADDR') or '127.0.0.1',
+                    details=dict(error=str(e))
                 )
             except Exception:
                 pass

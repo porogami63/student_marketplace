@@ -1,10 +1,21 @@
 {% extends 'base.html' %}
 {% load media_fallback %}
-{% block title %}Student Marketplace - U-Belt{% endblock %}
+{% block title %}UBXchange: Buy, Sell, Connect Campus-Wide.{% endblock %}
 {% block extra_css %}
 <style>
     body > main { padding: 0 !important; }
     body > main > .container { max-width: 100% !important; padding: 0 !important; }
+
+    @keyframes fadeSlideUp {
+        from {
+            opacity: 0;
+            transform: translateY(14px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
 
     .safety-wrapper {
         width: 100%;
@@ -58,7 +69,7 @@
     .hero-slider {
         position: relative;
         width: 100%;
-        height: clamp(320px, 42vw, 420px);
+        height: clamp(420px, 48vw, 560px);
     }
 
     .hero-slide {
@@ -66,6 +77,7 @@
         inset: 0;
         background-size: cover;
         background-position: center;
+        background-color: #0f172a;
         opacity: 0;
         transition: opacity 0.8s ease;
         z-index: 0;
@@ -78,7 +90,7 @@
     .hero-overlay {
         position: absolute;
         inset: 0;
-        background: rgba(0, 0, 0, 0.35); /* Increased opacity for better text contrast */
+        background: rgba(0, 0, 0, 0.26);
         z-index: 1;
         pointer-events: none;
     }
@@ -86,7 +98,7 @@
     .hero-content {
         position: absolute;
         inset: 0;
-        padding: 2rem 2.5rem;
+        padding: clamp(2rem, 4vw, 2.75rem) clamp(1.2rem, 3vw, 2.4rem);
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -96,38 +108,61 @@
         color: #ffffff;
         text-shadow: 0 4px 20px rgba(0,0,0,0.7); /* Strengthened drop shadow */
         pointer-events: none; /* Allow clicks to pass through to buttons underneath */
+        animation: fadeSlideUp 0.75s ease-out both;
     }
 
     .hero-kicker {
         text-transform: uppercase;
         letter-spacing: 0.3em;
-        font-size: 0.85rem;
+        font-size: 0.78rem;
         font-weight: 700;
         opacity: 1;
-        margin-bottom: 1rem;
+        margin-bottom: 0.75rem;
         pointer-events: auto;
     }
 
     .hero-content h1 {
-        font-size: clamp(2.3rem, 4vw, 3.4rem);
+        font-size: clamp(1.95rem, 3.2vw, 3rem);
         font-weight: 800;
-        margin-bottom: 0.9rem;
-        line-height: 1.2;
+        margin-bottom: 0.6rem;
+        line-height: 1.12;
+        max-width: 900px;
+        text-wrap: balance;
         pointer-events: auto;
     }
 
-    .hero-content p {
-        font-size: 1.15rem;
+    .hero-subcopy {
+        font-size: clamp(1rem, 2vw, 1.35rem);
         max-width: 650px;
         opacity: 1;
-        margin-bottom: 2rem;
+        margin-bottom: 1.1rem;
         font-weight: 500;
         pointer-events: auto;
     }
 
+    .hero-tagline-list {
+        margin-top: 0.7rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.48rem;
+        justify-content: center;
+        pointer-events: auto;
+        max-width: 980px;
+    }
+
+    .hero-tagline-list span {
+        font-size: 0.77rem;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.32);
+        background: rgba(0, 0, 0, 0.22);
+        color: #f8fafc;
+        padding: 0.28rem 0.68rem;
+        letter-spacing: 0.01em;
+    }
+
     .hero-search {
         width: 100%;
-        max-width: 740px;
+        max-width: 760px;
         display: flex;
         gap: 0.65rem;
         align-items: stretch;
@@ -140,8 +175,8 @@
         flex: 1;
         border-radius: 999px;
         border: 2px solid transparent;
-        padding: 1rem 1.75rem;
-        font-size: 1.1rem;
+        padding: 0.88rem 1.45rem;
+        font-size: 1.02rem;
         box-shadow: 0 10px 25px rgba(0,0,0,0.1);
         transition: all 0.3s;
         pointer-events: auto;
@@ -158,9 +193,9 @@
         border: none;
         background: #38bdf8;
         color: white;
-        padding: 0 2.2rem;
+        padding: 0 1.9rem;
         font-weight: 700;
-        font-size: 1.1rem;
+        font-size: 1.02rem;
         cursor: pointer;
         transition: all 0.3s;
         box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
@@ -178,15 +213,16 @@
     }
 
     .hero-trending {
-        margin-top: 1rem;
+        margin-top: 0.72rem;
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
         justify-content: center;
         align-items: center;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         opacity: 0.85;
         pointer-events: auto;
+        max-width: 980px;
     }
 
     .hero-trending span {
@@ -522,125 +558,173 @@
         .hero-search { flex-direction: column; }
         .hero-search button { width: 100%; }
         .hero-trending { flex-direction: column; gap: 0.35rem; }
+        .hero-slider { height: clamp(460px, 92vw, 620px); }
+        .hero-content h1 { max-width: 640px; }
+        .hero-tagline-list { display: none; }
     }
 
-    .unauth-splash {
-        max-width: 1160px;
-        margin: 1.5rem auto 1rem auto;
-        padding: 4rem 2rem;
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        border-radius: 20px;
-        color: white;
+    .cta-section {
+        margin-top: 0.5rem;
+        padding: clamp(2rem, 5vw, 3.25rem);
+        border-radius: 22px;
+        border: 1px solid rgba(14, 165, 233, 0.28);
+        background:
+            radial-gradient(1400px circle at 5% -10%, rgba(56, 189, 248, 0.26), transparent 38%),
+            radial-gradient(1000px circle at 105% 120%, rgba(16, 185, 129, 0.18), transparent 36%),
+            linear-gradient(130deg, #f8fcff 0%, #eef9ff 42%, #f7fcff 100%);
+        box-shadow: 0 20px 45px rgba(14, 116, 144, 0.13);
         text-align: center;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
+        gap: 0.95rem;
         position: relative;
         overflow: hidden;
+        animation: fadeSlideUp 0.75s ease-out 0.08s both;
     }
 
-    .unauth-splash::before {
-        content: '';
-        position: absolute;
-        top: -50%; left: -10%;
-        width: 300px; height: 300px;
-        background: rgba(56, 189, 248, 0.15);
-        border-radius: 50%;
-        filter: blur(40px);
-    }
-
-    .unauth-splash::after {
-        content: '';
-        position: absolute;
-        bottom: -50%; right: -10%;
-        width: 300px; height: 300px;
-        background: rgba(56, 189, 248, 0.15);
-        border-radius: 50%;
-        filter: blur(40px);
-    }
-
-    .unauth-splash-content {
-        position: relative;
-        z-index: 1;
-    }
-
-    .unauth-splash h2 {
-        font-size: clamp(2rem, 4vw, 2.8rem);
+    .cta-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
         font-weight: 800;
-        margin-bottom: 1rem;
+        color: #075985;
+        background: rgba(255, 255, 255, 0.74);
+        border: 1px solid rgba(14, 165, 233, 0.25);
+        padding: 0.4rem 0.8rem;
+        border-radius: 999px;
     }
 
-    .unauth-splash p {
-        font-size: 1.15rem;
-        opacity: 0.9;
-        max-width: 600px;
-        margin: 0 auto 2.5rem auto;
-        font-weight: 500;
-        line-height: 1.6;
+    .cta-section h2 {
+        margin: 0;
+        font-size: clamp(1.8rem, 3.4vw, 2.45rem);
+        color: #0f172a;
+        font-weight: 800;
+        letter-spacing: -0.01em;
     }
 
-    .unauth-splash-actions {
+    .cta-quote {
+        margin: 0;
+        font-size: 1.12rem;
+        color: #0369a1;
+        font-weight: 700;
+        max-width: 760px;
+    }
+
+    .cta-description {
+        margin: 0;
+        font-size: 1rem;
+        color: #334155;
+        max-width: 720px;
+        line-height: 1.62;
+    }
+
+    .cta-badges {
         display: flex;
-        gap: 1rem;
         flex-wrap: wrap;
         justify-content: center;
+        gap: 0.55rem;
+        margin-top: 0.3rem;
     }
 
-    .unauth-btn-primary {
-        background: #38bdf8;
-        color: white;
-        padding: 0.85rem 2.2rem;
+    .cta-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.42rem;
         border-radius: 999px;
+        padding: 0.42rem 0.82rem;
+        font-size: 0.84rem;
         font-weight: 700;
-        font-size: 1.1rem;
+        color: #155e75;
+        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .cta-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.8rem;
+        margin-top: 0.5rem;
+    }
+
+    .cta-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
         text-decoration: none;
-        transition: all 0.3s;
-        box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
-    }
-
-    .unauth-btn-primary:hover {
-        background: #0ea5e9;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(56, 189, 248, 0.4);
-        color: white;
-    }
-
-    .unauth-btn-secondary {
-        background: rgba(255, 255, 255, 0.1);
-        border: 2px solid rgba(255, 255, 255, 0.2);
-        color: white;
-        padding: 0.85rem 2.2rem;
         border-radius: 999px;
-        font-weight: 700;
-        font-size: 1.1rem;
-        text-decoration: none;
-        transition: all 0.3s;
+        padding: 0.82rem 1.28rem;
+        font-weight: 800;
+        font-size: 0.95rem;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
     }
 
-    .unauth-btn-secondary:hover {
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
+    .cta-btn-primary {
+        color: #ffffff;
+        background: linear-gradient(135deg, #0284c7 0%, #22c1e5 100%);
+        box-shadow: 0 10px 22px rgba(2, 132, 199, 0.28);
+    }
+
+    .cta-btn-primary:hover {
+        color: #ffffff;
         transform: translateY(-2px);
+        box-shadow: 0 12px 26px rgba(2, 132, 199, 0.36);
+    }
+
+    .cta-btn-secondary {
+        color: #0f172a;
+        background: #ffffff;
+        border: 1px solid rgba(148, 163, 184, 0.55);
+    }
+
+    .cta-btn-secondary:hover {
+        color: #0f172a;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+        border-color: rgba(2, 132, 199, 0.45);
+    }
+
+    .cta-btn-tertiary {
+        color: #155e75;
+        background: rgba(255, 255, 255, 0.5);
+        border: 1px dashed rgba(8, 145, 178, 0.48);
+    }
+
+    .cta-btn-tertiary:hover {
+        color: #0e7490;
+        background: rgba(255, 255, 255, 0.88);
+        transform: translateY(-2px);
+    }
+
+    @media (max-width: 768px) {
+        .cta-section {
+            padding: 1.7rem 1.1rem;
+        }
+
+        .cta-buttons {
+            width: 100%;
+        }
+
+        .cta-btn {
+            width: 100%;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .hero-content,
+        .cta-section {
+            animation: none;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-{% if not user.is_authenticated %}
-<div class="unauth-splash" style="margin-left: 1rem; margin-right: 1rem; margin-top: 1.5rem; max-width: calc(1160px - 2rem); @media(min-width: 1192px) { margin: 1.5rem auto 1rem auto; max-width: 1160px; }">
-    <div class="unauth-splash-content">
-        <h2>Welcome to Student Marketplace!</h2>
-        <p>Join the premier marketplace for university students. Buy and sell textbooks, gadgets, and essentials safely within your campus community.</p>
-        <div class="unauth-splash-actions">
-            <a href="{% url 'account_signup' %}" class="unauth-btn-primary">Get Started</a>
-            <a href="{% url 'account_login' %}" class="unauth-btn-secondary">Log In</a>
-        </div>
-    </div>
-</div>
-{% endif %}
-
 <div class="safety-wrapper">
     <div id="safetyAlert" class="safety-alert" role="alert">
         <div class="alert-icon" aria-hidden="true">
@@ -663,9 +747,9 @@
         </div>
         <div class="hero-overlay"></div>
         <div class="hero-content">
-            <div class="hero-kicker">UBXChange</div>
+            <div class="hero-kicker">UBXchange</div>
             <h1>Every kinda find, for every kinda student</h1>
-            <p>Shop with confidence inside the University Belt community. Sell textbooks, gadgets, dorm essentials, and more directly to fellow students.</p>
+            <p class="hero-subcopy">Shop with confidence inside the University Belt community. Sell textbooks, gadgets, dorm essentials, and more directly to fellow students.</p>
             <form class="hero-search" action="{% url 'marketplace:listing_list' %}" method="get">
                 <input type="search" name="q" placeholder="Search textbooks, gadgets, or course codes (e.g. IT-2104)..." value="{{ query }}">
                 <button type="submit">Search</button>
@@ -679,6 +763,11 @@
                         <a href="{% url 'marketplace:listing_list' %}?q={{ item.name|urlencode }}" class="hero-trend-tag">{{ item.name }}</a>
                     {% endif %}
                 {% endfor %}
+            </div>
+            <div class="hero-tagline-list" aria-label="UBXchange brand highlights">
+                <span>Your Campus. Your Marketplace.</span>
+                <span>Campus Deals, Made Easy.</span>
+                <span>From Dorm to Doorstep—UBXchange.</span>
             </div>
         </div>
         <div class="hero-controls">
@@ -804,11 +893,19 @@
 
         {% if not user.is_authenticated %}
         <section class="cta-section">
-            <h2>Join the student marketplace</h2>
-            <p>Connect with fellow U-Belt students, buy the things you need, and sell items you no longer use.</p>
+            <div class="cta-kicker"><i class="bi bi-stars"></i> UBXchange: Where Students Swap &amp; Save.</div>
+            <h2>Your Campus. Your Marketplace.</h2>
+            <p class="cta-quote">From Dorm to Doorstep—UBXchange.</p>
+            <p class="cta-description">Campus Deals, Made Easy. Join a student-first space where you can buy essentials, sell what you no longer need, and connect campus-wide in one trusted marketplace.</p>
+            <div class="cta-badges">
+                <span class="cta-badge"><i class="bi bi-shield-check"></i> Verified community</span>
+                <span class="cta-badge"><i class="bi bi-lightning-charge"></i> Trade smarter, campus faster</span>
+                <span class="cta-badge"><i class="bi bi-people"></i> Student-to-student support</span>
+            </div>
             <div class="cta-buttons">
-                <a href="{% url 'marketplace:register' %}" class="cta-btn cta-btn-primary">Create account</a>
-                <a href="{% url 'marketplace:listing_list' %}" class="cta-btn cta-btn-secondary">Browse as guest</a>
+                <a href="{% url 'marketplace:register' %}" class="cta-btn cta-btn-primary"><i class="bi bi-rocket-takeoff-fill"></i>Get Started</a>
+                <a href="{% url 'marketplace:listing_list' %}" class="cta-btn cta-btn-secondary"><i class="bi bi-search-heart"></i>Browse as guest</a>
+                <a href="#safetyAlert" class="cta-btn cta-btn-tertiary"><i class="bi bi-shield-lock"></i>Read safety tips</a>
             </div>
         </section>
         {% endif %}
@@ -831,6 +928,27 @@ function dismissSafetyAlert() {
 (function () {
     const slides = document.querySelectorAll('.hero-slide');
     if (slides.length === 0) return;
+
+    const fallbackImage = '/static/media/hero/image-crossing.jpg';
+    const readBgUrl = (bgValue) => {
+        const match = bgValue && bgValue.match(/url\(["']?(.*?)["']?\)/);
+        return match ? match[1] : '';
+    };
+
+    // Ensure each slide has a usable image source.
+    slides.forEach((slide) => {
+        const imageUrl = readBgUrl(slide.style.backgroundImage);
+        if (!imageUrl) {
+            slide.style.backgroundImage = `url('${fallbackImage}')`;
+            return;
+        }
+
+        const probe = new Image();
+        probe.onerror = () => {
+            slide.style.backgroundImage = `url('${fallbackImage}')`;
+        };
+        probe.src = imageUrl;
+    });
     
     const total = slides.length;
     let current = 0;

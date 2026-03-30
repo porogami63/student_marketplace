@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}My Offenses & Appeals | UBXchange{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">My Offenses & Appeals</h1>
+        <p class="text-gray-600">Your current reputation score is <strong>{{ request.user.profile.reputation_score }}</strong> and you have <strong>{{ request.user.profile.strikes_count }}</strong> strikes.</p>
+    </div>
+
+    {% if reports %}
+        <div class="space-y-6">
+            {% for report in reports %}
+            <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mb-2">
+                            Reported for {{ report.get_reason_display }}
+                        </span>
+                        <h3 class="text-lg font-medium text-gray-900">Incident #{{ report.id }}</h3>
+                        <p class="text-sm text-gray-500">Filed on {{ report.created_at|date }}</p>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    {% if report.appeal_requested %}
+                        <div class="bg-gray-50 p-4 rounded-md">
+                            <h4 class="text-sm font-medium text-gray-900 mb-2">Appeal Status: 
+                                {% if report.appeal_status == 'pending' %}
+                                    <span class="text-yellow-600">Pending Review</span> (Appeals may take a long time to review)
+                                {% elif report.appeal_status == 'approved' %}
+                                    <span class="text-green-600">Approved</span>
+                                {% elif report.appeal_status == 'rejected' %}
+                                    <span class="text-red-600">Rejected</span>
+                                {% else %}
+                                    {{ report.appeal_status }}
+                                {% endif %}
+                            </h4>
+                            <p class="text-sm text-gray-700"><strong>Your Appeal:</strong> {{ report.appeal_text }}</p>
+                        </div>
+                    {% else %}
+                        <p class="text-sm text-gray-600 mb-4">You have not appealed this decision.</p>
+                        <a href="{% url 'appeal_submit' report.pk %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none">
+                            File an Appeal
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bg-white rounded-lg shadow p-8 text-center">
+            <h3 class="text-lg font-medium text-gray-900 mb-2">No Reports</h3>
+            <p class="text-gray-500">Your account is in good standing. Keep following the guidelines!</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

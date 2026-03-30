@@ -3,24 +3,88 @@
 
 {% block title %}About Us - UBXchange{% endblock %}
 
+{% block extra_css %}
+<style>
+    @keyframes aboutFadeRise {
+        from {
+            opacity: 0;
+            transform: translateY(16px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .about-hero,
+    .about-pillars,
+    .about-cta {
+        opacity: 0;
+        animation: aboutFadeRise 0.72s ease-out forwards;
+    }
+
+    .about-pillars {
+        animation-delay: 0.08s;
+    }
+
+    .about-cta {
+        animation-delay: 0.16s;
+    }
+
+    .about-catchphrases {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        margin-top: 1.2rem;
+    }
+
+    .about-catchphrases span {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 0.38rem 0.78rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #075985;
+        background: rgba(151, 194, 236, 0.2);
+        border: 1px solid rgba(14, 165, 233, 0.35);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .about-hero,
+        .about-pillars,
+        .about-cta {
+            animation: none;
+            opacity: 1;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container py-5 mt-5">
-    <div class="row align-items-center mb-5">
+    <div class="row align-items-center mb-5 about-hero">
         <div class="col-lg-6">
             <h1 class="display-4 font-display fw-bold mb-4" style="color: var(--ubelt-navy);">
-                Connecting <span style="color: var(--ubelt-gold);">Students.</span><br>
-                Empowering <span style="color: var(--ubelt-navy);">Campus Life.</span>
+                UBXchange: <span style="color: var(--ubelt-gold);">Connecting Students,</span><br>
+                One Deal at a Time.
             </h1>
             <p class="lead text-muted mb-4">
-                UBXchange is the premier campus marketplace designed exclusively for students. Buy, sell, and trade safely within your university community.
+                UBXchange: Buy, Sell, Connect Campus-Wide. We built a trusted student marketplace that makes campus trading faster, safer, and more convenient.
             </p>
+            <div class="about-catchphrases" aria-label="UBXchange catchphrases">
+                <span>Trade Smarter, Campus Faster.</span>
+                <span>Your Campus. Your Marketplace.</span>
+                <span>Campus Deals, Made Easy.</span>
+                <span>Where Students Swap &amp; Save.</span>
+            </div>
         </div>
         <div class="col-lg-6">
             <img src="{% static 'images/hero_img.webp' %}" alt="Students on campus" class="img-fluid rounded-4 shadow" onerror="this.src='https://images.unsplash.com/photo-1523240795612-9a054b0db644?ixlib=rb-4.0.3&auto=format&fit=crop&w=1740&q=80'">
         </div>
     </div>
 
-    <div class="row text-center mb-5 g-4 py-5" style="background-color: var(--ubelt-cream); border-radius: 20px;">
+    <div class="row text-center mb-5 g-4 py-5 about-pillars" style="background-color: var(--ubelt-cream); border-radius: 20px;">
         <div class="col-md-4">
             <div class="h1 mb-3" style="color: var(--ubelt-gold);"><i class="bi bi-shield-check"></i></div>
             <h3 class="h4 font-display fw-bold">Safe & Secure</h3>
@@ -38,10 +102,10 @@
         </div>
     </div>
 
-    <div class="row justify-content-center text-center py-4">
+    <div class="row justify-content-center text-center py-4 about-cta">
         <div class="col-lg-8">
-            <h2 class="font-display fw-bold mb-4">Ready to get started?</h2>
-            <p class="lead text-muted mb-4">Join thousands of students already using UBXchange to buy and sell on campus.</p>
+            <h2 class="font-display fw-bold mb-4">From Dorm to Doorstep—UBXchange.</h2>
+            <p class="lead text-muted mb-4">Join students already trading smarter on UBXchange and turn campus clutter into useful deals.</p>
             {% if not user.is_authenticated %}
                 <a href="{% url 'account_signup' %}" class="btn btn-ubelt btn-lg px-5 py-3 rounded-pill fw-bold">Join Now</a>
             {% else %}

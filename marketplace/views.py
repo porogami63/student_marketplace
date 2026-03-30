@@ -59,11 +59,16 @@ from django.conf import settings
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
+_STATIC_PREFIX = settings.STATIC_URL
+if not _STATIC_PREFIX.startswith('/'):
+    _STATIC_PREFIX = f'/{_STATIC_PREFIX}'
+if not _STATIC_PREFIX.endswith('/'):
+    _STATIC_PREFIX += '/'
+
 HERO_IMAGE_URLS = [
-    'https://i.pinimg.com/originals/f0/a2/ea/f0a2eae1ff2863183dad317ab7b019df.jpg',
-    'https://cdn.coconuts.co/coconuts/wp-content/uploads/2016/11/ubelt-2.jpg',
-    'https://images.summitmedia-digital.com/spotph/images/2019/08/02/img-9953-1564737431.jpg',
-    'https://th.bing.com/th/id/R.730eb9d6ab1e84c2e14d4c3a826600cb?rik=VxNJkin1Psi1QQ&riu=http%3a%2f%2fphotos.wikimapia.org%2fp%2f00%2f08%2f40%2f55%2f72_full.jpg&ehk=A%2fDQfdbcJANOjmKmnTm2E0yXelYacYoh2zSW4hD0f38%3d&risl=&pid=ImgRaw&r=0',
+    f"{_STATIC_PREFIX}media/hero/image-crossing.jpg",
+    f"{_STATIC_PREFIX}media/hero/ubelt-mendiola-arch.jpg",
+    f"{_STATIC_PREFIX}media/hero/ubelt-campus-park.jpg",
 ]
 
 CATEGORY_OVERVIEW = [
@@ -2809,3 +2814,25 @@ def receipts_list(request):
 
 def about(request):
     return render(request, 'marketplace/about.html')
+
+from django.views.generic import ListView
+from django.contrib.auth.mixins import LoginRequiredMixin
+class UserAppealsView(LoginRequiredMixin, ListView):
+    template_name = 'marketplace/appeals.html'
+    context_object_name = 'reports'
+    def get_queryset(self):
+        return UserReport.objects.filter(reported_user=self.request.user).order_by('-created_at')
+
+@login_required
+def appeal_submit(request, pk):
+    report = get_object_or_404(UserReport, pk=pk, reported_user=request.user)
+    if request.method == 'POST':
+        text = request.POST.get('appeal_text')
+        if text:
+            report.appeal_requested = True
+            report.appeal_text = text
+            report.appeal_status = 'pending'
+            report.save()
+            messages.success(request, 'Your appeal has been submitted. Note that timeframe for appeals may take long.')
+        return redirect('appeals')
+    return render(request, 'marketplace/appeal_submit.html', {'report': report})

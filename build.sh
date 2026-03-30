@@ -6,11 +6,14 @@ pip install -r requirements.txt
 echo "Running copy_logos..."
 python manage.py copy_logos
 
-echo "Running collectstatic..."
-python manage.py collectstatic --no-input
-
 echo "Running migrations..."
 python manage.py migrate
+
+echo "Syncing media for Render-safe deployment..."
+python manage.py sync_media_for_render
+
+echo "Running collectstatic..."
+python manage.py collectstatic --no-input
 
 echo "Running setup_ubelt..."
 python manage.py setup_ubelt

@@ -1,161 +1,605 @@
 {% extends 'base.html' %}
-{% load crispy_forms_tags %}
+{% load static %}
 {% load socialaccount %}
 {% block title %}Sign Up{% endblock %}
 {% block extra_css %}
 <style>
-    .auth-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem 1rem; background: linear-gradient(135deg, var(--ubelt-navy) 0%, var(--ubelt-teal) 100%); }
-    .auth-card { width: 100%; max-width: 650px; border-radius: 16px; border: 1px solid rgba(0,0,0,0.05); background: white; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-    .auth-header { text-align: center; margin-bottom: 1.5rem; padding: 1.5rem 1.5rem 0 1.5rem; }
-    .auth-header h1 { font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 700; color: var(--ubelt-navy); margin-bottom: 0.5rem; }
-    .auth-header p { color: #666; font-size: 0.95rem; }
-    .tip-box { background: #f0f8ff; border-left: 4px solid var(--ubelt-teal); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; margin: 1.5rem 1.5rem 1.5rem 1.5rem; font-size: 0.9rem; color: #333; }
-    .tip-box strong { color: var(--ubelt-navy); }
-    .tip-box code { background: rgba(13, 148, 136, 0.1); padding: 0.2rem 0.4rem; border-radius: 3px; color: var(--ubelt-teal); font-weight: 600; }
-    .form-container { padding: 0 1.5rem; }
-    .auth-form-group { margin-bottom: 1.25rem; }
-    .auth-form-group label { display: block; font-weight: 600; color: var(--ubelt-navy); margin-bottom: 0.5rem; font-size: 0.9rem; }
-    .auth-form-group input, .auth-form-group select { width: 100%; padding: 0.75rem 1rem; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1rem; transition: border-color 0.2s; box-sizing: border-box; font-family: inherit; }
-    .auth-form-group input:focus, .auth-form-group select:focus { border-color: var(--ubelt-gold); outline: none; box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.1); }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .form-row-full { grid-column: 1 / -1; }
-    @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
-    .form-section { margin-bottom: 2rem; border-bottom: 1px solid #e0e0e0; padding-bottom: 1.5rem; }
-    .form-section:last-of-type { border-bottom: none; }
-    .section-title { font-size: 0.95rem; font-weight: 600; color: var(--ubelt-teal); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1rem; }
-    .btn-google { background: #fff; border: 2px solid #ddd; color: #333; padding: 0.85rem; border-radius: 8px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 0.75rem; transition: all 0.2s; margin-bottom: 1.5rem; width: 100%; margin-left: 1.5rem; margin-right: 1.5rem; }
-    .btn-google:hover { border-color: #bbb; background: #f9f9f9; color: #333; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .divider { display: flex; align-items: center; margin: 1.5rem 1.5rem; color: #999; font-size: 0.85rem; }
-    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e0e0e0; }
-    .divider::before { margin-right: 1rem; } .divider::after { margin-left: 1rem; }
-    .auth-footer { text-align: center; margin-top: 1.5rem; color: #666; font-size: 0.95rem; padding: 1.5rem; }
-    .auth-footer a { color: var(--ubelt-gold); font-weight: 600; text-decoration: none; }
-    .auth-footer a:hover { text-decoration: underline; }
-    .errorlist { list-style: none; padding: 0; margin: 0.5rem 0 0 0; }
-    .errorlist li { color: #c33; font-size: 0.85rem; }
-    .submit-btn { margin: 1.5rem; }
-    .required-note { font-size: 0.85rem; color: #999; margin-bottom: 1.5rem; }
+    .auth-stage {
+        --auth-background-image: url("{% static 'media/hero/image-crossing.jpg' %}");
+        position: relative;
+        margin-left: calc(50% - 50vw);
+        margin-right: calc(50% - 50vw);
+        margin-top: -1.5rem;
+        margin-bottom: -1.5rem;
+        min-height: clamp(740px, 92vh, 1100px);
+        padding: clamp(1rem, 2.5vw, 2.5rem);
+        overflow: hidden;
+    }
+
+    .auth-stage::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: var(--auth-background-image);
+        background-size: cover;
+        background-position: center;
+        filter: saturate(1.05);
+    }
+
+    .auth-stage::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(125deg, rgba(11, 25, 43, 0.9), rgba(21, 48, 76, 0.76));
+    }
+
+    .register-shell {
+        position: relative;
+        z-index: 1;
+        width: min(1100px, 100%);
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: minmax(250px, 330px) minmax(0, 1fr);
+        gap: clamp(1rem, 2vw, 1.8rem);
+        align-items: stretch;
+    }
+
+    .register-aside {
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        background: rgba(6, 23, 42, 0.35);
+        color: #eef5ff;
+        padding: clamp(1.2rem, 2.1vw, 1.7rem);
+        box-shadow: 0 18px 44px rgba(8, 20, 36, 0.26);
+        backdrop-filter: blur(3px);
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .aside-kicker {
+        margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 0.11em;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: rgba(235, 244, 255, 0.88);
+    }
+
+    .aside-title {
+        margin: 0;
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: clamp(1.35rem, 2.5vw, 1.9rem);
+        line-height: 1.2;
+        color: #ffffff;
+    }
+
+    .aside-copy {
+        margin: 0;
+        color: rgba(236, 243, 252, 0.86);
+        line-height: 1.55;
+        font-size: 0.95rem;
+    }
+
+    .aside-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 0.65rem;
+    }
+
+    .aside-list li {
+        padding: 0.65rem 0.7rem;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.08);
+        font-size: 0.9rem;
+    }
+
+    .aside-tip {
+        margin-top: auto;
+        border-radius: 12px;
+        border-left: 3px solid #9ec7f0;
+        background: rgba(255, 255, 255, 0.14);
+        padding: 0.8rem 0.9rem;
+        font-size: 0.84rem;
+        line-height: 1.45;
+        color: #f3f8ff;
+    }
+
+    .register-panel {
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.44);
+        background: rgba(248, 251, 255, 0.95);
+        box-shadow: 0 30px 60px rgba(7, 17, 33, 0.38);
+        backdrop-filter: blur(4px);
+        overflow: hidden;
+    }
+
+    .register-header {
+        padding: clamp(1.25rem, 2.6vw, 1.8rem) clamp(1.25rem, 2.6vw, 1.8rem) 1rem;
+    }
+
+    .register-title {
+        margin: 0;
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: clamp(1.5rem, 2.9vw, 2rem);
+        color: #122c48;
+    }
+
+    .register-subtitle {
+        margin: 0.45rem 0 0;
+        color: #506174;
+        font-size: 0.96rem;
+    }
+
+    .register-content {
+        padding: 0 clamp(1.25rem, 2.6vw, 1.8rem) clamp(1.35rem, 2.8vw, 1.8rem);
+    }
+
+    .google-btn {
+        width: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.72rem;
+        border-radius: 12px;
+        border: 1.5px solid #d0d9e5;
+        background: #ffffff;
+        color: #22354a;
+        padding: 0.78rem 1rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .google-btn:hover {
+        border-color: #9eb8d4;
+        color: #22354a;
+        transform: translateY(-1px);
+        box-shadow: 0 10px 20px rgba(34, 53, 74, 0.12);
+    }
+
+    .auth-divider {
+        display: flex;
+        align-items: center;
+        margin: 1rem 0 1.15rem;
+        color: #627286;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+    }
+
+    .auth-divider::before,
+    .auth-divider::after {
+        content: '';
+        flex: 1;
+        border-top: 1px solid rgba(68, 94, 124, 0.26);
+    }
+
+    .auth-divider::before {
+        margin-right: 0.8rem;
+    }
+
+    .auth-divider::after {
+        margin-left: 0.8rem;
+    }
+
+    .required-note {
+        margin-bottom: 1rem;
+        font-size: 0.82rem;
+        color: #617286;
+    }
+
+    .required {
+        color: #1d5b93;
+        font-weight: 700;
+    }
+
+    .form-section {
+        margin-top: 0.45rem;
+        margin-bottom: 1.2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(77, 104, 136, 0.22);
+    }
+
+    .form-section:last-of-type {
+        margin-bottom: 0;
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .section-title {
+        margin-bottom: 0.85rem;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        font-weight: 700;
+        color: #2f557a;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.95rem;
+    }
+
+    .form-grid .span-2 {
+        grid-column: 1 / -1;
+    }
+
+    .auth-field {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .auth-field label {
+        margin-bottom: 0.42rem;
+        font-size: 0.83rem;
+        font-weight: 700;
+        color: #17304e;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .auth-field input,
+    .auth-field select,
+    .auth-field textarea,
+    .auth-field .form-control,
+    .auth-field .form-select {
+        width: 100%;
+        padding: 0.78rem 0.9rem;
+        border-radius: 10px;
+        border: 1px solid #c8d4e2;
+        background: #fdfefe;
+        color: #112842;
+        font-size: 0.95rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .auth-field input:focus,
+    .auth-field select:focus,
+    .auth-field textarea:focus,
+    .auth-field .form-control:focus,
+    .auth-field .form-select:focus {
+        border-color: #7ea3ca;
+        box-shadow: 0 0 0 3px rgba(126, 163, 202, 0.18);
+        outline: none;
+    }
+
+    .field-help {
+        margin-top: 0.4rem;
+        margin-bottom: 0;
+        font-size: 0.8rem;
+        color: #607286;
+    }
+
+    .field-errors {
+        margin-top: 0.35rem;
+    }
+
+    .field-errors p {
+        margin: 0;
+        font-size: 0.81rem;
+        color: #a42744;
+        font-weight: 600;
+    }
+
+    .form-alert {
+        border-radius: 10px;
+        border: 1px solid #ebc6d1;
+        background: #fff3f7;
+        color: #8a2440;
+        padding: 0.72rem 0.85rem;
+        margin-bottom: 1rem;
+        font-size: 0.88rem;
+    }
+
+    .form-alert ul {
+        margin: 0;
+        padding-left: 1.1rem;
+    }
+
+    .submit-btn {
+        width: 100%;
+        border: none;
+        border-radius: 12px;
+        padding: 0.86rem 1rem;
+        background: linear-gradient(135deg, #2f5981, #3f79aa);
+        color: #ffffff;
+        font-size: 0.98rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .submit-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 22px rgba(38, 77, 111, 0.32);
+    }
+
+    .auth-footer {
+        text-align: center;
+        margin-top: 1.15rem;
+        margin-bottom: 0;
+        font-size: 0.92rem;
+        color: #4f6072;
+    }
+
+    .auth-footer a {
+        color: #234f78;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .auth-footer a:hover {
+        text-decoration: underline;
+    }
+
+    @media (max-width: 991px) {
+        .register-shell {
+            grid-template-columns: 1fr;
+        }
+
+        .register-aside {
+            gap: 0.8rem;
+        }
+
+        .aside-tip {
+            margin-top: 0.2rem;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .auth-stage {
+            min-height: auto;
+        }
+
+        .register-panel,
+        .register-aside {
+            border-radius: 18px;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .form-grid .span-2 {
+            grid-column: auto;
+        }
+    }
+
+    body.dark-mode .register-panel {
+        background: rgba(241, 245, 251, 0.94);
+        border-color: rgba(255, 255, 255, 0.5);
+    }
 </style>
 {% endblock %}
 {% block content %}
-<div class="auth-container">
-    <div class="card auth-card">
-        <div class="auth-header">
-            <h1>Create Account</h1>
-            <p>Join the U-Belt student community</p>
-        </div>
-        <div class="tip-box"><strong>Pro Tip:</strong> Use your official school email (e.g., <code>@ust.edu.ph</code>) so buyers can instantly verify you are a student!</div>
-        <a href="{% provider_login_url 'google' process='login' %}" class="btn btn-google"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>Sign up with Google</a>
-        <div class="divider">or</div>
-        
-        <div class="form-container">
-            <p class="required-note"><span style="color: var(--ubelt-gold);">*</span> = Required fields</p>
-            
-            <form method="post" class="auth-form">
-                {% csrf_token %}
-                
-                <!-- Account Information -->
-                <div class="form-section">
-                    <div class="section-title">Account Information</div>
-                    <div class="form-row">
-                        <div class="auth-form-group">
-                            <label for="id_username">Username <span style="color: var(--ubelt-gold);">*</span></label>
-                            <input type="text" name="username" id="id_username" placeholder="Choose a username" required>
-                            {% if user_form.username.errors %}<ul class="errorlist">{{ user_form.username.errors }}</ul>{% endif %}
-                        </div>
-                        <div class="auth-form-group">
-                            <label for="id_email">Email Address <span style="color: var(--ubelt-gold);">*</span></label>
-                            <input type="email" name="email" id="id_email" placeholder="your@email.com" required>
-                            {% if user_form.email.errors %}<ul class="errorlist">{{ user_form.email.errors }}</ul>{% endif %}
-                        </div>
-                    </div>
-                    <div class="auth-form-group">
-                        <label for="id_password1">Password <span style="color: var(--ubelt-gold);">*</span></label>
-                        <input type="password" name="password1" id="id_password1" placeholder="Create a strong password" required>
-                        {% if user_form.password1.errors %}<ul class="errorlist">{{ user_form.password1.errors }}</ul>{% endif %}
-                    </div>
-                    <div class="auth-form-group">
-                        <label for="id_password2">Confirm Password <span style="color: var(--ubelt-gold);">*</span></label>
-                        <input type="password" name="password2" id="id_password2" placeholder="Re-enter your password" required>
-                        {% if user_form.password2.errors %}<ul class="errorlist">{{ user_form.password2.errors }}</ul>{% endif %}
-                    </div>
+<section class="auth-stage">
+    <div class="register-shell">
+        <aside class="register-aside">
+            <p class="aside-kicker">Campus Verified Community</p>
+            <h1 class="aside-title">Create your UBXchange profile once, trade all semester.</h1>
+            <p class="aside-copy">Set up your account and start buying or selling across the University Belt with students you can actually verify.</p>
+            <ul class="aside-list" aria-label="Why students join UBXchange">
+                <li>Campus-focused listings that are easier to trust.</li>
+                <li>Fast meetup coordination with nearby schools.</li>
+                <li>Built-in profile details for safer transactions.</li>
+            </ul>
+            <div class="aside-tip"><strong>Tip:</strong> Use your official school email like <code>@ust.edu.ph</code> so classmates can quickly recognize you.</div>
+        </aside>
+
+        <article class="register-panel" aria-labelledby="register-title">
+            <header class="register-header">
+                <h2 class="register-title" id="register-title">Open your account</h2>
+                <p class="register-subtitle">Join thousands of students trading books, gadgets, and essentials.</p>
+            </header>
+
+            <div class="register-content">
+                {% get_providers as socialaccount_providers %}
+                {% for provider in socialaccount_providers %}
+                {% if provider.id == 'google' %}
+                <a href="{% provider_login_url 'google' process='login' %}" class="google-btn" aria-label="Sign up with Google">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    Sign up with Google
+                </a>
+                {% endif %}
+                {% endfor %}
+
+                <p class="auth-divider"><span>or register manually</span></p>
+
+                {% if user_form.non_field_errors or profile_form.non_field_errors %}
+                <div class="form-alert" role="alert">
+                    <ul>
+                        {% for error in user_form.non_field_errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                        {% for error in profile_form.non_field_errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
                 </div>
-                
-                <!-- Personal Information -->
-                <div class="form-section">
-                    <div class="section-title">Personal Information</div>
-                    <div class="form-row form-row-full">
-                        <div class="auth-form-group">
-                            <label for="id_full_name">Full Name <span style="color: var(--ubelt-gold);">*</span></label>
-                            <input type="text" name="full_name" id="id_full_name" placeholder="Enter your full name" required>
-                            {% if profile_form.full_name.errors %}<ul class="errorlist">{{ profile_form.full_name.errors }}</ul>{% endif %}
+                {% endif %}
+
+                <p class="required-note"><span class="required">*</span> Required fields</p>
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    <section class="form-section" aria-labelledby="account-section-title">
+                        <h3 class="section-title" id="account-section-title">Account Details</h3>
+                        <div class="form-grid">
+                            <div class="auth-field">
+                                <label for="{{ user_form.username.id_for_label }}">Username <span class="required">*</span></label>
+                                {{ user_form.username }}
+                                {% if user_form.username.errors %}
+                                <div class="field-errors">
+                                    {% for error in user_form.username.errors %}
+                                    <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="auth-field">
+                                <label for="{{ user_form.email.id_for_label }}">Email Address <span class="required">*</span></label>
+                                {{ user_form.email }}
+                                {% if user_form.email.errors %}
+                                <div class="field-errors">
+                                    {% for error in user_form.email.errors %}
+                                    <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="auth-field">
+                                <label for="{{ user_form.password1.id_for_label }}">Password <span class="required">*</span></label>
+                                {{ user_form.password1 }}
+                                {% if user_form.password1.errors %}
+                                <div class="field-errors">
+                                    {% for error in user_form.password1.errors %}
+                                    <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="auth-field">
+                                <label for="{{ user_form.password2.id_for_label }}">Confirm Password <span class="required">*</span></label>
+                                {{ user_form.password2 }}
+                                {% if user_form.password2.errors %}
+                                <div class="field-errors">
+                                    {% for error in user_form.password2.errors %}
+                                    <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="auth-form-group">
-                            <label for="id_birthday">Birthday</label>
-                            <input type="date" name="birthday" id="id_birthday">
-                            {% if profile_form.birthday.errors %}<ul class="errorlist">{{ profile_form.birthday.errors }}</ul>{% endif %}
+                    </section>
+
+                    <section class="form-section" aria-labelledby="profile-section-title">
+                        <h3 class="section-title" id="profile-section-title">Profile & School</h3>
+                        <div class="form-grid">
+                            <div class="auth-field span-2">
+                                <label for="{{ profile_form.full_name.id_for_label }}">Full Name <span class="required">*</span></label>
+                                {{ profile_form.full_name }}
+                                {% if profile_form.full_name.errors %}
+                                <div class="field-errors">
+                                    {% for error in profile_form.full_name.errors %}
+                                    <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="auth-field">
+                                <label for="{{ profile_form.school.id_for_label }}">School <span class="required">*</span></label>
+                                {{ profile_form.school }}
+                                {% if profile_form.school.errors %}
+                                <div class="field-errors">
+                                    {% for error in profile_form.school.errors %}
+                                    <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="auth-field">
+                                <label for="{{ profile_form.year_level.id_for_label }}">Year Level <span class="required">*</span></label>
+                                {{ profile_form.year_level }}
+                                {% if profile_form.year_level.errors %}
+                                <div class="field-errors">
+                                    {% for error in profile_form.year_level.errors %}
+                                    <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="auth-field">
+                                <label for="{{ profile_form.birthday.id_for_label }}">Birthday</label>
+                                {{ profile_form.birthday }}
+                                {% if profile_form.birthday.errors %}
+                                <div class="field-errors">
+                                    {% for error in profile_form.birthday.errors %}
+                                    <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="auth-field">
+                                <label for="{{ profile_form.age.id_for_label }}">Age</label>
+                                {{ profile_form.age }}
+                                {% if profile_form.age.errors %}
+                                <div class="field-errors">
+                                    {% for error in profile_form.age.errors %}
+                                    <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
-                        <div class="auth-form-group">
-                            <label for="id_age">Age</label>
-                            <input type="number" name="age" id="id_age" placeholder="E.g., 18" min="10" max="80">
-                            {% if profile_form.age.errors %}<ul class="errorlist">{{ profile_form.age.errors }}</ul>{% endif %}
+                    </section>
+
+                    <section class="form-section" aria-labelledby="contact-section-title">
+                        <h3 class="section-title" id="contact-section-title">Contact Details</h3>
+                        <div class="form-grid">
+                            <div class="auth-field">
+                                <label for="{{ profile_form.phone.id_for_label }}">Mobile Number</label>
+                                {{ profile_form.phone }}
+                                {% if profile_form.phone.errors %}
+                                <div class="field-errors">
+                                    {% for error in profile_form.phone.errors %}
+                                    <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="auth-field">
+                                <label for="{{ profile_form.address.id_for_label }}">Address / Meetup Area</label>
+                                {{ profile_form.address }}
+                                {% if profile_form.address.errors %}
+                                <div class="field-errors">
+                                    {% for error in profile_form.address.errors %}
+                                    <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="auth-field span-2">
+                                <label for="{{ profile_form.contact_info.id_for_label }}">Social Media Accounts</label>
+                                {{ profile_form.contact_info }}
+                                <p class="field-help">Optional. Add Facebook, Instagram, or Discord details so buyers can reach you faster.</p>
+                                {% if profile_form.contact_info.errors %}
+                                <div class="field-errors">
+                                    {% for error in profile_form.contact_info.errors %}
+                                    <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
-                    </div>
-                </div>
-                
-                <!-- School Information -->
-                <div class="form-section">
-                    <div class="section-title">School Information</div>
-                    <div class="form-row">
-                        <div class="auth-form-group">
-                            <label for="id_school">School <span style="color: var(--ubelt-gold);">*</span></label>
-                            {{ profile_form.school }}
-                            {% if profile_form.school.errors %}<ul class="errorlist">{{ profile_form.school.errors }}</ul>{% endif %}
-                        </div>
-                        <div class="auth-form-group">
-                            <label for="id_year_level">Year Level <span style="color: var(--ubelt-gold);">*</span></label>
-                            {{ profile_form.year_level }}
-                            {% if profile_form.year_level.errors %}<ul class="errorlist">{{ profile_form.year_level.errors }}</ul>{% endif %}
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Contact Information -->
-                <div class="form-section">
-                    <div class="section-title">Contact Information</div>
-                    <div class="form-row form-row-full">
-                        <div class="auth-form-group">
-                            <label for="id_phone">Mobile Number</label>
-                            <input type="text" name="phone" id="id_phone" placeholder="09XXXXXXXXX or +63XXXXXXXXX">
-                            {% if profile_form.phone.errors %}<ul class="errorlist">{{ profile_form.phone.errors }}</ul>{% endif %}
-                        </div>
-                    </div>
-                    <div class="form-row form-row-full">
-                        <div class="auth-form-group">
-                            <label for="id_address">Address / Meetup Area</label>
-                            <input type="text" name="address" id="id_address" placeholder="General meetup area or barangay">
-                            {% if profile_form.address.errors %}<ul class="errorlist">{{ profile_form.address.errors }}</ul>{% endif %}
-                        </div>
-                    </div>
-                    <div class="form-row form-row-full">
-                        <div class="auth-form-group">
-                            <label for="id_contact_info">Social Media Accounts</label>
-                            <input type="text" name="contact_info" id="id_contact_info" placeholder="facebook.com/username, instagram.com/username, discord: username#1234, etc.">
-                            {% if profile_form.contact_info.errors %}<ul class="errorlist">{{ profile_form.contact_info.errors }}</ul>{% endif %}
-                            <small style="display: block; margin-top: 0.5rem; color: #666;">Optional - Add your social platforms so buyers can connect with you easily!</small>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="submit-btn">
-                    <button type="submit" class="btn btn-ubelt w-100 py-2" style="border-radius: 8px; font-weight: 600; font-size: 1rem;">Create Account</button>
-                </div>
-            </form>
-        </div>
-        
-        <div class="auth-footer">Already have an account? <a href="{% url 'account_login' %}">Sign in</a></div>
+                    </section>
+
+                    <button type="submit" class="submit-btn">Create Account</button>
+                </form>
+
+                <p class="auth-footer">Already have an account? <a href="{% url 'account_login' %}">Sign in</a></p>
+            </div>
+        </article>
     </div>
-</div>
+</section>
 {% endblock %}

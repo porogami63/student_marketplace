@@ -64,6 +64,8 @@ urlpatterns = [
 
     # Reporting
     path('report/<str:target>/<int:pk>/', views.report_create, name='report_create'),
+    path('appeal/', views.UserAppealsView.as_view(), name='appeals'),
+    path('appeal/<int:pk>/', views.appeal_submit, name='appeal_submit'),
     # Moderation (superuser only)
     path('mod/', views.mod_dashboard, name='mod_dashboard'),
     path('mod/sales/', views.mod_sales_analytics, name='mod_sales'),

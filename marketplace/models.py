@@ -137,6 +137,8 @@ class Profile(models.Model):
     forum_posts_count = models.PositiveIntegerField(default=0, help_text='Number of forum posts created')
     is_verified = models.BooleanField(default=False, help_text='Kept for backward compatibility')
     pinned_post = models.ForeignKey('ProfilePost', on_delete=models.SET_NULL, null=True, blank=True, related_name='pinned_in_profile', help_text='Featured post on profile')
+    strikes_count = models.PositiveIntegerField(default=0, help_text='Number of rule violations/warnings')
+    reputation_score = models.IntegerField(default=100, help_text='User reputation score, decreases with offenses')
 
     def __str__(self):
         return f"{self.user.username}'s profile"
@@ -550,6 +552,17 @@ class UserReport(models.Model):
     resolved_at = models.DateTimeField(null=True, blank=True)
     resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reports_resolved')
     resolution_notes = models.TextField(blank=True)
+
+    # Appeal System
+    appeal_requested = models.BooleanField(default=False)
+    appeal_text = models.TextField(blank=True, help_text='User explanation for appeal')
+    APPEAL_STATUS_CHOICES = [
+        ('none', 'No Appeal'),
+        ('pending', 'Appeal Pending'),
+        ('approved', 'Appeal Approved'),
+        ('rejected', 'Appeal Rejected'),
+    ]
+    appeal_status = models.CharField(max_length=20, choices=APPEAL_STATUS_CHOICES, default='none')
 
     class Meta:
         ordering = ['-created_at']

@@ -158,13 +158,202 @@ class UserReportAdmin(admin.ModelAdmin):
         'reporter',
         'target_link',
         'listing_thumbnail_large',
+        'moderation_actions_html',
     ]
     fieldsets = (
+        ('Actions', {'fields': ('moderation_actions_html',), 'classes': ('collapse', 'expanded')}),
         ('Report', {'fields': ('reporter', 'reported_user', 'reason', 'description', 'priority')}),
         ('Target', {'fields': ('target_link', 'listing_thumbnail_large', 'content_type', 'object_id', 'context_url')}),
-        ('Triage', {'fields': ('status', 'resolved_at', 'resolved_by', 'resolution_notes')}),
+        ('Triage', {'fields': ('status', 'resolved_at', 'resolved_by', 'resolution_notes', 'appeal_requested', 'appeal_status', 'appeal_text')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
+    actions = ['mark_resolved', 'warn_reported_user', 'ban_reported_user', 'remove_reported_listing']
+
+    @admin.action(description="Mark selected reports as resolved")
+    def mark_resolved(self, request, queryset):
+        from django.utils import timezone
+        updated = queryset.update(status='resolved', resolved_at=timezone.now(), resolved_by=request.user)
+        self.message_user(request, f"{updated} reports successfully marked as resolved.")
+
+    @admin.action(description="Warn the reported user (System Notification)")
+    def warn_reported_user(self, request, queryset):
+        from .models import Notification
+        from django.utils import timezone
+        count = 0
+        for report in queryset:
+            if report.reported_user_id:
+                profile = report.reported_user.profile
+                profile.strikes_count += 1
+                profile.reputation_score -= 10
+                profile.save(update_fields=['strikes_count', 'reputation_score'])
+                Notification.objects.create(
+                    user=report.reported_user,
+                    notification_type='system',
+                    message=f"WARNING: We received reports regarding your account for '{report.get_reason_display()}'. Your reputation score is now {profile.reputation_score}. Please make sure to follow the marketplace guidelines to avoid account suspension."
+                )
+                if report.reporter:
+                    reporter_msg = f"Thank you for reporting #{report.id}. We have investigated and issued a formal warning to the user. We apologize for any inconvenience."
+                    Notification.objects.create(user=report.reporter, notification_type='system', message=reporter_msg)
+                report.status = 'resolved'
+                report.resolution_notes = "User was sent a warning notification."
+                report.resolved_at = timezone.now()
+                report.resolved_by = request.user
+                report.save(update_fields=['status', 'resolution_notes', 'resolved_at', 'resolved_by'])
+                count += 1
+        self.message_user(request, f"Issued warnings to {count} users and resolved their reports.")
+
+    @admin.action(description="Ban the reported user (Deactivate)")
+    def ban_reported_user(self, request, queryset):
+        from django.utils import timezone
+        count = 0
+        for report in queryset:
+            user = report.reported_user
+            if user and user.is_active:
+                user.is_active = False
+                user.save(update_fields=['is_active'])
+                if report.reporter:
+                    reporter_msg = f"Thank you for reporting #{report.id}. We have permanently banned the offending user. We apologize for the inconvenience and appreciate your help!"
+                    Notification.objects.create(user=report.reporter, notification_type='system', message=reporter_msg)
+                if report.reporter:
+                    reporter_msg = f"Thank you for reporting #{report.id}. We have permanently banned the offending user. We apologize for the inconvenience and appreciate your help!"
+                    Notification.objects.create(user=report.reporter, notification_type='system', message=reporter_msg)
+                report.status = 'resolved'
+                report.resolution_notes = "User was banned (account deactivated)."
+                report.resolved_at = timezone.now()
+                report.resolved_by = request.user
+                report.save(update_fields=['status', 'resolution_notes', 'resolved_at', 'resolved_by'])
+                count += 1
+        self.message_user(request, f"Banned {count} users and resolved their reports.")
+
+    @admin.action(description="Remove the reported listing")
+    def remove_reported_listing(self, request, queryset):
+        from django.utils import timezone
+        from .models import Listing
+        count = 0
+        for report in queryset:
+            if report.content_type and report.content_type.model == 'listing':
+                listing = report.content_object
+                if isinstance(listing, Listing):
+                    listing.delete()  # Or you can do listing.is_sold=True / a new `is_active=False` field if it exists
+                    if report.reporter:
+                        reporter_msg = f"Thank you for reporting #{report.id}. We have permanently removed the offending listing. We apologize for the inconvenience and appreciate your help!"
+                        Notification.objects.create(user=report.reporter, notification_type='system', message=reporter_msg)
+                    if report.reporter:
+                        reporter_msg = f"Thank you for reporting #{report.id}. We have permanently removed the offending listing. We apologize for the inconvenience and appreciate your help!"
+                        Notification.objects.create(user=report.reporter, notification_type='system', message=reporter_msg)
+                    report.status = 'resolved'
+                    report.resolution_notes = "Reported listing was removed."
+                    report.resolved_at = timezone.now()
+                    report.resolved_by = request.user
+                    report.save(update_fields=['status', 'resolution_notes', 'resolved_at', 'resolved_by'])
+                    count += 1
+        self.message_user(request, f"Removed {count} listings and resolved their reports.")
+
+    def get_urls(self):
+        from django.urls import path
+        urls = super().get_urls()
+        custom_urls = [
+            path('<int:object_id>/action/warn/', self.admin_site.admin_view(self.view_warn_user), name='marketplace_userreport_action_warn'),
+            path('<int:object_id>/action/ban/', self.admin_site.admin_view(self.view_ban_user), name='marketplace_userreport_action_ban'),
+            path('<int:object_id>/action/remove_listing/', self.admin_site.admin_view(self.view_remove_listing), name='marketplace_userreport_action_removelisting'),
+        ]
+        return custom_urls + urls
+
+    def view_warn_user(self, request, object_id):
+        from django.shortcuts import get_object_or_404, redirect
+        from django.utils import timezone
+        from .models import Notification
+        report = get_object_or_404(self.model, pk=object_id)
+        if report.reported_user_id:
+            profile = report.reported_user.profile
+            profile.strikes_count += 1
+            profile.reputation_score -= 10
+            profile.save(update_fields=['strikes_count', 'reputation_score'])
+            msg = f"WARNING: Your account has received a report for '{report.get_reason_display()}'. Your reputation score was decreased to {profile.reputation_score}. You can file an appeal if you believe this is a mistake."
+            Notification.objects.create(user=report.reported_user, notification_type='system', message=msg)
+            if report.reporter:
+                reporter_msg = f"Thank you for reporting #{report.id}. We have investigated and issued a formal warning to the user. We apologize for any inconvenience they caused and appreciate you keeping our community safe!"
+                Notification.objects.create(user=report.reporter, notification_type='system', message=reporter_msg)
+            report.status = 'resolved'
+            report.resolution_notes = "Gave warning via notification. Resolving report."
+            report.resolved_at = timezone.now()
+            report.resolved_by = request.user
+            report.save(update_fields=['status', 'resolution_notes', 'resolved_at', 'resolved_by'])
+            self.message_user(request, "Warning sent to user and report marked resolved.")
+        return redirect('admin:marketplace_userreport_change', object_id)
+
+    def view_ban_user(self, request, object_id):
+        from django.shortcuts import get_object_or_404, redirect
+        from django.utils import timezone
+        from .models import Notification
+        report = get_object_or_404(self.model, pk=object_id)
+        if report.reported_user and report.reported_user.is_active:
+            report.reported_user.is_active = False
+            report.reported_user.save(update_fields=['is_active'])
+            msg = f"BANNED: Your account has been banned due to a report for '{report.get_reason_display()}'. You may file an appeal."
+            Notification.objects.create(user=report.reported_user, notification_type='system', message=msg)
+            if report.reporter:
+                reporter_msg = f"Thank you for reporting #{report.id}. We have permanently banned the offending user. We apologize for the inconvenience and appreciate your help in keeping UBXchange secure!"
+                Notification.objects.create(user=report.reporter, notification_type='system', message=reporter_msg)
+            report.status = 'resolved'
+            report.resolution_notes = "User account banned/deactivated. Resolving report."
+            report.resolved_at = timezone.now()
+            report.resolved_by = request.user
+            report.save(update_fields=['status', 'resolution_notes', 'resolved_at', 'resolved_by'])
+            self.message_user(request, "User banned and report marked resolved.")
+        return redirect('admin:marketplace_userreport_change', object_id)
+
+    def view_remove_listing(self, request, object_id):
+        from django.shortcuts import get_object_or_404, redirect
+        from django.utils import timezone
+        from .models import Listing, Notification
+        report = get_object_or_404(self.model, pk=object_id)
+        if report.content_type and report.content_type.model == 'listing':
+            listing = report.content_object
+            if isinstance(listing, Listing):
+                seller = listing.seller
+                seller_profile = seller.profile
+                seller_profile.strikes_count += 1
+                seller_profile.reputation_score -= 10
+                seller_profile.save(update_fields=['strikes_count', 'reputation_score'])
+                msg = f"LISTING REMOVED: Your listing '{listing.title}' was removed due to a violation ('{report.get_reason_display()}'). Your reputation is now {seller_profile.reputation_score}. You may appeal this decision."
+                Notification.objects.create(user=seller, notification_type='system', message=msg)
+                listing.delete()
+                if report.reporter:
+                    reporter_msg = f"Thank you for reporting #{report.id}. We have permanently removed the offending listing. We apologize for the inconvenience and appreciate your help in keeping the community safe!"
+                    Notification.objects.create(user=report.reporter, notification_type='system', message=reporter_msg)
+                report.status = 'resolved'
+                report.resolution_notes = "Listing removed. Resolving report."
+                report.resolved_at = timezone.now()
+                report.resolved_by = request.user
+                report.save(update_fields=['status', 'resolution_notes', 'resolved_at', 'resolved_by'])
+                self.message_user(request, "Listing successfully deleted and report resolved.")
+        return redirect('admin:marketplace_userreport_change', object_id)
+
+    def render_change_form(self, request, context, add=False, change=False, form_url='', obj=None):
+        if change and obj:
+            context['custom_actions'] = True
+        return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
+
+    def moderation_actions_html(self, obj):
+        if not obj or not obj.pk:
+            return 'Save the report first'
+        html = '<div style="display:flex;gap:10px;margin-top:10px;">'
+        
+        warn_url = reverse('admin:marketplace_userreport_action_warn', args=[obj.pk], current_app=self.admin_site.name)
+        ban_url = reverse('admin:marketplace_userreport_action_ban', args=[obj.pk], current_app=self.admin_site.name)
+        
+        if obj.reported_user_id:
+            html += f'<a class="button" style="background-color:#f0ad4e;color:white;" href="{warn_url}">Warn User</a>'
+            html += f'<a class="button" style="background-color:#d9534f;color:white;" href="{ban_url}">Ban User</a>'
+            
+        if obj.content_type and obj.content_type.model == 'listing':
+            rem_url = reverse('admin:marketplace_userreport_action_removelisting', args=[obj.pk], current_app=self.admin_site.name)
+            html += f'<a class="button" style="background-color:#d9534f;color:white;" href="{rem_url}">Take Down Listing</a>'
+            
+        html += '</div>'
+        return format_html(html)
+    moderation_actions_html.short_description = "Quick Actions"
 
     def target_link(self, obj):
         """Link to the reported object inside the same admin site."""
