@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Page Not Found - UBXchange{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5 text-center d-flex flex-column justify-content-center align-items-center" style="min-height: 60vh;">
+    <div class="row w-100 justify-content-center">
+        <div class="col-lg-8">
+            <div class="mb-4">
+                <i class="bi bi-compass display-1" style="color: var(--ubelt-gold);"></i>
+            </div>
+            <h1 class="display-4 font-display fw-bold mb-4" style="color: var(--ubelt-navy);">
+                <span style="color: var(--ubelt-gold);">404</span> - Page Not Found
+            </h1>
+            <p class="lead mb-5" style="color: var(--color-text-muted);">
+                Oops! It looks like you've wandered off the campus map. The page you are looking for doesn't exist or has been moved.
+            </p>
+            <a href="{% url 'marketplace:home' %}" class="btn btn-ubelt btn-lg px-5 py-3 rounded-pill fw-bold">
+                <i class="bi bi-house-door me-2"></i>Back to Home
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

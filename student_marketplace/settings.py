@@ -25,12 +25,12 @@ except OSError:
     pass
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
-if not SECRET_KEY and not os.environ.get('DEBUG', 'False') == 'True':
+if not SECRET_KEY and not os.environ.get('DEBUG', 'True') == 'True':
     raise ValueError("DJANGO_SECRET_KEY environment variable is required in production")
 if not SECRET_KEY:
-    SECRET_KEY = 'dev-secret-key-change-in-production'
+    SECRET_KEY = 'dev-secret-key-change-in-production-needs-to-be-50-chars-long-1234567890'
 
-DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
@@ -205,8 +205,8 @@ if not DEBUG:
     ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
 
     SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True') == 'True'
-    SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'True') == 'True'
-    CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', 'True') == 'True'
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
     # HSTS (enable only when you are confident HTTPS is always used).
     # Keep defaults conservative but present for `check --deploy`.

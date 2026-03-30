@@ -2807,3 +2807,5 @@ def receipts_list(request):
 
 
 
+def about(request):
+    return render(request, 'marketplace/about.html')

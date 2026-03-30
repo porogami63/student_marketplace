@@ -48,6 +48,7 @@ class SecurityAdminSite(admin.AdminSite):
             path('security/login-attempts/', self.admin_view(self.login_attempts_view), name='login_attempts'),
             path('security/compliance/', self.admin_view(self.compliance_view), name='compliance'),
             path('security/audit-report.json', self.admin_view(self.audit_report_download), name='audit_report_download'),
+            path('security/run-security-audit/', self.admin_view(self.run_security_audit_view), name='run_security_audit'),
         ]
         return custom_urls + urls
     
@@ -58,6 +59,7 @@ class SecurityAdminSite(admin.AdminSite):
 
         extra_context.update(self.get_security_metrics())
         extra_context.update(self.get_moderation_metrics())
+        extra_context['system_health'] = self.get_system_health_metrics()
         extra_context['quick_links'] = self.get_quick_links(request)
         extra_context['quick_link_groups'] = self.get_quick_link_groups(request)
 
@@ -475,6 +477,63 @@ class SecurityAdminSite(admin.AdminSite):
             context['iso27001_compliance'] = {'overall_status': 'ERROR', 'error': str(e)}
 
         return render(request, 'admin/security_admin/compliance_status.html', context)
+
+    def get_system_health_metrics(self):
+        from django.conf import settings
+        from django.db import connection
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT 1')
+            db_connection = 'Healthy'
+        except Exception:
+            db_connection = 'Error'
+        return {
+            'debug_mode': getattr(settings, 'DEBUG', False),
+            'db_connection': db_connection,
+            'time': timezone.now()
+        }
+
+    def run_security_audit_view(self, request):
+        from django.core.management import call_command
+        import io
+        import re
+        from .security import AuditLog
+        out = io.StringIO()
+        try:
+            call_command('run_security_audit', stdout=out, no_color=True)
+            output = out.getvalue()
+            
+            # Strip ANSI codes as a fallback
+            ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+            output = ansi_escape.sub('', output)
+            
+            # Log the action
+            AuditLog.objects.create(
+                user=request.user,
+                action='Security audit triggered manually',
+                severity='info',
+                ip_address=request.META.get('REMOTE_ADDR'),
+                details='User successfully ran security audit view via the backoffice.'
+            )
+        except Exception as e:
+            output = str(e)
+            try:
+                AuditLog.objects.create(
+                    user=request.user,
+                    action='Security audit trigger failed',
+                    severity='error',
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    details=f'Error: {str(e)}'
+                )
+            except Exception:
+                pass
+                
+        context = {
+            'title': 'Security Audit Summary',
+            'output': output,
+            'site_header': self.site_header,
+        }
+        return render(request, 'admin/security_admin/run_audit.html', context)
 
 
 # Create instance of custom admin site

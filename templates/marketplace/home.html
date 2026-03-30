@@ -523,10 +523,124 @@
         .hero-search button { width: 100%; }
         .hero-trending { flex-direction: column; gap: 0.35rem; }
     }
+
+    .unauth-splash {
+        max-width: 1160px;
+        margin: 1.5rem auto 1rem auto;
+        padding: 4rem 2rem;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        border-radius: 20px;
+        color: white;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .unauth-splash::before {
+        content: '';
+        position: absolute;
+        top: -50%; left: -10%;
+        width: 300px; height: 300px;
+        background: rgba(56, 189, 248, 0.15);
+        border-radius: 50%;
+        filter: blur(40px);
+    }
+
+    .unauth-splash::after {
+        content: '';
+        position: absolute;
+        bottom: -50%; right: -10%;
+        width: 300px; height: 300px;
+        background: rgba(56, 189, 248, 0.15);
+        border-radius: 50%;
+        filter: blur(40px);
+    }
+
+    .unauth-splash-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .unauth-splash h2 {
+        font-size: clamp(2rem, 4vw, 2.8rem);
+        font-weight: 800;
+        margin-bottom: 1rem;
+    }
+
+    .unauth-splash p {
+        font-size: 1.15rem;
+        opacity: 0.9;
+        max-width: 600px;
+        margin: 0 auto 2.5rem auto;
+        font-weight: 500;
+        line-height: 1.6;
+    }
+
+    .unauth-splash-actions {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .unauth-btn-primary {
+        background: #38bdf8;
+        color: white;
+        padding: 0.85rem 2.2rem;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        text-decoration: none;
+        transition: all 0.3s;
+        box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+    }
+
+    .unauth-btn-primary:hover {
+        background: #0ea5e9;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(56, 189, 248, 0.4);
+        color: white;
+    }
+
+    .unauth-btn-secondary {
+        background: rgba(255, 255, 255, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 0.85rem 2.2rem;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        text-decoration: none;
+        transition: all 0.3s;
+    }
+
+    .unauth-btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        transform: translateY(-2px);
+    }
 </style>
 {% endblock %}
 
 {% block content %}
+{% if not user.is_authenticated %}
+<div class="unauth-splash" style="margin-left: 1rem; margin-right: 1rem; margin-top: 1.5rem; max-width: calc(1160px - 2rem); @media(min-width: 1192px) { margin: 1.5rem auto 1rem auto; max-width: 1160px; }">
+    <div class="unauth-splash-content">
+        <h2>Welcome to Student Marketplace!</h2>
+        <p>Join the premier marketplace for university students. Buy and sell textbooks, gadgets, and essentials safely within your campus community.</p>
+        <div class="unauth-splash-actions">
+            <a href="{% url 'account_signup' %}" class="unauth-btn-primary">Get Started</a>
+            <a href="{% url 'account_login' %}" class="unauth-btn-secondary">Log In</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="safety-wrapper">
     <div id="safetyAlert" class="safety-alert" role="alert">
         <div class="alert-icon" aria-hidden="true">

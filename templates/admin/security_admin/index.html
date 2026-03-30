@@ -7,7 +7,7 @@
         gap: 8px;
         flex-wrap: wrap;
     }
-    .ubx-action-buttons a.ubx-btn {
+    .ubx-action-buttons .ubx-btn {
         display: inline-block;
         padding: 8px 12px;
         border-radius: 6px;
@@ -17,8 +17,9 @@
         text-decoration: none;
         font-weight: 700;
         line-height: 1.1;
+        cursor: pointer;
     }
-    .ubx-action-buttons a.ubx-btn--secondary {
+    .ubx-action-buttons .ubx-btn--secondary {
         background: #fff;
         color: var(--primary, #0b57d0) !important;
     }
@@ -148,6 +149,38 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+
+    <h2>System Health</h2>
+    <div class="module" style="padding:12px;margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px;">
+            <div class="module">
+                <h3>Debug Mode</h3>
+                <p style="font-size:20px;margin:0;{% if system_health.debug_mode %}color: #ef4444;{% else %}color: #10b981;{% endif %}">
+                    {{ system_health.debug_mode }}
+                </p>
+                {% if system_health.debug_mode %}
+                <p class="help" style="margin:4px 0 0 0;">Warning: Debug is ON</p>
+                {% endif %}
+            </div>
+            <div class="module">
+                <h3>Database Connection</h3>
+                <p style="font-size:20px;margin:0;{% if system_health.db_connection %}color: #10b981;{% else %}color: #ef4444;{% endif %}">
+                    {{ system_health.db_connection }}
+                </p>
+            </div>
+            <div class="module">
+                <h3>System Time</h3>
+                <p style="font-size:20px;margin:0;">{{ system_health.time|date:"H:i:s" }}</p>
+            </div>
+        </div>
+
+        <div class="ubx-action-buttons">
+            <form action="{% url 'admin:run_security_audit' %}" method="post" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="ubx-btn">Run Security Audit</button>
+            </form>
+        </div>
     </div>
 
     <h2>Security Overview</h2>
