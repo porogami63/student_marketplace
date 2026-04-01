@@ -1,0 +1,242 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Verify Sign In{% endblock %}
+{% block extra_css %}
+<style>
+    .auth-stage {
+        --auth-background-image: url("{% static 'media/hero/ubelt-campus-park.jpg' %}");
+        position: relative;
+        margin-left: calc(50% - 50vw);
+        margin-right: calc(50% - 50vw);
+        margin-top: -1.5rem;
+        margin-bottom: -1.5rem;
+        min-height: clamp(620px, 84vh, 900px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: clamp(1.1rem, 3vw, 3rem);
+        overflow: hidden;
+    }
+
+    .auth-stage::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: var(--auth-background-image);
+        background-size: cover;
+        background-position: center;
+        filter: saturate(1.05);
+    }
+
+    .auth-stage::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(130deg, rgba(11, 26, 43, 0.84), rgba(16, 41, 67, 0.68));
+    }
+
+    .auth-panel {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        max-width: 460px;
+        border-radius: 22px;
+        border: 1px solid rgba(255, 255, 255, 0.44);
+        background: rgba(250, 252, 255, 0.95);
+        box-shadow: 0 26px 56px rgba(7, 18, 36, 0.38);
+        backdrop-filter: blur(5px);
+        padding: clamp(1.25rem, 2.4vw, 2rem);
+    }
+
+    .auth-kicker {
+        margin-bottom: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.11em;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #355575;
+    }
+
+    .auth-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: clamp(1.55rem, 2.7vw, 2.05rem);
+        font-weight: 700;
+        color: #102744;
+        margin-bottom: 0.5rem;
+    }
+
+    .auth-subtitle {
+        margin-bottom: 1.35rem;
+        color: #4c6075;
+        font-size: 0.95rem;
+        line-height: 1.45;
+    }
+
+    .auth-field {
+        margin-bottom: 0.95rem;
+    }
+
+    .auth-field label {
+        display: block;
+        margin-bottom: 0.45rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #17304e;
+        text-transform: uppercase;
+        letter-spacing: 0.045em;
+    }
+
+    .auth-field input {
+        width: 100%;
+        padding: 0.78rem 0.92rem;
+        border-radius: 10px;
+        border: 1px solid #c8d4e2;
+        background: #fdfefe;
+        color: #112842;
+        font-size: 1rem;
+        letter-spacing: 0.14em;
+        text-align: center;
+    }
+
+    .auth-field input:focus {
+        border-color: #7ea3ca;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(126, 163, 202, 0.18);
+    }
+
+    .field-error {
+        margin-top: 0.35rem;
+        margin-bottom: 0;
+        font-size: 0.82rem;
+        color: #a42744;
+        font-weight: 600;
+    }
+
+    .auth-submit,
+    .auth-secondary {
+        width: 100%;
+        border: none;
+        border-radius: 11px;
+        padding: 0.8rem 1rem;
+        font-weight: 700;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .auth-submit {
+        background: linear-gradient(135deg, #2f5981, #3f79aa);
+        color: #ffffff;
+    }
+
+    .auth-submit:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 22px rgba(38, 77, 111, 0.32);
+    }
+
+    .auth-secondary {
+        margin-top: 0.65rem;
+        background: #edf3fa;
+        color: #204a71;
+        border: 1px solid #c9d8e9;
+    }
+
+    .auth-secondary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 18px rgba(37, 71, 106, 0.14);
+    }
+
+    .auth-meta {
+        margin-top: 0.95rem;
+        margin-bottom: 0;
+        color: #506173;
+        font-size: 0.86rem;
+    }
+
+    .auth-meta strong {
+        color: #234c72;
+    }
+
+    @media (max-width: 767px) {
+        .auth-stage {
+            min-height: auto;
+        }
+
+        .auth-panel {
+            border-radius: 18px;
+            padding: 1.2rem;
+        }
+
+        .auth-title {
+            font-size: 1.4rem;
+        }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<section class="auth-stage">
+    <article class="auth-panel" aria-labelledby="email-2fa-title">
+        <p class="auth-kicker">{{ otp_kicker|default:'Account Security Check' }}</p>
+        <h1 class="auth-title" id="email-2fa-title">{{ otp_title|default:'Verify your sign in' }}</h1>
+        <p class="auth-subtitle">
+            {{ otp_subtitle|default:'Enter the 6-digit code we sent to' }} <strong>{{ masked_email }}</strong>.
+        </p>
+
+        <form method="post" action="{{ verify_post_url|default:'/accounts/email-2fa/' }}" novalidate>
+            {% csrf_token %}
+
+            <div class="auth-field">
+                <label for="id_code">Verification code</label>
+                {{ form.code }}
+                {% for error in form.code.errors %}
+                <p class="field-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <button type="submit" class="auth-submit">Verify and Continue</button>
+        </form>
+
+        <form method="post" action="{{ resend_post_url|default:'/accounts/email-2fa/resend/' }}">
+            {% csrf_token %}
+            <button type="submit" class="auth-secondary">Resend Code</button>
+        </form>
+
+        <p class="auth-meta">
+            Code expires in about <strong id="otp-countdown" data-seconds="{{ expires_in_seconds }}">{{ expires_in_seconds }}</strong> seconds.
+        </p>
+    </article>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        const countdownEl = document.getElementById('otp-countdown');
+        if (!countdownEl) {
+            return;
+        }
+
+        let secondsLeft = parseInt(countdownEl.dataset.seconds || '0', 10);
+        if (Number.isNaN(secondsLeft) || secondsLeft < 0) {
+            secondsLeft = 0;
+        }
+
+        const update = () => {
+            countdownEl.textContent = String(secondsLeft);
+            if (secondsLeft <= 0) {
+                return false;
+            }
+            secondsLeft -= 1;
+            return true;
+        };
+
+        if (!update()) {
+            return;
+        }
+
+        const intervalId = window.setInterval(() => {
+            if (!update()) {
+                window.clearInterval(intervalId);
+            }
+        }, 1000);
+    })();
+</script>
+{% endblock %}

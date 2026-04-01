@@ -21,6 +21,7 @@ from .models import (
     SupportTicket,
     Payment,
     Receipt,
+    EmailTwoFactorCode,
 )
 from .security import AuditLog, LoginAttempt
 
@@ -101,6 +102,14 @@ class ForumReplyAdmin(admin.ModelAdmin):
 class NotificationAdmin(admin.ModelAdmin):
     list_display = ['user', 'message', 'is_read', 'created_at']
     list_filter = ['is_read', 'created_at']
+
+
+@admin.register(EmailTwoFactorCode)
+class EmailTwoFactorCodeAdmin(admin.ModelAdmin):
+    list_display = ['user', 'purpose', 'email', 'created_at', 'expires_at', 'attempts', 'consumed_at']
+    list_filter = ['purpose', 'created_at', 'consumed_at']
+    search_fields = ['user__username', 'user__email', 'email']
+    readonly_fields = ['user', 'purpose', 'email', 'code_hash', 'created_at', 'expires_at', 'attempts', 'consumed_at', 'ip_address']
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):

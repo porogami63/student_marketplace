@@ -212,6 +212,35 @@ class Profile(models.Model):
         return None
 
 
+class EmailTwoFactorCode(models.Model):
+    """One-time code challenge used for email-based 2FA during login sessions."""
+
+    PURPOSE_CHOICES = [
+        ('login', 'Login Verification'),
+        ('sensitive_action', 'Sensitive Action Verification'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='email_2fa_codes')
+    purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES, default='login')
+    email = models.EmailField(help_text='Destination email where the OTP code was sent')
+    code_hash = models.CharField(max_length=64, help_text='SHA-256 hash of the one-time code')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    expires_at = models.DateTimeField(db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'purpose', 'created_at']),
+            models.Index(fields=['expires_at', 'consumed_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} {self.purpose} ({self.created_at:%Y-%m-%d %H:%M})"
+
+
 class SocialMedia(models.Model):
     """Social media accounts linked to a user profile."""
     PLATFORM_CHOICES = [

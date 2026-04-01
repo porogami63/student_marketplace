@@ -63,6 +63,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'allauth.account.middleware.AccountMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'marketplace.middleware.EmailTwoFactorMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     # Security & Compliance Middleware (Information Assurance)
     'marketplace.middleware.SecurityHeadersMiddleware',
@@ -160,8 +161,31 @@ AUTHENTICATION_BACKENDS = [
 # allauth v65+ expects required fields to be marked with '*'.
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
 ACCOUNT_LOGIN_METHODS = {'email', 'username'}
-ACCOUNT_EMAIL_VERIFICATION = 'optional'
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_SIGNUP_REDIRECT_URL = LOGIN_REDIRECT_URL
+
+# Email delivery settings (email verification + email-based 2FA)
+if DEBUG:
+    EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+else:
+    EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'UBXchange Security <noreply@ubxchange.local>')
+SERVER_EMAIL = os.environ.get('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False').lower() == 'true'
+
+# Email 2FA behavior
+EMAIL_2FA_CODE_TTL_SECONDS = int(os.environ.get('EMAIL_2FA_CODE_TTL_SECONDS', '100'))
+EMAIL_2FA_MAX_ATTEMPTS = int(os.environ.get('EMAIL_2FA_MAX_ATTEMPTS', '5'))
+EMAIL_2FA_RESEND_COOLDOWN_SECONDS = int(os.environ.get('EMAIL_2FA_RESEND_COOLDOWN_SECONDS', '60'))
+EMAIL_2FA_SENSITIVE_WINDOW_SECONDS = int(os.environ.get('EMAIL_2FA_SENSITIVE_WINDOW_SECONDS', '600'))
 
 # Social account settings
 SOCIALACCOUNT_AUTO_SIGNUP = True

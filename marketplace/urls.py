@@ -35,6 +35,7 @@ urlpatterns = [
     path('transactions/<int:transaction_id>/cancel/', views.cancel_transaction, name='cancel_transaction'),
     # Payment URLs
     path('transactions/<int:transaction_id>/payment/', views.payment_checkout, name='payment_checkout'),
+    path('transactions/<int:transaction_id>/payment/finalize/', views.payment_finalize_pending, name='payment_finalize_pending'),
     path('transactions/<int:transaction_id>/payment/gcash/', views.payment_gcash, name='payment_gcash'),
     path('transactions/<int:transaction_id>/payment/bank/', views.payment_bank_transfer, name='payment_bank_transfer'),
     path('transactions/<int:transaction_id>/payment/cash/', views.payment_cash_arrangement, name='payment_cash_arrangement'),

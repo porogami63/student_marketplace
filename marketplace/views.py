@@ -1,7 +1,7 @@
 import logging
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
-from django.contrib.auth import login
+from allauth.account.models import EmailAddress
 
 logger = logging.getLogger(__name__)
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -54,6 +54,7 @@ from .forms import (
 )
 from .utils import get_similar_listings_price_stats
 from .security import rate_limit
+from .email_2fa import is_sensitive_recent, set_next_url
 import stripe
 from django.conf import settings
 
@@ -466,6 +467,20 @@ def register(request):
         if user_form.is_valid() and profile_form.is_valid():
             # Create user
             user = user_form.save()
+
+            normalized_email = (user.email or '').strip().lower()
+            if user.email != normalized_email:
+                user.email = normalized_email
+                user.save(update_fields=['email'])
+
+            email_address, _ = EmailAddress.objects.update_or_create(
+                user=user,
+                email=user.email,
+                defaults={
+                    'primary': True,
+                    'verified': False,
+                },
+            )
             
             # Get the auto-created profile and update it with form data
             profile = user.profile
@@ -479,10 +494,21 @@ def register(request):
             profile.contact_info = profile_form.cleaned_data.get('contact_info')
             profile.save()
             
-            # Log in the user with the correct backend
-            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-            messages.success(request, 'Welcome! Your account has been created.')
-            return redirect('marketplace:home')
+            try:
+                email_address.send_confirmation(request=request, signup=True)
+                messages.success(
+                    request,
+                    'Account created. Check your email to verify your account before signing in.'
+                )
+            except Exception:
+                logger.exception('Unable to send signup verification email for user=%s', user.username)
+                messages.warning(
+                    request,
+                    'Account created, but we could not send a verification email right now. '
+                    'Please try signing in later to resend verification.'
+                )
+
+            return redirect('account_login')
     else:
         user_form = CustomUserCreationForm()
         profile_form = ProfileRegistrationForm()
@@ -2256,6 +2282,167 @@ def get_social_media(request):
 
 # ==================== PAYMENT VIEWS ====================
 
+PENDING_SENSITIVE_PAYMENT_SESSION_KEY = 'pending_sensitive_payment_action'
+
+
+def _start_sensitive_payment_step_up(request, transaction_id, action_payload):
+    request.session[PENDING_SENSITIVE_PAYMENT_SESSION_KEY] = action_payload
+    set_next_url(
+        request.session,
+        reverse('marketplace:payment_finalize_pending', kwargs={'transaction_id': transaction_id}),
+        purpose='sensitive_action',
+    )
+    messages.info(
+        request,
+        'For your security, verify this payment action with the code sent to your email before we finalize it.'
+    )
+    return redirect('account_email_2fa_sensitive_verify')
+
+
+def _finalize_credit_card_payment(request, transaction, payment_intent_id):
+    try:
+        intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+
+        # Verify this PaymentIntent belongs to the correct transaction (prevent spoofing)
+        metadata = getattr(intent, 'metadata', {})
+        try:
+            metadata_dict = dict(metadata) if metadata is not None else {}
+        except Exception:
+            metadata_dict = {}
+        tx_meta = metadata_dict.get('transaction_id')
+        if tx_meta and tx_meta != str(transaction.id):
+            messages.error(request, "Payment reference mismatch. Please contact support.")
+            return redirect('marketplace:payment_checkout', transaction_id=transaction.id)
+
+        # If metadata is missing (or couldn't be read), fall back to strict amount/currency checks.
+        if not tx_meta:
+            try:
+                expected_amount = int(float(transaction.price) * 100)
+            except Exception:
+                expected_amount = None
+            intent_amount = getattr(intent, 'amount', None)
+            intent_currency = (getattr(intent, 'currency', '') or '').lower()
+            if expected_amount is None or intent_amount != expected_amount or intent_currency != 'php':
+                messages.error(request, "Payment reference mismatch. Please contact support.")
+                return redirect('marketplace:payment_checkout', transaction_id=transaction.id)
+
+        if intent.status == 'succeeded':
+            payment, created = Payment.objects.update_or_create(
+                transaction=transaction,
+                defaults={
+                    'stripe_charge_id': intent.id,
+                    'amount': transaction.price,
+                    'status': 'completed',
+                    'payment_method': 'credit_card',
+                }
+            )
+
+            # Create receipt for credit card payment
+            receipt = _create_receipt(transaction, payment)
+            receipt.status = 'confirmed'
+            receipt.confirmed_at = timezone.now()
+            receipt.save()
+
+            transaction.status = 'confirmed'
+            transaction.confirmed_at = timezone.now()
+            transaction.save()
+
+            Notification.objects.create(
+                user=transaction.seller,
+                related_user=transaction.buyer,
+                message=f'{transaction.buyer.username} paid ₱{transaction.price} via credit card for {transaction.listing.title if transaction.listing else "your item"}',
+                notification_type='transaction',
+                url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
+            )
+
+            messages.success(request, "Payment successful! Your receipt has been saved to your inbox.")
+            return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
+
+        messages.error(request, f"Payment not completed. Status: {intent.status}")
+        return redirect('marketplace:payment_cancel', transaction_id=transaction.id)
+
+    except stripe.error.CardError as e:
+        messages.error(request, f"Card error: {e.user_message}")
+        return redirect('marketplace:payment_cancel', transaction_id=transaction.id)
+    except stripe.error.StripeError as e:
+        messages.error(request, f"Payment error: {str(e)}")
+        return redirect('marketplace:payment_cancel', transaction_id=transaction.id)
+
+
+def _finalize_gcash_payment(request, transaction, buyer_details):
+    payment, created = Payment.objects.update_or_create(
+        transaction=transaction,
+        defaults={
+            'stripe_charge_id': f'gcash_{transaction.id}_{timezone.now().timestamp()}',
+            'amount': transaction.price,
+            'status': 'completed',
+            'payment_method': 'gcash',
+        }
+    )
+
+    receipt = _create_receipt(transaction, payment)
+    receipt.status = 'confirmed'
+    receipt.confirmed_at = timezone.now()
+    if buyer_details:
+        parts = []
+        if buyer_details.get('gcash_name'):
+            parts.append(f"Name: {buyer_details.get('gcash_name')}")
+        if buyer_details.get('gcash_number'):
+            parts.append(f"Number: {buyer_details.get('gcash_number')}")
+        if parts:
+            receipt.notes = (receipt.notes or '').strip()
+            receipt.notes = (receipt.notes + "\n" if receipt.notes else "") + "GCash details (buyer): " + ", ".join(parts)
+    receipt.save()
+
+    Notification.objects.create(
+        user=transaction.seller,
+        related_user=transaction.buyer,
+        message=f'{transaction.buyer.username} paid ₱{transaction.price} via GCash for {transaction.listing.title if transaction.listing else "your item"}',
+        notification_type='transaction',
+        url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
+    )
+
+    messages.success(request, "Payment recorded! Your receipt has been saved to your inbox.")
+    return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
+
+
+def _finalize_bank_transfer_payment(request, transaction, buyer_details):
+    payment, created = Payment.objects.update_or_create(
+        transaction=transaction,
+        defaults={
+            'stripe_charge_id': f'bank_{transaction.id}_{timezone.now().timestamp()}',
+            'amount': transaction.price,
+            'status': 'pending',  # Pending until seller confirms receipt
+            'payment_method': 'bank_transfer',
+        }
+    )
+
+    receipt = _create_receipt(transaction, payment)
+    receipt.status = 'pending'
+    if buyer_details:
+        parts = []
+        if buyer_details.get('bank_name'):
+            parts.append(f"Bank: {buyer_details.get('bank_name')}")
+        if buyer_details.get('bank_account_name'):
+            parts.append(f"Name: {buyer_details.get('bank_account_name')}")
+        if buyer_details.get('bank_account_last4'):
+            parts.append(f"Last4: {buyer_details.get('bank_account_last4')}")
+        if parts:
+            receipt.notes = (receipt.notes or '').strip()
+            receipt.notes = (receipt.notes + "\n" if receipt.notes else "") + "Bank transfer details (buyer): " + ", ".join(parts)
+    receipt.save()
+
+    Notification.objects.create(
+        user=transaction.seller,
+        related_user=transaction.buyer,
+        message=f'{transaction.buyer.username} has initiated a bank transfer of ₱{transaction.price} for {transaction.listing.title if transaction.listing else "your item"}. Please confirm receipt.',
+        notification_type='transaction',
+        url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
+    )
+
+    messages.success(request, "Bank transfer request registered. Your receipt has been saved. The seller will confirm receipt.")
+    return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
+
 @login_required
 def payment_checkout(request, transaction_id):
     """Handle payment checkout for a transaction."""
@@ -2333,75 +2520,18 @@ def payment_checkout(request, transaction_id):
                 messages.error(request, "Invalid payment details. Please try again.")
                 return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
 
-            try:
-                intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+            if not is_sensitive_recent(request.session, request.user):
+                return _start_sensitive_payment_step_up(
+                    request,
+                    transaction_id=transaction_id,
+                    action_payload={
+                        'kind': 'credit_card',
+                        'transaction_id': transaction_id,
+                        'payment_intent_id': payment_intent_id,
+                    },
+                )
 
-                # Verify this PaymentIntent belongs to the correct transaction (prevent spoofing)
-                metadata = getattr(intent, 'metadata', {})
-                try:
-                    metadata_dict = dict(metadata) if metadata is not None else {}
-                except Exception:
-                    metadata_dict = {}
-                tx_meta = metadata_dict.get('transaction_id')
-                if tx_meta and tx_meta != str(transaction.id):
-                    messages.error(request, "Payment reference mismatch. Please contact support.")
-                    return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
-
-                # If metadata is missing (or couldn't be read), fall back to strict amount/currency checks.
-                # This still blocks most spoofing attempts while avoiding false negatives.
-                if not tx_meta:
-                    try:
-                        expected_amount = int(float(transaction.price) * 100)
-                    except Exception:
-                        expected_amount = None
-                    intent_amount = getattr(intent, 'amount', None)
-                    intent_currency = (getattr(intent, 'currency', '') or '').lower()
-                    if expected_amount is None or intent_amount != expected_amount or intent_currency != 'php':
-                        messages.error(request, "Payment reference mismatch. Please contact support.")
-                        return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
-
-                if intent.status == 'succeeded':
-                    payment, created = Payment.objects.update_or_create(
-                        transaction=transaction,
-                        defaults={
-                            'stripe_charge_id': intent.id,
-                            'amount': transaction.price,
-                            'status': 'completed',
-                            'payment_method': 'credit_card',
-                        }
-                    )
-
-                    # Create receipt for credit card payment
-                    receipt = _create_receipt(transaction, payment)
-                    receipt.status = 'confirmed'
-                    receipt.confirmed_at = timezone.now()
-                    receipt.save()
-
-                    transaction.status = 'confirmed'
-                    transaction.confirmed_at = timezone.now()
-                    transaction.save()
-
-                    # Notify seller
-                    Notification.objects.create(
-                        user=transaction.seller,
-                        related_user=transaction.buyer,
-                        message=f'{transaction.buyer.username} paid ₱{transaction.price} via credit card for {transaction.listing.title if transaction.listing else "your item"}',
-                        notification_type='transaction',
-                        url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
-                    )
-
-                    messages.success(request, "Payment successful! Your receipt has been saved to your inbox.")
-                    return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
-                else:
-                    messages.error(request, f"Payment not completed. Status: {intent.status}")
-                    return redirect('marketplace:payment_cancel', transaction_id=transaction_id)
-
-            except stripe.error.CardError as e:
-                messages.error(request, f"Card error: {e.user_message}")
-                return redirect('marketplace:payment_cancel', transaction_id=transaction_id)
-            except stripe.error.StripeError as e:
-                messages.error(request, f"Payment error: {str(e)}")
-                return redirect('marketplace:payment_cancel', transaction_id=transaction_id)
+            return _finalize_credit_card_payment(request, transaction, payment_intent_id)
 
         elif exchange_method == 'gcash':
             # Persist buyer details across redirect
@@ -2409,6 +2539,17 @@ def payment_checkout(request, transaction_id):
                 'gcash_number': (request.POST.get('gcash_number') or '').strip(),
                 'gcash_name': (request.POST.get('gcash_name') or '').strip(),
             }
+
+            if not is_sensitive_recent(request.session, request.user):
+                return _start_sensitive_payment_step_up(
+                    request,
+                    transaction_id=transaction_id,
+                    action_payload={
+                        'kind': 'checkout_to_gcash',
+                        'transaction_id': transaction_id,
+                    },
+                )
+
             return redirect('marketplace:payment_gcash', transaction_id=transaction_id)
         
         elif exchange_method == 'bank_transfer':
@@ -2417,6 +2558,17 @@ def payment_checkout(request, transaction_id):
                 'bank_account_name': (request.POST.get('bank_account_name') or '').strip(),
                 'bank_account_last4': (request.POST.get('bank_account_last4') or '').strip(),
             }
+
+            if not is_sensitive_recent(request.session, request.user):
+                return _start_sensitive_payment_step_up(
+                    request,
+                    transaction_id=transaction_id,
+                    action_payload={
+                        'kind': 'checkout_to_bank_transfer',
+                        'transaction_id': transaction_id,
+                    },
+                )
+
             return redirect('marketplace:payment_bank_transfer', transaction_id=transaction_id)
         
         elif exchange_method == 'in_person':
@@ -2430,6 +2582,50 @@ def payment_checkout(request, transaction_id):
             return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
 
     return render(request, 'marketplace/payment_checkout.html', {'transaction': transaction})
+
+
+@login_required
+def payment_finalize_pending(request, transaction_id):
+    """Resume a pending payment action after sensitive OTP verification."""
+    try:
+        transaction = get_object_or_404(Transaction, id=transaction_id, buyer=request.user)
+    except Exception:
+        messages.error(request, "Transaction not found.")
+        return redirect('marketplace:home')
+
+    pending_action = request.session.pop(PENDING_SENSITIVE_PAYMENT_SESSION_KEY, None)
+    if not pending_action or pending_action.get('transaction_id') != transaction_id:
+        messages.error(request, "No pending payment action to finalize.")
+        return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+
+    if not is_sensitive_recent(request.session, request.user):
+        return _start_sensitive_payment_step_up(request, transaction_id, pending_action)
+
+    action_kind = pending_action.get('kind')
+
+    if action_kind == 'credit_card':
+        payment_intent_id = (pending_action.get('payment_intent_id') or '').strip()
+        if not payment_intent_id.startswith('pi_'):
+            messages.error(request, "Pending card payment reference is invalid.")
+            return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+        return _finalize_credit_card_payment(request, transaction, payment_intent_id)
+
+    if action_kind == 'gcash':
+        buyer_details = request.session.pop('payment_details_gcash', None) or {}
+        return _finalize_gcash_payment(request, transaction, buyer_details)
+
+    if action_kind == 'bank_transfer':
+        buyer_details = request.session.pop('payment_details_bank', None) or {}
+        return _finalize_bank_transfer_payment(request, transaction, buyer_details)
+
+    if action_kind == 'checkout_to_gcash':
+        return redirect('marketplace:payment_gcash', transaction_id=transaction_id)
+
+    if action_kind == 'checkout_to_bank_transfer':
+        return redirect('marketplace:payment_bank_transfer', transaction_id=transaction_id)
+
+    messages.error(request, "Unknown pending payment action.")
+    return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
 
 
 @login_required
@@ -2531,45 +2727,18 @@ def payment_gcash(request, transaction_id):
         return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
     
     if request.method == 'POST':
-        buyer_details = request.session.pop('payment_details_gcash', None) or {}
+        if not is_sensitive_recent(request.session, request.user):
+            return _start_sensitive_payment_step_up(
+                request,
+                transaction_id=transaction_id,
+                action_payload={
+                    'kind': 'gcash',
+                    'transaction_id': transaction_id,
+                },
+            )
 
-        # Create payment record
-        payment, created = Payment.objects.update_or_create(
-            transaction=transaction,
-            defaults={
-                'stripe_charge_id': f'gcash_{transaction.id}_{timezone.now().timestamp()}',
-                'amount': transaction.price,
-                'status': 'completed',
-                'payment_method': 'gcash',
-            }
-        )
-        
-        # Create receipt
-        receipt = _create_receipt(transaction, payment)
-        receipt.status = 'confirmed'
-        receipt.confirmed_at = timezone.now()
-        if buyer_details:
-            parts = []
-            if buyer_details.get('gcash_name'):
-                parts.append(f"Name: {buyer_details.get('gcash_name')}")
-            if buyer_details.get('gcash_number'):
-                parts.append(f"Number: {buyer_details.get('gcash_number')}")
-            if parts:
-                receipt.notes = (receipt.notes or '').strip()
-                receipt.notes = (receipt.notes + "\n" if receipt.notes else "") + "GCash details (buyer): " + ", ".join(parts)
-        receipt.save()
-        
-        # Notify seller
-        Notification.objects.create(
-            user=transaction.seller,
-            related_user=transaction.buyer,
-            message=f'{transaction.buyer.username} paid ₱{transaction.price} via GCash for {transaction.listing.title if transaction.listing else "your item"}',
-            notification_type='transaction',
-            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
-        )
-        
-        messages.success(request, "Payment recorded! Your receipt has been saved to your inbox.")
-        return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
+        buyer_details = request.session.pop('payment_details_gcash', None) or {}
+        return _finalize_gcash_payment(request, transaction, buyer_details)
     
     context = {
         'transaction': transaction,
@@ -2593,49 +2762,18 @@ def payment_bank_transfer(request, transaction_id):
         return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
     
     if request.method == 'POST':
-        buyer_details = request.session.pop('payment_details_bank', None) or {}
+        if not is_sensitive_recent(request.session, request.user):
+            return _start_sensitive_payment_step_up(
+                request,
+                transaction_id=transaction_id,
+                action_payload={
+                    'kind': 'bank_transfer',
+                    'transaction_id': transaction_id,
+                },
+            )
 
-        # Get seller's bank details from profile or use placeholder
-        seller_bank_info = transaction.seller.profile.contact_info or "Bank details to be provided by seller"
-        
-        # Create payment record
-        payment, created = Payment.objects.update_or_create(
-            transaction=transaction,
-            defaults={
-                'stripe_charge_id': f'bank_{transaction.id}_{timezone.now().timestamp()}',
-                'amount': transaction.price,
-                'status': 'pending',  # Pending until seller confirms receipt
-                'payment_method': 'bank_transfer',
-            }
-        )
-        
-        # Create receipt
-        receipt = _create_receipt(transaction, payment)
-        receipt.status = 'pending'
-        if buyer_details:
-            parts = []
-            if buyer_details.get('bank_name'):
-                parts.append(f"Bank: {buyer_details.get('bank_name')}")
-            if buyer_details.get('bank_account_name'):
-                parts.append(f"Name: {buyer_details.get('bank_account_name')}")
-            if buyer_details.get('bank_account_last4'):
-                parts.append(f"Last4: {buyer_details.get('bank_account_last4')}")
-            if parts:
-                receipt.notes = (receipt.notes or '').strip()
-                receipt.notes = (receipt.notes + "\n" if receipt.notes else "") + "Bank transfer details (buyer): " + ", ".join(parts)
-        receipt.save()
-        
-        # Notify seller
-        Notification.objects.create(
-            user=transaction.seller,
-            related_user=transaction.buyer,
-            message=f'{transaction.buyer.username} has initiated a bank transfer of ₱{transaction.price} for {transaction.listing.title if transaction.listing else "your item"}. Please confirm receipt.',
-            notification_type='transaction',
-            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
-        )
-        
-        messages.success(request, "Bank transfer request registered. Your receipt has been saved. The seller will confirm receipt.")
-        return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
+        buyer_details = request.session.pop('payment_details_bank', None) or {}
+        return _finalize_bank_transfer_payment(request, transaction, buyer_details)
     
     context = {
         'transaction': transaction,

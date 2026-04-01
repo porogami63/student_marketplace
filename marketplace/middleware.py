@@ -4,7 +4,19 @@
 from django.utils.deprecation import MiddlewareMixin
 from django.http import HttpResponse
 from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth import logout
+from django.shortcuts import redirect
 from marketplace.security import AuditLog, get_client_ip
+from marketplace.email_2fa import (
+    SESSION_2FA_NEXT_URL,
+    SESSION_2FA_PENDING_USER,
+    clear_pending_state,
+    get_active_session_challenge,
+    is_verified_for_user,
+    issue_login_challenge,
+    set_pending_challenge,
+)
 import logging
 
 security_logger = logging.getLogger('security')
@@ -43,6 +55,58 @@ class OAuthFlowDebugMiddleware(MiddlewareMixin):
             except Exception:
                 pass
         return response
+
+
+class EmailTwoFactorMiddleware(MiddlewareMixin):
+    """Require email-based OTP verification after authentication."""
+
+    EXEMPT_PREFIXES = (
+        '/static/',
+        '/media/',
+        '/accounts/login/',
+        '/accounts/logout/',
+        '/accounts/email-2fa/',
+        '/accounts/confirm-email/',
+        '/accounts/password/reset/',
+    )
+
+    def _is_exempt_path(self, path):
+        return any(path.startswith(prefix) for prefix in self.EXEMPT_PREFIXES)
+
+    def process_request(self, request):
+        if not request.user.is_authenticated:
+            return None
+
+        if self._is_exempt_path(request.path):
+            return None
+
+        if is_verified_for_user(request.session, request.user):
+            return None
+
+        pending_user_id = request.session.get(SESSION_2FA_PENDING_USER)
+        if pending_user_id not in (None, request.user.pk):
+            clear_pending_state(request.session)
+
+        challenge = get_active_session_challenge(request.session, request.user)
+        if challenge is None:
+            try:
+                challenge = issue_login_challenge(request.user, ip_address=get_client_ip(request))
+            except Exception:
+                security_logger.exception(
+                    'Unable to send email 2FA challenge for user=%s',
+                    request.user.username,
+                )
+                clear_pending_state(request.session)
+                logout(request)
+                messages.error(request, 'Could not send your verification code. Please sign in again.')
+                return redirect('account_login')
+
+            set_pending_challenge(request.session, request.user, challenge)
+
+        if request.method == 'GET':
+            request.session[SESSION_2FA_NEXT_URL] = request.get_full_path()
+
+        return redirect('account_email_2fa_verify')
 
 
 class SecurityHeadersMiddleware(MiddlewareMixin):

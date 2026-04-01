@@ -114,10 +114,31 @@ class CustomUserCreationForm(UserCreationForm):
         return username
     
     def clean_email(self):
-        email = self.cleaned_data.get('email')
-        if User.objects.filter(email=email).exists():
+        email = (self.cleaned_data.get('email') or '').strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError('This email address is already registered.')
         return email
+
+
+class EmailTwoFactorVerifyForm(forms.Form):
+    code = forms.CharField(
+        label='Verification code',
+        min_length=6,
+        max_length=6,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'inputmode': 'numeric',
+            'autocomplete': 'one-time-code',
+            'placeholder': 'Enter 6-digit code',
+            'pattern': '[0-9]{6}',
+        })
+    )
+
+    def clean_code(self):
+        code = (self.cleaned_data.get('code') or '').strip()
+        if not code.isdigit() or len(code) != 6:
+            raise forms.ValidationError('Enter a valid 6-digit verification code.')
+        return code
 
 
 class ProfileRegistrationForm(forms.ModelForm):

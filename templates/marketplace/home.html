@@ -257,45 +257,6 @@
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     }
 
-    .hero-controls {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0 1.5rem;
-        z-index: 15; /* Higher than content to ensure clicks work */
-        pointer-events: none;
-    }
-
-    .hero-control {
-        background: rgba(255, 255, 255, 0.8);
-        border: 1px solid rgba(0, 0, 0, 0.1);
-        color: #0f172a;
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.4rem;
-        cursor: pointer;
-        opacity: 0;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        pointer-events: auto;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-
-    .hero-control:hover {
-        background: #ffffff;
-        transform: scale(1.1);
-        box-shadow: 0 6px 16px rgba(0,0,0,0.15);
-    }
-
-    .hero-frame:hover .hero-control {
-        opacity: 1;
-    }
-
     .home-main {
         background: transparent;
         padding: 4rem 0 5rem;
@@ -770,10 +731,6 @@
                 <span>From Dorm to Doorstep—UBXchange.</span>
             </div>
         </div>
-        <div class="hero-controls">
-            <button class="hero-control" data-direction="prev" type="button" aria-label="Previous slide"><i class="bi bi-chevron-left"></i></button>
-            <button class="hero-control" data-direction="next" type="button" aria-label="Next slide"><i class="bi bi-chevron-right"></i></button>
-        </div>
     </div>
 </section>
 
@@ -963,20 +920,6 @@ function dismissSafetyAlert() {
     };
 
     const next = () => showSlide(current + 1);
-    const prev = () => showSlide(current - 1);
-
-    document.querySelectorAll('.hero-control').forEach(btn => {
-        btn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (btn.dataset.direction === 'prev') {
-                prev();
-            } else {
-                next();
-            }
-            resetTimer();
-        };
-    });
 
     const resetTimer = () => {
         clearInterval(timer);

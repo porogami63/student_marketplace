@@ -538,6 +538,178 @@
             color: var(--color-text-muted);
             font-size: 13px;
         }
+
+        /* Floating quick chat widget */
+        .quick-chat-widget {
+            position: fixed;
+            right: max(0.75rem, env(safe-area-inset-right));
+            bottom: max(0.75rem, env(safe-area-inset-bottom));
+            left: auto;
+            z-index: 1080;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: flex-end;
+            gap: 0.85rem;
+        }
+
+        .quick-chat-fab {
+            width: 72px;
+            height: 72px;
+            border-radius: 999px;
+            border: none;
+            color: #ffffff;
+            background: linear-gradient(140deg, #0ea5e9, #2563eb);
+            box-shadow: 0 16px 34px rgba(37, 99, 235, 0.4);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.55rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .quick-chat-fab:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 18px 35px rgba(37, 99, 235, 0.42);
+        }
+
+        .quick-chat-fab .close-icon {
+            display: none;
+        }
+
+        .quick-chat-widget.is-open .quick-chat-fab .open-icon {
+            display: none;
+        }
+
+        .quick-chat-widget.is-open .quick-chat-fab .close-icon {
+            display: inline;
+        }
+
+        .quick-chat-panel {
+            width: min(390px, calc(100vw - 1.5rem));
+            border-radius: 16px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg);
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translateY(12px) scale(0.97);
+            transform-origin: bottom right;
+            transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+        }
+
+        .quick-chat-widget.is-open .quick-chat-panel {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transform: translateY(0) scale(1);
+        }
+
+        .quick-chat-header {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--color-border);
+            background: linear-gradient(135deg, rgba(151, 194, 236, 0.28), rgba(151, 194, 236, 0.08));
+        }
+
+        .quick-chat-header h6 {
+            margin: 0;
+            font-weight: 700;
+            color: var(--color-text);
+        }
+
+        .quick-chat-header small {
+            color: var(--color-text-muted);
+        }
+
+        .quick-chat-tabs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.45rem;
+            padding: 0.75rem;
+        }
+
+        .quick-chat-tab {
+            border-radius: 10px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-secondary);
+            color: var(--color-text-muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 0.48rem 0.55rem;
+        }
+
+        .quick-chat-tab.active {
+            color: #ffffff;
+            border-color: #0ea5e9;
+            background: linear-gradient(135deg, #0ea5e9, #2563eb);
+        }
+
+        .quick-chat-panes {
+            padding: 0 0.75rem 0.85rem;
+        }
+
+        .quick-chat-pane {
+            display: none;
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 0.9rem;
+            background: var(--color-bg-secondary);
+        }
+
+        .quick-chat-pane.active {
+            display: block;
+        }
+
+        .quick-chat-pane p {
+            margin-bottom: 0.75rem;
+            color: var(--color-text-muted);
+            font-size: 0.86rem;
+            line-height: 1.4;
+        }
+
+        .quick-chat-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .quick-chat-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            border-radius: 999px;
+            border: 1px solid var(--color-border);
+            color: var(--color-text);
+            background: var(--color-bg);
+            text-decoration: none;
+            font-size: 0.79rem;
+            font-weight: 600;
+            padding: 0.36rem 0.72rem;
+        }
+
+        .quick-chat-action:hover {
+            border-color: #0ea5e9;
+            color: #0b75bb;
+            background: rgba(14, 165, 233, 0.08);
+        }
+
+        @media (max-width: 768px) {
+            .quick-chat-widget {
+                right: max(0.5rem, env(safe-area-inset-right));
+                bottom: max(0.5rem, env(safe-area-inset-bottom));
+                left: auto;
+            }
+
+            .quick-chat-fab {
+                width: 66px;
+                height: 66px;
+            }
+
+            .quick-chat-panel {
+                width: min(350px, calc(100vw - 1rem));
+            }
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -564,11 +736,9 @@
                     {% else %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:listing_create' %}">Add a listing</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:my_listings' %}">My Listings</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:recommendation_chat' %}"><i class="bi bi-robot me-1"></i>Chat</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:recommended' %}"><i class="bi bi-stars me-1"></i>Recommended</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:favorites' %}"><i class="bi bi-heart me-1"></i>Favorites</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:forum' %}"><i class="bi bi-chat-dots me-1"></i>Forum</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'marketplace:inbox' %}"><i class="bi bi-envelope me-1"></i>Messages</a></li>
                     {% endif %}
                     {% endif %}
                 </ul>
@@ -613,11 +783,9 @@
                             {% else %}
                             <li><a class="dropdown-item" href="{% url 'marketplace:profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
                             <li><a class="dropdown-item" href="{% url 'marketplace:my_listings' %}"><i class="bi bi-box-seam me-2"></i>My Listings</a></li>
-                            <li><a class="dropdown-item" href="{% url 'marketplace:recommendation_chat' %}"><i class="bi bi-robot me-2"></i>Chat with AI</a></li>
                             <li><a class="dropdown-item" href="{% url 'marketplace:recommended' %}"><i class="bi bi-stars me-2"></i>Recommended</a></li>
                             <li><a class="dropdown-item" href="{% url 'marketplace:favorites' %}"><i class="bi bi-heart me-2"></i>Favorites</a></li>
                             <li><a class="dropdown-item" href="{% url 'marketplace:forum' %}"><i class="bi bi-chat-dots me-2"></i>Forum</a></li>
-                            <li><a class="dropdown-item" href="{% url 'marketplace:inbox' %}"><i class="bi bi-envelope me-2"></i>Messages</a></li>
                             {% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'account_logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
@@ -645,6 +813,59 @@
             {% block content %}{% endblock %}
         </div>
     </main>
+
+    {% if user.is_authenticated and not user.is_superuser %}
+    <div class="quick-chat-widget" id="quick-chat-widget">
+        <button type="button" class="quick-chat-fab" id="quick-chat-fab" aria-controls="quick-chat-panel" aria-expanded="false" aria-label="Open quick menu">
+            <i class="bi bi-chat-dots-fill open-icon" aria-hidden="true"></i>
+            <i class="bi bi-x-lg close-icon" aria-hidden="true"></i>
+        </button>
+        <section class="quick-chat-panel" id="quick-chat-panel" aria-label="Quick chat and transactions menu" aria-hidden="true">
+            <div class="quick-chat-header">
+                <h6>Quick Access</h6>
+                <small>Chat, messages, and transactions.</small>
+            </div>
+            <div class="quick-chat-tabs" role="tablist" aria-label="Quick access tabs">
+                <button type="button" class="quick-chat-tab active" data-target="chat" role="tab" aria-selected="true" aria-controls="quick-pane-chat">Chat</button>
+                <button type="button" class="quick-chat-tab" data-target="messages" role="tab" aria-selected="false" aria-controls="quick-pane-messages">Messages</button>
+                <button type="button" class="quick-chat-tab" data-target="transactions" role="tab" aria-selected="false" aria-controls="quick-pane-transactions">Transactions</button>
+            </div>
+            <div class="quick-chat-panes">
+                <div class="quick-chat-pane active" data-pane="chat" id="quick-pane-chat" role="tabpanel">
+                    <p>Open AI chat for quick buying ideas and listing recommendations.</p>
+                    <div class="quick-chat-actions">
+                        <a class="quick-chat-action" href="{% url 'marketplace:recommendation_chat' %}">
+                            <i class="bi bi-robot"></i>
+                            <span>Open Chat</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="quick-chat-pane" data-pane="messages" id="quick-pane-messages" role="tabpanel">
+                    <p>Go to your inbox and continue buyer-seller conversations.</p>
+                    <div class="quick-chat-actions">
+                        <a class="quick-chat-action" href="{% url 'marketplace:inbox' %}">
+                            <i class="bi bi-envelope"></i>
+                            <span>Open Messages</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="quick-chat-pane" data-pane="transactions" id="quick-pane-transactions" role="tabpanel">
+                    <p>Track active deals and open payment receipts from one place.</p>
+                    <div class="quick-chat-actions">
+                        <a class="quick-chat-action" href="{% url 'marketplace:inbox' %}">
+                            <i class="bi bi-arrow-repeat"></i>
+                            <span>Active Deals</span>
+                        </a>
+                        <a class="quick-chat-action" href="{% url 'marketplace:receipts_list' %}">
+                            <i class="bi bi-receipt"></i>
+                            <span>Receipts</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+    {% endif %}
 
     <footer>
         <div class="container text-center">
@@ -810,6 +1031,57 @@
                 dropdownOpen = false;
             }
         });
+
+        // Floating quick-access widget
+        const quickChatWidget = document.getElementById('quick-chat-widget');
+        if (quickChatWidget) {
+            const quickChatFab = document.getElementById('quick-chat-fab');
+            const quickChatPanel = document.getElementById('quick-chat-panel');
+            const quickChatTabs = quickChatWidget.querySelectorAll('.quick-chat-tab');
+            const quickChatPanes = quickChatWidget.querySelectorAll('.quick-chat-pane');
+
+            const setQuickWidgetState = (isOpen) => {
+                quickChatWidget.classList.toggle('is-open', isOpen);
+                quickChatFab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                quickChatPanel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+            };
+
+            quickChatFab.addEventListener('click', (event) => {
+                event.stopPropagation();
+                setQuickWidgetState(!quickChatWidget.classList.contains('is-open'));
+            });
+
+            quickChatPanel.addEventListener('click', (event) => {
+                event.stopPropagation();
+            });
+
+            quickChatTabs.forEach((tab) => {
+                tab.addEventListener('click', () => {
+                    const target = tab.dataset.target;
+                    quickChatTabs.forEach((candidate) => {
+                        const active = candidate === tab;
+                        candidate.classList.toggle('active', active);
+                        candidate.setAttribute('aria-selected', active ? 'true' : 'false');
+                    });
+
+                    quickChatPanes.forEach((pane) => {
+                        pane.classList.toggle('active', pane.dataset.pane === target);
+                    });
+                });
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!quickChatWidget.contains(event.target)) {
+                    setQuickWidgetState(false);
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    setQuickWidgetState(false);
+                }
+            });
+        }
     </script>
     {% block extra_js %}{% endblock %}
 </body>
