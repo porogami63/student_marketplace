@@ -90,6 +90,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'marketplace.context_processors.categories_schools',
+                'marketplace.context_processors.social_auth_status',
             ],
         },
     },
