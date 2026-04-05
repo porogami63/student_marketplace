@@ -65,7 +65,19 @@ def email_2fa_verify(request):
     if is_verified_for_user(request.session, request.user):
         return _safe_next_redirect(request, purpose='login')
 
-    challenge = get_active_session_challenge(request.session, request.user, purpose='login')
+    try:
+        challenge = get_active_session_challenge(request.session, request.user, purpose='login')
+    except Exception:
+        auth_logger.exception(
+            'Failed to load active email 2FA challenge for user=%s path=%s',
+            request.user.username,
+            request.path,
+        )
+        clear_pending_state(request.session)
+        logout(request)
+        messages.error(request, 'Unable to verify your session. Please sign in again.')
+        return redirect('account_login')
+
     if challenge is None:
         try:
             challenge = issue_login_challenge(request.user, ip_address=get_client_ip(request))
@@ -116,7 +128,19 @@ def email_2fa_resend(request):
     if is_verified_for_user(request.session, request.user):
         return redirect(settings.LOGIN_REDIRECT_URL)
 
-    wait_seconds = seconds_until_resend_allowed(request.user, purpose='login')
+    try:
+        wait_seconds = seconds_until_resend_allowed(request.user, purpose='login')
+    except Exception:
+        auth_logger.exception(
+            'Failed to check email 2FA resend cooldown for user=%s path=%s',
+            request.user.username,
+            request.path,
+        )
+        clear_pending_state(request.session)
+        logout(request)
+        messages.error(request, 'Unable to verify your session. Please sign in again.')
+        return redirect('account_login')
+
     if wait_seconds > 0:
         messages.info(request, f'Please wait {wait_seconds} seconds before requesting another code.')
         return redirect('account_email_2fa_verify')
@@ -140,7 +164,18 @@ def email_2fa_sensitive_verify(request):
     if is_sensitive_recent(request.session, request.user):
         return _safe_next_redirect(request, purpose='sensitive_action')
 
-    challenge = get_active_session_challenge(request.session, request.user, purpose='sensitive_action')
+    try:
+        challenge = get_active_session_challenge(request.session, request.user, purpose='sensitive_action')
+    except Exception:
+        auth_logger.exception(
+            'Failed to load active sensitive 2FA challenge for user=%s path=%s',
+            request.user.username,
+            request.path,
+        )
+        clear_pending_state(request.session)
+        messages.error(request, 'Unable to verify your session right now. Please try again.')
+        return redirect('marketplace:home')
+
     if challenge is None:
         try:
             challenge = issue_sensitive_challenge(request.user, ip_address=get_client_ip(request))
@@ -189,7 +224,18 @@ def email_2fa_sensitive_resend(request):
     if is_sensitive_recent(request.session, request.user):
         return _safe_next_redirect(request, purpose='sensitive_action')
 
-    wait_seconds = seconds_until_resend_allowed(request.user, purpose='sensitive_action')
+    try:
+        wait_seconds = seconds_until_resend_allowed(request.user, purpose='sensitive_action')
+    except Exception:
+        auth_logger.exception(
+            'Failed to check sensitive 2FA resend cooldown for user=%s path=%s',
+            request.user.username,
+            request.path,
+        )
+        clear_pending_state(request.session)
+        messages.error(request, 'Unable to verify your session right now. Please try again.')
+        return redirect('marketplace:home')
+
     if wait_seconds > 0:
         messages.info(request, f'Please wait {wait_seconds} seconds before requesting another code.')
         return redirect('account_email_2fa_sensitive_verify')

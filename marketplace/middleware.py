@@ -87,14 +87,27 @@ class EmailTwoFactorMiddleware(MiddlewareMixin):
         if pending_user_id not in (None, request.user.pk):
             clear_pending_state(request.session)
 
-        challenge = get_active_session_challenge(request.session, request.user)
+        try:
+            challenge = get_active_session_challenge(request.session, request.user)
+        except Exception:
+            security_logger.exception(
+                'Unable to load email 2FA challenge for user=%s path=%s',
+                request.user.username,
+                request.path,
+            )
+            clear_pending_state(request.session)
+            logout(request)
+            messages.error(request, 'Could not verify your session. Please sign in again.')
+            return redirect('account_login')
+
         if challenge is None:
             try:
                 challenge = issue_login_challenge(request.user, ip_address=get_client_ip(request))
             except Exception:
                 security_logger.exception(
-                    'Unable to send email 2FA challenge for user=%s',
+                    'Unable to send email 2FA challenge for user=%s path=%s',
                     request.user.username,
+                    request.path,
                 )
                 clear_pending_state(request.session)
                 logout(request)

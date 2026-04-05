@@ -1,17 +1,32 @@
+import logging
+
 from .models import Category, School, Notification
+
+
+logger = logging.getLogger(__name__)
 
 
 def categories_schools(request):
     """Make categories and schools available in all templates."""
     data = {
-        'categories': Category.objects.all(),
-        'schools': School.objects.all(),
+        'categories': [],
+        'schools': [],
+        'unread_notifications_count': 0,
     }
+
+    try:
+        data['categories'] = Category.objects.all()
+        data['schools'] = School.objects.all()
+    except Exception:
+        logger.exception('Failed to load category or school context data.')
+
     user = getattr(request, 'user', None)
     if user and user.is_authenticated:
-        data['unread_notifications_count'] = Notification.objects.filter(user=user, is_read=False).count()
-    else:
-        data['unread_notifications_count'] = 0
+        try:
+            data['unread_notifications_count'] = Notification.objects.filter(user=user, is_read=False).count()
+        except Exception:
+            logger.exception('Failed to load unread notification count for user_id=%s.', getattr(user, 'pk', None))
+
     return data
 
 
