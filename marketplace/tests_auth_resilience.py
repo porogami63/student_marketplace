@@ -13,10 +13,10 @@ from django.test import RequestFactory, TestCase, override_settings
 
 from marketplace import auth_views, context_processors
 from marketplace.adapters import CustomAccountAdapter
-from marketplace.email_2fa import is_sensitive_recent, is_verified_for_user
+from marketplace.email_2fa import is_sensitive_recent, is_verified_for_user, issue_login_challenge
 from marketplace.login_stages import LegacyAwareEmailVerificationStage
 from marketplace.middleware import EmailTwoFactorMiddleware
-from marketplace.models import Profile
+from marketplace.models import EmailTwoFactorCode, Profile
 from marketplace import signals, social_signals
 
 
@@ -65,6 +65,39 @@ class AuthenticatedPathResilienceTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn('/accounts/login/', response['Location'])
         mock_logout.assert_called_once()
+
+    @patch('marketplace.middleware.messages.error')
+    @patch('marketplace.middleware.logout')
+    @patch('marketplace.middleware.issue_login_challenge', side_effect=TimeoutError('smtp timeout'))
+    @patch('marketplace.middleware.get_active_session_challenge', return_value=None)
+    @patch('marketplace.middleware.is_verified_for_user', return_value=False)
+    def test_middleware_handles_challenge_issue_error(
+        self,
+        _mock_is_verified,
+        _mock_get_challenge,
+        _mock_issue,
+        mock_logout,
+        _mock_message_error,
+    ):
+        request = self._build_request('/')
+        middleware = EmailTwoFactorMiddleware(lambda req: HttpResponse('ok'))
+
+        response = middleware.process_request(request)
+
+        self.assertIsNotNone(response)
+        response = cast(HttpResponseRedirect, response)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/accounts/login/', response['Location'])
+        mock_logout.assert_called_once()
+
+    @patch('marketplace.email_2fa._send_code_email', side_effect=TimeoutError('smtp timeout'))
+    def test_issue_challenge_cleanup_on_send_failure(self, _mock_send_email):
+        with self.assertRaises(TimeoutError):
+            issue_login_challenge(self.user, ip_address='127.0.0.1')
+
+        self.assertFalse(
+            EmailTwoFactorCode.objects.filter(user=self.user, purpose='login').exists()
+        )
 
     @patch('marketplace.auth_views.messages.error')
     @patch('marketplace.auth_views.logout')

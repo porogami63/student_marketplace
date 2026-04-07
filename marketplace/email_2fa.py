@@ -253,7 +253,21 @@ def issue_challenge(user, purpose='login', ip_address=''):
         ip_address=ip_address or None,
     )
 
-    _send_code_email(user, raw_code, purpose=purpose)
+    try:
+        _send_code_email(user, raw_code, purpose=purpose)
+    except Exception:
+        # Remove undelivered challenges so resend cooldown is not enforced after a failed send.
+        try:
+            challenge.delete()
+        except Exception:
+            auth_logger.exception(
+                'Failed to cleanup undelivered email 2FA challenge user=%s purpose=%s challenge_id=%s',
+                user.username,
+                purpose,
+                challenge.pk,
+            )
+        raise
+
     auth_logger.info('Email 2FA code sent to user=%s purpose=%s', user.username, purpose)
     return challenge
 

@@ -285,6 +285,17 @@
     }
     .filter-chip.active { border-color: var(--ubelt-teal); background: rgba(5, 150, 105, 0.06); color: var(--ubelt-teal); }
     .filter-select { border-radius: 999px; padding-inline: 0.75rem; font-size: 0.85rem; }
+    .filter-chip .filter-select { min-width: 110px; }
+    .filter-price-fields {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    .filter-input-compact { width: 70px; }
+    .filter-input-medium { width: 100px; }
+    .filter-input-wide { width: 130px; }
+    .filter-submit-btn { height: 35px; border-radius: 999px; }
+    .results-sort-form { display: flex; align-items: center; gap: 0.5rem; }
     /* Results header with sorting */
     .results-header {
         display: flex;
@@ -349,6 +360,69 @@
     @media (max-width: 768px) {
         .home-hero { padding: 1.5rem; }
         .listing-card { width: 180px; }
+
+        .home-search-bar .btn-search {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .promo-banner {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .browse-filters {
+            gap: 0.6rem;
+        }
+
+        .filter-chip {
+            flex: 1 1 100%;
+            justify-content: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .filter-chip .filter-select {
+            width: 100%;
+            min-width: 0;
+        }
+
+        .filter-chip-inline {
+            flex: 1 1 calc(50% - 0.6rem);
+            min-width: 0;
+        }
+
+        .filter-price-fields {
+            width: 100%;
+            gap: 0.5rem;
+        }
+
+        .filter-price-fields .filter-select {
+            flex: 1;
+        }
+
+        .filter-submit-btn {
+            width: 100%;
+            margin-left: 0 !important;
+            height: 40px;
+        }
+
+        .results-sort {
+            width: 100%;
+        }
+
+        .results-sort-form {
+            width: 100%;
+        }
+
+        .results-sort select {
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .filter-chip-inline {
+            flex-basis: 100%;
+        }
     }
     /* Empty State Styling */
     .empty-state {
@@ -568,9 +642,11 @@
     </div>
     <div class="filter-chip {% if min_price or max_price %}active{% endif %}">
         <i class="bi bi-cash-coin me-1"></i>
-        <input type="number" name="min_price" value="{{ min_price }}" min="0" class="form-control form-control-sm filter-select" placeholder="Min" style="width:70px">
-        <span>-</span>
-        <input type="number" name="max_price" value="{{ max_price }}" min="0" class="form-control form-control-sm filter-select" placeholder="Max" style="width:70px">
+        <div class="filter-price-fields">
+            <input type="number" name="min_price" value="{{ min_price }}" min="0" class="form-control form-control-sm filter-select filter-input-compact" placeholder="Min">
+            <span>-</span>
+            <input type="number" name="max_price" value="{{ max_price }}" min="0" class="form-control form-control-sm filter-select filter-input-compact" placeholder="Max">
+        </div>
     </div>
     <div class="filter-chip {% if sort != 'newest' %}active{% endif %}">
         <i class="bi bi-arrow-down-up me-1"></i>
@@ -594,34 +670,34 @@
     </div>
 
     {% if selected_category == 'electronics' or selected_category == 'clothing' or not selected_category %}
-    <div class="filter-chip {% if brand %}active{% endif %}">
+    <div class="filter-chip filter-chip-inline {% if brand %}active{% endif %}">
         <i class="bi bi-tag me-1"></i>
-        <input type="text" name="brand" value="{{ brand }}" class="form-control form-control-sm filter-select" placeholder="Brand" style="width:100px">
+        <input type="text" name="brand" value="{{ brand }}" class="form-control form-control-sm filter-select filter-input-medium" placeholder="Brand">
     </div>
     {% endif %}
 
     {% if selected_category == 'clothing' or not selected_category %}
-    <div class="filter-chip {% if size %}active{% endif %}">
+    <div class="filter-chip filter-chip-inline {% if size %}active{% endif %}">
         <i class="bi bi-rulers me-1"></i>
-        <input type="text" name="size" value="{{ size }}" class="form-control form-control-sm filter-select" placeholder="Size" style="width:70px">
+        <input type="text" name="size" value="{{ size }}" class="form-control form-control-sm filter-select filter-input-compact" placeholder="Size">
     </div>
     {% endif %}
 
     {% if selected_category == 'textbooks' or not selected_category %}
-    <div class="filter-chip {% if author %}active{% endif %}">
+    <div class="filter-chip filter-chip-inline {% if author %}active{% endif %}">
         <i class="bi bi-person me-1"></i>
-        <input type="text" name="author" value="{{ author }}" class="form-control form-control-sm filter-select" placeholder="Author" style="width:100px">
+        <input type="text" name="author" value="{{ author }}" class="form-control form-control-sm filter-select filter-input-medium" placeholder="Author">
     </div>
     {% endif %}
 
-    <div class="filter-chip {% if attribute %}active{% endif %}">
+    <div class="filter-chip filter-chip-inline {% if attribute %}active{% endif %}">
         <i class="bi bi-search me-1"></i>
-        <input type="text" name="attribute" value="{{ attribute }}" class="form-control form-control-sm filter-select" placeholder="Any spec (e.g. 256GB)" style="width:130px">
+        <input type="text" name="attribute" value="{{ attribute }}" class="form-control form-control-sm filter-select filter-input-wide" placeholder="Any spec (e.g. 256GB)">
     </div>
 
     <input type="hidden" name="q" value="{{ query }}">
     <input type="hidden" name="sort" value="{{ sort }}">
-    <button type="submit" class="btn btn-search btn-sm ms-auto" style="height:35px; border-radius:999px"><i class="bi bi-funnel me-1"></i> Apply Filters</button>
+    <button type="submit" class="btn btn-search btn-sm ms-auto filter-submit-btn"><i class="bi bi-funnel me-1"></i> Apply Filters</button>
 </form>
 
 <!-- Full listings grid -->
@@ -629,7 +705,7 @@
     <h2 class="results-title">{% if query %}Results for "{{ query }}"{% else %}All listings{% endif %}</h2>
     <div class="results-sort">
         <label for="sort-select">Sort by:</label>
-        <form method="get" style="display: flex; align-items: center; gap: 0.5rem;">
+        <form method="get" class="results-sort-form">
             <input type="hidden" name="q" value="{{ query }}">
             <input type="hidden" name="category" value="{{ selected_category }}">
             <input type="hidden" name="school" value="{{ selected_school }}">
