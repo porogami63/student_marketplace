@@ -99,6 +99,38 @@ class AuthenticatedPathResilienceTests(TestCase):
             EmailTwoFactorCode.objects.filter(user=self.user, purpose='login').exists()
         )
 
+    @override_settings(EMAIL_2FA_EMERGENCY_BYPASS=True)
+    def test_middleware_emergency_bypass_allows_authenticated_request(self):
+        request = self._build_request('/')
+        middleware = EmailTwoFactorMiddleware(lambda req: HttpResponse('ok'))
+
+        response = middleware.process_request(request)
+
+        self.assertIsNone(response)
+        self.assertTrue(is_verified_for_user(request.session, request.user))
+
+    @override_settings(EMAIL_2FA_EMERGENCY_BYPASS=True)
+    @patch('marketplace.auth_views.issue_login_challenge', side_effect=AssertionError('should not issue challenge'))
+    def test_email_2fa_verify_emergency_bypass_skips_challenge_issue(self, _mock_issue):
+        request = self._build_request('/accounts/email-2fa/')
+        request.session['email_2fa_next_url'] = '/'
+
+        response = auth_views.email_2fa_verify(request)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/')
+        self.assertFalse(EmailTwoFactorCode.objects.filter(user=self.user, purpose='login').exists())
+
+    @override_settings(EMAIL_2FA_EMERGENCY_BYPASS=True)
+    def test_email_2fa_sensitive_verify_emergency_bypass_marks_recent_and_redirects(self):
+        request = self._build_request('/accounts/email-2fa/sensitive/')
+
+        response = auth_views.email_2fa_sensitive_verify(request)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/')
+        self.assertTrue(is_sensitive_recent(request.session, request.user))
+
     @patch('marketplace.auth_views.messages.error')
     @patch('marketplace.auth_views.logout')
     @patch('marketplace.auth_views.get_active_session_challenge', side_effect=RuntimeError('challenge lookup failed'))

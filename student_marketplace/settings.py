@@ -196,6 +196,8 @@ EMAIL_2FA_CODE_TTL_SECONDS = int(os.environ.get('EMAIL_2FA_CODE_TTL_SECONDS', '1
 EMAIL_2FA_MAX_ATTEMPTS = int(os.environ.get('EMAIL_2FA_MAX_ATTEMPTS', '5'))
 EMAIL_2FA_RESEND_COOLDOWN_SECONDS = int(os.environ.get('EMAIL_2FA_RESEND_COOLDOWN_SECONDS', '60'))
 EMAIL_2FA_SENSITIVE_WINDOW_SECONDS = int(os.environ.get('EMAIL_2FA_SENSITIVE_WINDOW_SECONDS', '600'))
+# Emergency-only switch: bypass email 2FA challenge flows to preserve availability.
+EMAIL_2FA_EMERGENCY_BYPASS = os.environ.get('EMAIL_2FA_EMERGENCY_BYPASS', 'False').lower() == 'true'
 
 # Social account settings
 SOCIALACCOUNT_AUTO_SIGNUP = True

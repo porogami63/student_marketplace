@@ -54,6 +54,14 @@ def get_sensitive_window_seconds():
     return _safe_positive_int(getattr(settings, 'EMAIL_2FA_SENSITIVE_WINDOW_SECONDS', 600), 600)
 
 
+def is_email_2fa_emergency_bypass_enabled():
+    """Return True when emergency bypass mode is enabled for email 2FA."""
+    raw_value = getattr(settings, 'EMAIL_2FA_EMERGENCY_BYPASS', False)
+    if isinstance(raw_value, str):
+        return raw_value.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return bool(raw_value)
+
+
 def _format_ttl_text(ttl_seconds):
     if ttl_seconds < 60:
         return f"{ttl_seconds} seconds"

@@ -14,6 +14,7 @@ from .email_2fa import (
     clear_pending_state,
     get_active_session_challenge,
     get_max_attempts,
+    is_email_2fa_emergency_bypass_enabled,
     is_sensitive_recent,
     is_verified_for_user,
     issue_login_challenge,
@@ -62,6 +63,16 @@ def _otp_page_context(challenge, form, verify_post_url, resend_post_url, kicker,
 
 @login_required
 def email_2fa_verify(request):
+    if is_email_2fa_emergency_bypass_enabled():
+        if not is_verified_for_user(request.session, request.user):
+            mark_verified(request.session, request.user)
+            auth_logger.warning(
+                'Email 2FA emergency bypass active for user=%s path=%s',
+                request.user.username,
+                request.path,
+            )
+        return _safe_next_redirect(request, purpose='login')
+
     if is_verified_for_user(request.session, request.user):
         return _safe_next_redirect(request, purpose='login')
 
@@ -125,6 +136,12 @@ def email_2fa_verify(request):
 @login_required
 @require_POST
 def email_2fa_resend(request):
+    if is_email_2fa_emergency_bypass_enabled():
+        if not is_verified_for_user(request.session, request.user):
+            mark_verified(request.session, request.user)
+        messages.info(request, 'Email verification code delivery is temporarily disabled. Your session has been continued.')
+        return _safe_next_redirect(request, purpose='login')
+
     if is_verified_for_user(request.session, request.user):
         return redirect(settings.LOGIN_REDIRECT_URL)
 
@@ -161,6 +178,16 @@ def email_2fa_resend(request):
 
 @login_required
 def email_2fa_sensitive_verify(request):
+    if is_email_2fa_emergency_bypass_enabled():
+        if not is_sensitive_recent(request.session, request.user):
+            mark_sensitive_verified(request.session, request.user)
+            auth_logger.warning(
+                'Sensitive email 2FA emergency bypass active for user=%s path=%s',
+                request.user.username,
+                request.path,
+            )
+        return _safe_next_redirect(request, purpose='sensitive_action')
+
     if is_sensitive_recent(request.session, request.user):
         return _safe_next_redirect(request, purpose='sensitive_action')
 
@@ -221,6 +248,12 @@ def email_2fa_sensitive_verify(request):
 @login_required
 @require_POST
 def email_2fa_sensitive_resend(request):
+    if is_email_2fa_emergency_bypass_enabled():
+        if not is_sensitive_recent(request.session, request.user):
+            mark_sensitive_verified(request.session, request.user)
+        messages.info(request, 'Security verification code delivery is temporarily disabled. Your request has been continued.')
+        return _safe_next_redirect(request, purpose='sensitive_action')
+
     if is_sensitive_recent(request.session, request.user):
         return _safe_next_redirect(request, purpose='sensitive_action')
 

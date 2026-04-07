@@ -13,8 +13,10 @@ from marketplace.email_2fa import (
     SESSION_2FA_PENDING_USER,
     clear_pending_state,
     get_active_session_challenge,
+    is_email_2fa_emergency_bypass_enabled,
     is_verified_for_user,
     issue_login_challenge,
+    mark_verified,
     set_pending_challenge,
 )
 import logging
@@ -78,6 +80,16 @@ class EmailTwoFactorMiddleware(MiddlewareMixin):
             return None
 
         if self._is_exempt_path(request.path):
+            return None
+
+        if is_email_2fa_emergency_bypass_enabled():
+            if not is_verified_for_user(request.session, request.user):
+                mark_verified(request.session, request.user)
+                security_logger.warning(
+                    'Email 2FA emergency bypass active; allowing user=%s path=%s',
+                    request.user.username,
+                    request.path,
+                )
             return None
 
         if is_verified_for_user(request.session, request.user):
