@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from allauth.account.models import EmailAddress
@@ -37,6 +38,7 @@ from .models import (
     SocialMedia,
     Payment,
     Receipt,
+    SchoolIDVerificationRequest,
 )
 from .forms import (
     CustomUserCreationForm,
@@ -51,6 +53,7 @@ from .forms import (
     ProfilePostForm,
     ProfilePostCommentForm,
     ReportForm,
+    SchoolIDVerificationRequestForm,
 )
 from .utils import get_similar_listings_price_stats
 from .security import rate_limit
@@ -88,6 +91,19 @@ SUGGESTED_MEETUP_POINTS = {
     'NU': ['NU Main Lobby', 'Jocson St. Entrance'],
     'Public': ['LRT-2 Legarda Station', 'SM San Lazaro (Main Entrance)', 'Isetann Recto', 'LRT-2 Recto Station'],
 }
+
+
+def _get_allowed_payment_methods(listing):
+    """Return normalized allowed payment methods for a listing."""
+    valid_codes = {choice[0] for choice in Listing.PREFERRED_PAYMENT_CHOICES}
+    default_codes = [code for code, _ in Listing.PREFERRED_PAYMENT_CHOICES]
+
+    if not listing:
+        return default_codes
+
+    configured = listing.preferred_payment_methods or []
+    allowed = [code for code in configured if code in valid_codes]
+    return allowed or default_codes
 
 
 @login_required
@@ -258,9 +274,9 @@ def _get_listing_context(request):
     if condition:
         listings = listings.filter(condition=condition)
 
-    campus = request.GET.get('campus')
-    if campus:
-        listings = listings.filter(campus=campus)
+    meetup_location = (request.GET.get('meetup_location') or request.GET.get('campus') or '').strip()
+    if meetup_location:
+        listings = listings.filter(campus=meetup_location)
 
     brand = request.GET.get('brand')
     if brand:
@@ -299,7 +315,7 @@ def _get_listing_context(request):
     # Check if any filters are active
     filters_active = any([
         q, category_slug, school_id, min_price, max_price, 
-        condition, brand, size, author, attribute
+        condition, meetup_location, brand, size, author, attribute
     ])
     
     newly_listed = list(listings[:12]) if not filters_active else []
@@ -333,13 +349,15 @@ def _get_listing_context(request):
         'schools': schools,
         'condition_choices': Listing.CONDITION_CHOICES,
         'campus_choices': Listing.CAMPUS_CHOICES,
+        'meetup_location_choices': Listing.CAMPUS_CHOICES,
         'query': q,
         'selected_category': category_slug,
         'selected_school': school_id,
         'min_price': min_price or '',
         'max_price': max_price or '',
         'condition': condition or '',
-        'campus': campus or '',
+        'campus': meetup_location,
+        'meetup_location': meetup_location,
         'brand': brand or '',
         'size': size or '',
         'author': author or '',
@@ -549,7 +567,7 @@ def get_category_fields(request):
     if listing_id and listing_id.isdigit():
         listing = get_object_or_404(Listing, id=listing_id)
         
-    form = ListingForm(instance=listing, initial={'category': category})
+    form = ListingForm(instance=listing, initial={'category': category}, user=request.user)
     # If category changed via AJAX, we need to manually trigger the field addition 
     # because the form's __init__ might have used the instance's category
     if category:
@@ -564,7 +582,7 @@ def listing_create(request):
     """Create a new listing."""
     profile = getattr(request.user, 'profile', None)
     if request.method == 'POST':
-        form = ListingForm(request.POST, request.FILES)
+        form = ListingForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             listing = form.save(commit=False)
             listing.seller = request.user
@@ -582,7 +600,7 @@ def listing_create(request):
                 'school': profile.school,
                 'contact_info': profile.phone or profile.contact_info,
             }
-        form = ListingForm(initial=initial)
+        form = ListingForm(initial=initial, user=request.user)
 
     return render(request, 'marketplace/listing_form.html', {
         'form': form,
@@ -599,13 +617,13 @@ def listing_edit(request, pk):
         return redirect(listing.get_absolute_url())
 
     if request.method == 'POST':
-        form = ListingForm(request.POST, request.FILES, instance=listing)
+        form = ListingForm(request.POST, request.FILES, instance=listing, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, 'Listing updated.')
             return redirect(listing.get_absolute_url())
     else:
-        form = ListingForm(instance=listing)
+        form = ListingForm(instance=listing, user=request.user)
 
     return render(request, 'marketplace/listing_form.html', {
         'form': form,
@@ -639,7 +657,8 @@ def listing_mark_sold(request, pk):
         return redirect(listing.get_absolute_url())
 
     listing.is_sold = True
-    listing.save()
+    listing.quantity_available = 0
+    listing.save(update_fields=['is_sold', 'quantity_available'])
     messages.success(request, 'Listing marked as sold.')
     return redirect('marketplace:my_listings')
 
@@ -668,7 +687,13 @@ def public_profile_view(request, username, is_owner=False):
     
     # If viewing own profile through profile_view, get edit form
     form = None
+    school_id_form = None
+    latest_school_id_request = None
     if is_profile_owner and is_owner:
+        latest_school_id_request = profile.school_id_requests.order_by('-submitted_at').first()
+        if not profile.id_verified and (not latest_school_id_request or latest_school_id_request.status != 'pending'):
+            school_id_form = SchoolIDVerificationRequestForm()
+
         if request.method == 'POST':
             form = ProfileForm(request.POST, request.FILES, instance=profile)
             if form.is_valid():
@@ -718,6 +743,8 @@ def public_profile_view(request, username, is_owner=False):
         'is_profile_owner': is_profile_owner,
         'is_owner_view': is_owner,
         'form': form,
+        'school_id_form': school_id_form,
+        'latest_school_id_request': latest_school_id_request,
         'buyer_transactions': buyer_transactions,
         'seller_transactions': seller_transactions,
         'social_media_accounts': social_media_accounts,
@@ -727,56 +754,109 @@ def public_profile_view(request, username, is_owner=False):
 
 
 @login_required
+def submit_school_id_verification(request):
+    """Submit a school ID for admin verification before trusted tiers."""
+    profile = request.user.profile
+
+    if request.method != 'POST':
+        return redirect('marketplace:profile')
+
+    if profile.id_verified:
+        messages.info(request, 'Your school ID is already verified.')
+        return redirect('marketplace:profile')
+
+    pending_request = SchoolIDVerificationRequest.objects.filter(
+        profile=profile,
+        status='pending'
+    ).first()
+    if pending_request:
+        messages.info(request, 'You already have a pending school ID verification request.')
+        return redirect('marketplace:profile')
+
+    form = SchoolIDVerificationRequestForm(request.POST, request.FILES)
+    if not form.is_valid():
+        error_list = form.errors.get('id_image', ['Please upload a valid school ID image.'])
+        messages.error(request, str(error_list[0]))
+        return redirect('marketplace:profile')
+
+    request_obj = form.save(commit=False)
+    request_obj.profile = profile
+    request_obj.status = 'pending'
+    request_obj.save()
+
+    profile.id_submitted = True
+    profile.id_verified = False
+    profile.save(update_fields=['id_submitted', 'id_verified'])
+    profile.update_verification_tier()
+
+    messages.success(request, 'School ID submitted. Our team will review it before granting your trusted tier.')
+    return redirect('marketplace:profile')
+
+
+@login_required
 def leave_review(request, username):
-    """Leave a vouch for a seller."""
+    """Leave a transaction-scoped vouch for the transaction counterparty."""
     seller = get_object_or_404(User, username=username)
-    
+
     if seller == request.user:
         messages.error(request, "You can't vouch for yourself.")
         return redirect('marketplace:public_profile', username=username)
-    
-    # Check if user has already left feedback
-    existing_review = Review.objects.filter(reviewer=request.user, seller=seller).first()
+
+    tx_id = request.POST.get('transaction_id') or request.GET.get('transaction_id')
+    eligible_transactions = Transaction.objects.filter(
+        Q(buyer=request.user, seller=seller) | Q(buyer=seller, seller=request.user),
+        status='completed',
+        payment__status='completed',
+    ).select_related('listing')
+
+    transaction = None
+    if tx_id:
+        transaction = eligible_transactions.filter(pk=tx_id).first()
+    else:
+        transaction = eligible_transactions.order_by('-completed_at', '-created_at').first()
+
+    if not transaction:
+        messages.error(request, 'You can only leave a vouch after a completed and paid transaction.')
+        return redirect('marketplace:public_profile', username=username)
+
+    counterparty = transaction.seller if request.user == transaction.buyer else transaction.buyer
+    if counterparty != seller:
+        messages.error(request, 'The selected transaction does not match this profile.')
+        return redirect('marketplace:public_profile', username=username)
+
+    existing_review = Review.objects.filter(
+        reviewer=request.user,
+        seller=seller,
+        transaction=transaction,
+    ).first()
     
     if request.method == 'POST':
         is_vouch_str = request.POST.get('is_vouch', 'true')
         is_vouch = is_vouch_str.lower() == 'true'
         comment = request.POST.get('comment', '')
-        
+
         if existing_review:
-            old_is_vouch = existing_review.is_vouch
             existing_review.is_vouch = is_vouch
             existing_review.comment = comment
             existing_review.save()
-            # Adjust vouch count if vouch status changed
-            if is_vouch and not old_is_vouch:
-                seller.profile.vouch_count += 1
-                seller.profile.update_verification_tier()
-                seller.profile.save()
-            elif not is_vouch and old_is_vouch:
-                seller.profile.vouch_count = max(0, seller.profile.vouch_count - 1)
-                seller.profile.update_verification_tier()
-                seller.profile.save()
             messages.success(request, 'Your vouch has been updated.')
         else:
-            review = Review.objects.create(
+            Review.objects.create(
                 reviewer=request.user,
                 seller=seller,
+                listing=transaction.listing,
+                transaction=transaction,
                 is_vouch=is_vouch,
                 comment=comment
             )
-            # Increment vouch count if it's a vouch
-            if is_vouch:
-                seller.profile.vouch_count += 1
-                seller.profile.update_verification_tier()
-                seller.profile.save()
             messages.success(request, 'Your vouch has been posted!')
-        
-        return redirect('marketplace:public_profile', username=username)
+
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
     
     context = {
         'seller': seller,
         'existing_review': existing_review,
+        'transaction': transaction,
     }
     return render(request, 'marketplace/leave_review.html', context)
 
@@ -1118,6 +1198,7 @@ def initiate_purchase(request, pk):
     
     # Check if this is from an accepted offer
     offer_amount = None
+    offer_quantity = None
     offer_id = request.GET.get('offer_id')
     
     # Determine if this is a WTB or WTS listing
@@ -1133,6 +1214,7 @@ def initiate_purchase(request, pk):
             # WTS: look for offer from buyer (request.user)
             offer_msg = get_object_or_404(Message, pk=offer_id, is_offer=True, offer_status='accepted', sender=request.user)
         offer_amount = offer_msg.offer_amount
+        offer_quantity = max(1, offer_msg.offer_quantity or 1)
 
     # WTS: Can't buy own listing
     # WTB: Can't offer own listing (request.user can't be the one who posted the WTB)
@@ -1145,7 +1227,7 @@ def initiate_purchase(request, pk):
         return redirect(listing.get_absolute_url())
     
     # Can't buy/provide sold listings
-    if listing.is_sold:
+    if listing.is_sold or listing.quantity_available <= 0:
         messages.error(request, "This listing is no longer available.")
         return redirect(listing.get_absolute_url())
     
@@ -1172,14 +1254,29 @@ def initiate_purchase(request, pk):
         return redirect('marketplace:transaction_detail', transaction_id=existing_txn.pk)
     
     if request.method == 'POST':
-        form = PurchaseForm(request.POST)
+        form = PurchaseForm(request.POST, listing=listing)
         if form.is_valid():
+            requested_quantity = form.cleaned_data['quantity']
+            if offer_quantity is not None:
+                requested_quantity = offer_quantity
+
+            if requested_quantity > listing.quantity_available:
+                messages.error(request, f"Only {listing.quantity_available} item(s) are currently available.")
+                return redirect('marketplace:initiate_purchase', pk=listing.pk)
+
+            unit_price = offer_amount if offer_amount is not None else listing.price
+            total_price = Decimal(unit_price) * Decimal(requested_quantity)
+
             transaction = Transaction.objects.create(
                 buyer=buyer,
                 seller=seller,
                 listing=listing,
-                price=offer_amount if offer_amount else listing.price,
+                quantity=requested_quantity,
+                unit_price=unit_price,
+                price=total_price,
                 exchange_method=form.cleaned_data['exchange_method'],
+                proposed_meetup_location=form.cleaned_data.get('proposed_meetup_location') or '',
+                proposed_meetup_datetime=form.cleaned_data.get('proposed_meetup_datetime'),
                 notes=form.cleaned_data['notes'],
                 status='pending'
             )
@@ -1188,11 +1285,11 @@ def initiate_purchase(request, pk):
             if is_wtb:
                 # WTB: notify the seller (request.user) that buyer wants to confirm
                 notified_user = seller
-                notification_message = f"{buyer.username} is ready to buy your {listing.title} for ₱{transaction.price:,.2f}"
+                notification_message = f"{buyer.username} is ready to buy {transaction.quantity} x {listing.title} for ₱{transaction.price:,.2f}"
             else:
                 # WTS: notify the seller (listing.seller) that buyer wants to buy
                 notified_user = seller
-                notification_message = f"{buyer.username} wants to buy {listing.title}"
+                notification_message = f"{buyer.username} wants to buy {transaction.quantity} x {listing.title}"
             
             Notification.objects.create(
                 user=notified_user,
@@ -1205,14 +1302,20 @@ def initiate_purchase(request, pk):
             messages.success(request, 'Purchase initiated! Waiting for confirmation.')
             return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
     else:
-        form = PurchaseForm()
+        initial_data = {}
+        if offer_quantity is not None:
+            initial_data['quantity'] = offer_quantity
+        if listing.campus:
+            initial_data['proposed_meetup_location'] = listing.campus
+        form = PurchaseForm(initial=initial_data, listing=listing)
     
     return render(request, 'marketplace/purchase_form.html', {
         'form': form,
         'listing': listing,
         'seller': seller if is_wtb else listing.seller,
-        'meetup_points': SUGGESTED_MEETUP_POINTS,
         'offer_amount': offer_amount,
+        'offer_quantity': offer_quantity,
+        'allowed_payment_methods': _get_allowed_payment_methods(listing),
         'is_wtb': is_wtb,
     })
 
@@ -1244,18 +1347,26 @@ def transaction_detail(request, transaction_id):
         if action == 'confirm' and is_seller and transaction.status == 'pending':
             confirm_form = TransactionConfirmForm(request.POST, instance=transaction)
             if confirm_form.is_valid():
-                from django.utils import timezone
-                from django.urls import reverse
+                # Reserve stock at confirmation time to support partial fills safely.
+                if transaction.listing:
+                    transaction.listing.refresh_from_db()
+                    if transaction.listing.quantity_available < transaction.quantity:
+                        messages.error(
+                            request,
+                            f"Not enough stock left. Available: {transaction.listing.quantity_available}, requested: {transaction.quantity}."
+                        )
+                        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+                    transaction.listing.quantity_available -= transaction.quantity
+                    transaction.listing.is_sold = transaction.listing.quantity_available == 0
+                    transaction.listing.save(update_fields=['quantity_available', 'is_sold'])
 
                 transaction = confirm_form.save(commit=False)
                 transaction.status = 'confirmed'
                 transaction.confirmed_at = timezone.now()
+                transaction.buyer_confirmed_meeting = False
+                transaction.seller_confirmed_meeting = False
                 transaction.save()
-
-                # Take listing down if it's confirmed (meetup phase)
-                if transaction.listing:
-                    transaction.listing.is_sold = True
-                    transaction.listing.save()
                 
                 # Notify buyer
                 Notification.objects.create(
@@ -1269,12 +1380,48 @@ def transaction_detail(request, transaction_id):
                 messages.success(request, 'Purchase confirmed! Buyer and seller can now exchange contact details.')
                 return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
 
+        elif action == 'confirm_meeting' and transaction.status == 'confirmed':
+            if request.user == transaction.buyer:
+                transaction.buyer_confirmed_meeting = True
+                who = 'Buyer'
+                other_user = transaction.seller
+            else:
+                transaction.seller_confirmed_meeting = True
+                who = 'Seller'
+                other_user = transaction.buyer
+
+            transaction.save(update_fields=['buyer_confirmed_meeting', 'seller_confirmed_meeting'])
+
+            if transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting:
+                Notification.objects.create(
+                    user=transaction.buyer,
+                    message='Both sides confirmed meetup/agreement. Payment checkout is now unlocked.',
+                    notification_type='transaction',
+                    url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+                )
+                Notification.objects.create(
+                    user=transaction.seller,
+                    message='Both sides confirmed meetup/agreement. Buyer can now proceed to payment.',
+                    notification_type='transaction',
+                    url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+                )
+                messages.success(request, 'Both sides have confirmed meetup/agreement. Payment can now proceed.')
+            else:
+                Notification.objects.create(
+                    user=other_user,
+                    related_user=request.user,
+                    message=f'{request.user.username} ({who}) confirmed meetup/agreement. Please confirm on your end to unlock payment.',
+                    notification_type='transaction',
+                    url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+                )
+                messages.info(request, 'Your meetup/agreement confirmation was saved. Waiting for the other party.')
+
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
         # Any party sending a message within the transaction
         elif action == 'message':
             message_form = MessageForm(request.POST)
             if message_form.is_valid():
-                from django.urls import reverse
-
                 msg = TransactionMessage.objects.create(
                     transaction=transaction,
                     sender=request.user,
@@ -1298,6 +1445,9 @@ def transaction_detail(request, transaction_id):
     seller_profile = getattr(transaction.seller, 'profile', None) or Profile.objects.filter(user=transaction.seller).first()
     payment = getattr(transaction, 'payment', None)
     payment_completed = payment is not None and payment.status == 'completed'
+    payment_pending = payment is not None and payment.status == 'pending'
+    meeting_confirmed = transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting
+    allowed_payment_methods = _get_allowed_payment_methods(transaction.listing)
     
     # Determine if this is a WTB transaction
     is_wtb = transaction.listing and transaction.listing.listing_type == 'wtb'
@@ -1313,6 +1463,9 @@ def transaction_detail(request, transaction_id):
         'message_form': message_form,
         'payment': payment,
         'payment_completed': payment_completed,
+        'payment_pending': payment_pending,
+        'meeting_confirmed': meeting_confirmed,
+        'allowed_payment_methods': allowed_payment_methods,
         'is_wtb': is_wtb,
     })
 
@@ -1334,15 +1487,26 @@ def confirm_transaction(request, transaction_id):
         form = TransactionConfirmForm(request.POST, instance=transaction)
         if form.is_valid():
             from django.utils import timezone
+
+            if transaction.listing:
+                transaction.listing.refresh_from_db()
+                if transaction.listing.quantity_available < transaction.quantity:
+                    messages.error(
+                        request,
+                        f"Not enough stock left. Available: {transaction.listing.quantity_available}, requested: {transaction.quantity}."
+                    )
+                    return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+                transaction.listing.quantity_available -= transaction.quantity
+                transaction.listing.is_sold = transaction.listing.quantity_available == 0
+                transaction.listing.save(update_fields=['quantity_available', 'is_sold'])
+
             transaction = form.save(commit=False)
             transaction.status = 'confirmed'
             transaction.confirmed_at = timezone.now()
+            transaction.buyer_confirmed_meeting = False
+            transaction.seller_confirmed_meeting = False
             transaction.save()
-            
-            # Mark listing as sold
-            if transaction.listing:
-                transaction.listing.is_sold = True
-                transaction.listing.save()
 
             # Notify buyer
             from django.urls import reverse
@@ -1379,6 +1543,15 @@ def complete_transaction(request, transaction_id):
         messages.error(request, "Transaction must be confirmed by the seller first.")
         return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
 
+    if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
+        messages.error(request, "Both parties must confirm meetup/agreement before completing this transaction.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+    payment = getattr(transaction, 'payment', None)
+    if payment is None or payment.status != 'completed':
+        messages.error(request, "Payment must be confirmed first before completing this transaction.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
     # Require POST to prevent CSRF via GET links
     if request.method != 'POST':
         return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
@@ -1401,33 +1574,34 @@ def complete_transaction(request, transaction_id):
         transaction.completed_at = timezone.now()
         
         if transaction.listing:
-            transaction.listing.is_sold = True
-            transaction.listing.save()
+            transaction.listing.is_sold = transaction.listing.quantity_available == 0
+            transaction.listing.save(update_fields=['is_sold'])
             
         seller_profile = getattr(transaction.seller, 'profile', None) or Profile.objects.filter(user=transaction.seller).first()
         buyer_profile = getattr(transaction.buyer, 'profile', None) or Profile.objects.filter(user=transaction.buyer).first()
         
         if seller_profile:
-            seller_profile.total_sold += 1
+            seller_profile.total_sold += transaction.quantity
             seller_profile.update_verification_tier()
             seller_profile.save()
 
         if buyer_profile:
+            buyer_profile.total_bought += transaction.quantity
             buyer_profile.update_verification_tier()
             buyer_profile.save()
 
         # Notify both
         Notification.objects.create(
             user=transaction.seller,
-            message="Mutual confirmation received! Sale fully completed.",
+            message="Mutual confirmation received! Sale fully completed. Leave a vouch for your buyer.",
             notification_type='transaction',
-            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk})
+            url=f"{reverse('marketplace:leave_review', kwargs={'username': transaction.buyer.username})}?transaction_id={transaction.pk}"
         )
         Notification.objects.create(
             user=transaction.buyer,
-            message="Mutual confirmation received! You can now leave a review.",
+            message="Mutual confirmation received! You can now leave a vouch for the seller.",
             notification_type='transaction',
-            url=reverse('marketplace:leave_review', kwargs={'username': transaction.seller.username})
+            url=f"{reverse('marketplace:leave_review', kwargs={'username': transaction.seller.username})}?transaction_id={transaction.pk}"
         )
         messages.success(request, '✓ Transaction fully completed!')
     else:
@@ -1460,11 +1634,14 @@ def cancel_transaction(request, transaction_id):
         return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
     
     if request.method == 'POST':
-        from django.utils import timezone
         # Restore listing to available if it was marked sold during confirmation
         if transaction.status == 'confirmed' and transaction.listing:
-            transaction.listing.is_sold = False
-            transaction.listing.save()
+            transaction.listing.quantity_available = min(
+                transaction.listing.quantity_total,
+                transaction.listing.quantity_available + transaction.quantity,
+            )
+            transaction.listing.is_sold = transaction.listing.quantity_available == 0
+            transaction.listing.save(update_fields=['quantity_available', 'is_sold'])
 
         transaction.status = 'cancelled'
         transaction.save()
@@ -1729,32 +1906,42 @@ def make_offer(request, pk):
     
     if request.method == 'POST':
         amount = request.POST.get('amount')
+        quantity_raw = request.POST.get('quantity', '1')
         if amount:
             try:
                 amount = float(amount)
+                quantity = int(quantity_raw)
+                if quantity < 1:
+                    raise ValueError('Quantity must be at least 1')
                 other_user = conversation.participants.exclude(id=request.user.id).first()
+
+                if conversation.listing and quantity > conversation.listing.quantity_available:
+                    messages.error(request, f"Only {conversation.listing.quantity_available} item(s) are available.")
+                    return redirect('marketplace:conversation', pk=conversation.pk)
                 
-                body = f"OFFER: ₱{amount:,.2f}"
+                total = amount * quantity
+                body = f"OFFER: {quantity} x ₱{amount:,.2f} = ₱{total:,.2f}"
                 msg = Message.objects.create(
                     conversation=conversation,
                     sender=request.user,
                     body=body,
                     is_offer=True,
                     offer_amount=amount,
+                    offer_quantity=quantity,
                     offer_status='pending'
                 )
                 
                 Notification.objects.create(
                     user=other_user,
                     related_user=request.user,
-                    message=f"New offer for {conversation.listing.title if conversation.listing else 'an item'}: ₱{amount:,.2f}",
+                    message=f"New offer for {conversation.listing.title if conversation.listing else 'an item'}: {quantity} x ₱{amount:,.2f}",
                     notification_type='offer',
                     url=reverse('marketplace:conversation', kwargs={'pk': conversation.pk})
                 )
                 
-                messages.success(request, f"Offer of ₱{amount:,.2f} sent!")
+                messages.success(request, f"Offer sent: {quantity} x ₱{amount:,.2f} (₱{total:,.2f} total)")
             except ValueError:
-                messages.error(request, "Invalid offer amount.")
+                messages.error(request, "Invalid offer amount or quantity.")
                 
     return redirect('marketplace:conversation', pk=conversation.pk)
 
@@ -1770,7 +1957,8 @@ def respond_to_offer(request, pk):
     action = request.GET.get('action')
     if action == 'accept':
         message.offer_status = 'accepted'
-        message.body = f"ACCEPTED OFFER: ₱{message.offer_amount:,.2f}"
+        total = (message.offer_amount or 0) * (message.offer_quantity or 1)
+        message.body = f"ACCEPTED OFFER: {message.offer_quantity or 1} x ₱{message.offer_amount:,.2f} = ₱{total:,.2f}"
         
         # Optionally update the listing price? User didn't say, but it makes sense.
         # For now just notify buyer.
@@ -1784,7 +1972,8 @@ def respond_to_offer(request, pk):
         messages.success(request, "Offer accepted!")
     elif action == 'decline':
         message.offer_status = 'declined'
-        message.body = f"DECLINED OFFER: ₱{message.offer_amount:,.2f}"
+        total = (message.offer_amount or 0) * (message.offer_quantity or 1)
+        message.body = f"DECLINED OFFER: {message.offer_quantity or 1} x ₱{message.offer_amount:,.2f} = ₱{total:,.2f}"
         Notification.objects.create(
             user=message.sender,
             related_user=message.conversation.listing.seller if message.conversation.listing else None,
@@ -1870,6 +2059,64 @@ def mod_dashboard(request):
         messages.error(request, 'Access denied.')
         return redirect('marketplace:home')
 
+    def _admin_url(name: str) -> str:
+        for current_app in ('security_admin', None):
+            try:
+                return reverse(name, current_app=current_app)
+            except Exception:
+                continue
+        return ''
+
+    if request.method == 'POST':
+        action = (request.POST.get('verification_action') or '').strip().lower()
+        request_id = (request.POST.get('verification_request_id') or '').strip()
+        reviewer_notes = (request.POST.get('reviewer_notes') or '').strip()
+
+        if action not in {'approve', 'reject'}:
+            messages.error(request, 'Invalid school ID verification action.')
+            return redirect('marketplace:mod_dashboard')
+
+        if not request_id.isdigit():
+            messages.error(request, 'Invalid verification request ID.')
+            return redirect('marketplace:mod_dashboard')
+
+        verification_request = SchoolIDVerificationRequest.objects.select_related(
+            'profile__user',
+        ).filter(pk=int(request_id)).first()
+
+        if not verification_request:
+            messages.error(request, 'School ID verification request not found.')
+            return redirect('marketplace:mod_dashboard')
+
+        if verification_request.status != 'pending':
+            messages.info(request, 'This verification request was already reviewed.')
+            return redirect('marketplace:mod_dashboard')
+
+        if action == 'reject' and not reviewer_notes:
+            messages.error(request, 'Reviewer notes are required when rejecting a school ID request.')
+            return redirect('marketplace:mod_dashboard')
+
+        if action == 'approve':
+            verification_request.approve(reviewer=request.user, notes=reviewer_notes)
+            ModerationLog.objects.create(
+                actor=request.user,
+                action='approve_school_id',
+                target_model='school_id_verification_request',
+                target_id=verification_request.pk,
+            )
+            messages.success(request, f"Approved school ID for {verification_request.profile.user.username}.")
+        else:
+            verification_request.reject(reviewer=request.user, notes=reviewer_notes)
+            ModerationLog.objects.create(
+                actor=request.user,
+                action='reject_school_id',
+                target_model='school_id_verification_request',
+                target_id=verification_request.pk,
+            )
+            messages.success(request, f"Rejected school ID for {verification_request.profile.user.username}.")
+
+        return redirect('marketplace:mod_dashboard')
+
     now = timezone.now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     week_start = today_start - timedelta(days=7)
@@ -1900,17 +2147,18 @@ def mod_dashboard(request):
     # Reports / tickets
     reports_open_count = UserReport.objects.filter(status__in=['new', 'reviewing']).count()
     tickets_open_count = SupportTicket.objects.filter(status__in=['open', 'assigned', 'in_progress']).count()
-
-    def _admin_url(name: str) -> str:
-        for current_app in ('security_admin', None):
-            try:
-                return reverse(name, current_app=current_app)
-            except Exception:
-                continue
-        return ''
+    pending_school_id_requests = list(SchoolIDVerificationRequest.objects.select_related(
+        'profile__user',
+        'profile__school',
+    ).filter(status='pending').order_by('submitted_at')[:12])
+    recent_school_id_reviews = list(SchoolIDVerificationRequest.objects.select_related(
+        'profile__user',
+        'reviewed_by',
+    ).exclude(status='pending').order_by('-reviewed_at')[:6])
 
     reports_admin_url = _admin_url('admin:marketplace_userreport_changelist') or '/admin/marketplace/userreport/'
     tickets_admin_url = _admin_url('admin:marketplace_supportticket_changelist') or '/admin/marketplace/supportticket/'
+    school_id_admin_url = _admin_url('admin:marketplace_schoolidverificationrequest_changelist') or '/admin/marketplace/schoolidverificationrequest/'
 
     return render(request, 'marketplace/mod/dashboard.html', {
         'total_revenue': total_revenue,
@@ -1926,8 +2174,12 @@ def mod_dashboard(request):
         'recent_logs': recent_logs,
         'reports_open_count': reports_open_count,
         'tickets_open_count': tickets_open_count,
+        'pending_school_id_requests': pending_school_id_requests,
+        'pending_school_id_count': len(pending_school_id_requests),
+        'recent_school_id_reviews': recent_school_id_reviews,
         'reports_admin_url': reports_admin_url,
         'tickets_admin_url': tickets_admin_url,
+        'school_id_admin_url': school_id_admin_url,
     })
 
 
@@ -2343,10 +2595,6 @@ def _finalize_credit_card_payment(request, transaction, payment_intent_id):
             receipt.confirmed_at = timezone.now()
             receipt.save()
 
-            transaction.status = 'confirmed'
-            transaction.confirmed_at = timezone.now()
-            transaction.save()
-
             Notification.objects.create(
                 user=transaction.seller,
                 related_user=transaction.buyer,
@@ -2375,14 +2623,14 @@ def _finalize_gcash_payment(request, transaction, buyer_details):
         defaults={
             'stripe_charge_id': f'gcash_{transaction.id}_{timezone.now().timestamp()}',
             'amount': transaction.price,
-            'status': 'completed',
+            'status': 'pending',
             'payment_method': 'gcash',
         }
     )
 
     receipt = _create_receipt(transaction, payment)
-    receipt.status = 'confirmed'
-    receipt.confirmed_at = timezone.now()
+    receipt.status = 'pending'
+    receipt.confirmed_at = None
     if buyer_details:
         parts = []
         if buyer_details.get('gcash_name'):
@@ -2397,12 +2645,12 @@ def _finalize_gcash_payment(request, transaction, buyer_details):
     Notification.objects.create(
         user=transaction.seller,
         related_user=transaction.buyer,
-        message=f'{transaction.buyer.username} paid ₱{transaction.price} via GCash for {transaction.listing.title if transaction.listing else "your item"}',
+        message=f'{transaction.buyer.username} submitted GCash payment details for ₱{transaction.price}. Please confirm receipt.',
         notification_type='transaction',
         url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
     )
 
-    messages.success(request, "Payment recorded! Your receipt has been saved to your inbox.")
+    messages.success(request, "GCash submission recorded. Your receipt has been saved and is awaiting seller confirmation.")
     return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
 
 
@@ -2443,6 +2691,48 @@ def _finalize_bank_transfer_payment(request, transaction, buyer_details):
     messages.success(request, "Bank transfer request registered. Your receipt has been saved. The seller will confirm receipt.")
     return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
 
+
+@login_required
+def confirm_payment_received(request, transaction_id):
+    """Seller confirms receipt of a pending payment submission."""
+    transaction = get_object_or_404(Transaction, id=transaction_id)
+
+    if request.user != transaction.seller:
+        messages.error(request, 'Only the seller can confirm payment receipt.')
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+    if request.method != 'POST':
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+    payment = getattr(transaction, 'payment', None)
+    if payment is None:
+        messages.error(request, 'No payment record found for this transaction.')
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+    if payment.status != 'pending':
+        messages.info(request, 'Payment is already confirmed.')
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+    payment.status = 'completed'
+    payment.save(update_fields=['status', 'updated_at'])
+
+    receipt = getattr(payment, 'receipt', None)
+    if receipt and receipt.status == 'pending':
+        receipt.status = 'confirmed'
+        receipt.confirmed_at = timezone.now()
+        receipt.save(update_fields=['status', 'confirmed_at'])
+
+    Notification.objects.create(
+        user=transaction.buyer,
+        related_user=transaction.seller,
+        message=f'{transaction.seller.username} confirmed your payment for {transaction.listing.title if transaction.listing else "your transaction"}.',
+        notification_type='transaction',
+        url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
+    )
+
+    messages.success(request, 'Payment marked as received.')
+    return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
 @login_required
 def payment_checkout(request, transaction_id):
     """Handle payment checkout for a transaction."""
@@ -2463,54 +2753,77 @@ def payment_checkout(request, transaction_id):
         messages.info(request, "Payment is not available yet — waiting for the seller to confirm.")
         return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
 
-    # Check if payment is already completed
-    if hasattr(transaction, 'payment') and transaction.payment.status == 'completed':
-        messages.info(request, "This transaction has already been paid.")
+    if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
+        messages.info(request, "Payment is locked until both buyer and seller confirm meetup/agreement.")
         return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+
+    allowed_methods = _get_allowed_payment_methods(transaction.listing)
+
+    # Check if payment already exists
+    if hasattr(transaction, 'payment'):
+        if transaction.payment.status == 'completed':
+            messages.info(request, "This transaction has already been paid.")
+            return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+        if transaction.payment.status == 'pending':
+            messages.info(request, "Payment submission already exists and is waiting for seller confirmation.")
+            return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
 
     if request.method == 'GET':
         # Prepare context for GET request
         exchange_method = request.GET.get('method', transaction.exchange_method)
+        if exchange_method not in allowed_methods:
+            exchange_method = allowed_methods[0]
         
         context = {
             'transaction': transaction,
             'exchange_method': exchange_method,
+            'allowed_methods': allowed_methods,
             'stripe_public_key': settings.STRIPE_PUBLIC_KEY,
         }
 
         # ALWAYS create PaymentIntent for credit card transactions
-        # This ensures clientSecret is available even if user changes payment method on frontend
-        try:
-            amount_cents = int(float(transaction.price) * 100)
-            intent = stripe.PaymentIntent.create(
-                amount=amount_cents,
-                currency='php',
-                description=f'Marketplace Purchase: {transaction.listing.title if transaction.listing else "Item"}',
-                metadata={
-                    'transaction_id': str(transaction.id),
-                    'buyer': transaction.buyer.username,
-                    'seller': transaction.seller.username,
-                },
-                automatic_payment_methods={'enabled': True},
-            )
-            context['client_secret'] = intent.client_secret
-        except stripe.error.CardError as e:
-            context['error'] = f"Card error: {e.user_message}"
-        except stripe.error.RateLimitError:
-            context['error'] = "Too many requests. Please try again in a moment."
-        except stripe.error.InvalidRequestError:
-            context['error'] = "Invalid payment details. Please check your information."
-        except stripe.error.AuthenticationError:
-            context['error'] = "Authentication failed. Please try again."
-        except stripe.error.APIConnectionError:
-            context['error'] = "Network error. Please check your connection and try again."
-        except stripe.error.StripeError:
-            context['error'] = "An error occurred with Stripe. Please try again."
+        # This ensures clientSecret is available when credit card is allowed.
+        if 'credit_card' in allowed_methods:
+            try:
+                amount_cents = int(float(transaction.price) * 100)
+                intent = stripe.PaymentIntent.create(
+                    amount=amount_cents,
+                    currency='php',
+                    description=f'Marketplace Purchase: {transaction.listing.title if transaction.listing else "Item"}',
+                    metadata={
+                        'transaction_id': str(transaction.id),
+                        'buyer': transaction.buyer.username,
+                        'seller': transaction.seller.username,
+                    },
+                    automatic_payment_methods={'enabled': True},
+                )
+                context['client_secret'] = intent.client_secret
+            except stripe.error.CardError as e:
+                context['error'] = f"Card error: {e.user_message}"
+            except stripe.error.RateLimitError:
+                context['error'] = "Too many requests. Please try again in a moment."
+            except stripe.error.InvalidRequestError:
+                context['error'] = "Invalid payment details. Please check your information."
+            except stripe.error.AuthenticationError:
+                context['error'] = "Authentication failed. Please try again."
+            except stripe.error.APIConnectionError:
+                context['error'] = "Network error. Please check your connection and try again."
+            except stripe.error.StripeError:
+                context['error'] = "An error occurred with Stripe. Please try again."
 
         return render(request, 'marketplace/payment_checkout.html', context)
 
     elif request.method == 'POST':
         exchange_method = request.POST.get('exchange_method', transaction.exchange_method)
+
+        if exchange_method not in allowed_methods:
+            messages.error(request, "This payment method is not allowed by the lister.")
+            return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+
+        confirmations = request.POST.getlist('confirm_item')
+        if len(confirmations) < 5:
+            messages.error(request, "Please acknowledge all safety reminders before continuing.")
+            return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
 
         # Route to appropriate payment method page
         if exchange_method == 'credit_card':
@@ -2581,7 +2894,10 @@ def payment_checkout(request, transaction_id):
             messages.error(request, "Invalid payment method selected.")
             return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
 
-    return render(request, 'marketplace/payment_checkout.html', {'transaction': transaction})
+    return render(request, 'marketplace/payment_checkout.html', {
+        'transaction': transaction,
+        'allowed_methods': allowed_methods,
+    })
 
 
 @login_required
@@ -2598,12 +2914,21 @@ def payment_finalize_pending(request, transaction_id):
         messages.error(request, "No pending payment action to finalize.")
         return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
 
+    if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
+        messages.error(request, "Payment finalization is locked until both parties confirm meetup/agreement.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+
+    allowed_methods = _get_allowed_payment_methods(transaction.listing)
+
     if not is_sensitive_recent(request.session, request.user):
         return _start_sensitive_payment_step_up(request, transaction_id, pending_action)
 
     action_kind = pending_action.get('kind')
 
     if action_kind == 'credit_card':
+        if 'credit_card' not in allowed_methods:
+            messages.error(request, "Card payments are not allowed for this listing.")
+            return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
         payment_intent_id = (pending_action.get('payment_intent_id') or '').strip()
         if not payment_intent_id.startswith('pi_'):
             messages.error(request, "Pending card payment reference is invalid.")
@@ -2611,17 +2936,29 @@ def payment_finalize_pending(request, transaction_id):
         return _finalize_credit_card_payment(request, transaction, payment_intent_id)
 
     if action_kind == 'gcash':
+        if 'gcash' not in allowed_methods:
+            messages.error(request, "GCash is not allowed for this listing.")
+            return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
         buyer_details = request.session.pop('payment_details_gcash', None) or {}
         return _finalize_gcash_payment(request, transaction, buyer_details)
 
     if action_kind == 'bank_transfer':
+        if 'bank_transfer' not in allowed_methods:
+            messages.error(request, "Bank transfer is not allowed for this listing.")
+            return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
         buyer_details = request.session.pop('payment_details_bank', None) or {}
         return _finalize_bank_transfer_payment(request, transaction, buyer_details)
 
     if action_kind == 'checkout_to_gcash':
+        if 'gcash' not in allowed_methods:
+            messages.error(request, "GCash is not allowed for this listing.")
+            return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
         return redirect('marketplace:payment_gcash', transaction_id=transaction_id)
 
     if action_kind == 'checkout_to_bank_transfer':
+        if 'bank_transfer' not in allowed_methods:
+            messages.error(request, "Bank transfer is not allowed for this listing.")
+            return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
         return redirect('marketplace:payment_bank_transfer', transaction_id=transaction_id)
 
     messages.error(request, "Unknown pending payment action.")
@@ -2687,11 +3024,11 @@ def _create_receipt(transaction, payment=None):
     receipt_number = _generate_receipt_number()
     
     # Calculate processing fee based on payment method
-    processing_fee = 0
+    processing_fee = Decimal('0.00')
     if payment and payment.payment_method == 'credit_card':
-        processing_fee = float(transaction.price) * 0.02
+        processing_fee = Decimal(transaction.price) * Decimal('0.02')
     
-    total_amount = float(transaction.price) + processing_fee
+    total_amount = Decimal(transaction.price) + processing_fee
     
     receipt, created = Receipt.objects.get_or_create(
         transaction=transaction,
@@ -2701,7 +3038,7 @@ def _create_receipt(transaction, payment=None):
             'buyer': transaction.buyer,
             'seller': transaction.seller,
             'listing_title': transaction.listing.title if transaction.listing else 'Item',
-            'listing_price': transaction.price,
+            'listing_price': transaction.unit_price or transaction.price,
             'payment_method': payment.payment_method if payment else transaction.exchange_method,
             'processing_fee': processing_fee,
             'total_amount': total_amount,
@@ -2725,6 +3062,10 @@ def payment_gcash(request, transaction_id):
     if transaction.status != 'confirmed':
         messages.error(request, "This transaction is not ready for payment.")
         return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+
+    if 'gcash' not in _get_allowed_payment_methods(transaction.listing):
+        messages.error(request, "GCash is not an allowed payment method for this listing.")
+        return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
     
     if request.method == 'POST':
         if not is_sensitive_recent(request.session, request.user):
@@ -2760,6 +3101,10 @@ def payment_bank_transfer(request, transaction_id):
     if transaction.status != 'confirmed':
         messages.error(request, "This transaction is not ready for payment.")
         return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+
+    if 'bank_transfer' not in _get_allowed_payment_methods(transaction.listing):
+        messages.error(request, "Bank transfer is not an allowed payment method for this listing.")
+        return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
     
     if request.method == 'POST':
         if not is_sensitive_recent(request.session, request.user):
@@ -2797,6 +3142,10 @@ def payment_cash_arrangement(request, transaction_id):
     if transaction.status != 'confirmed':
         messages.error(request, "This transaction is not ready for payment.")
         return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+
+    if 'in_person' not in _get_allowed_payment_methods(transaction.listing):
+        messages.error(request, "In-person cash is not an allowed payment method for this listing.")
+        return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
     
     if request.method == 'POST':
         # Create payment record
@@ -2805,27 +3154,27 @@ def payment_cash_arrangement(request, transaction_id):
             defaults={
                 'stripe_charge_id': f'cash_{transaction.id}_{timezone.now().timestamp()}',
                 'amount': transaction.price,
-                'status': 'completed',
+                'status': 'pending',
                 'payment_method': 'in_person',
             }
         )
         
         # Create receipt
         receipt = _create_receipt(transaction, payment)
-        receipt.status = 'confirmed'
-        receipt.confirmed_at = timezone.now()
+        receipt.status = 'pending'
+        receipt.confirmed_at = None
         receipt.save()
         
         # Notify seller
         Notification.objects.create(
             user=transaction.seller,
             related_user=transaction.buyer,
-            message=f'{transaction.buyer.username} is ready to meet and pay ₱{transaction.price} in cash for {transaction.listing.title if transaction.listing else "your item"}',
+            message=f'{transaction.buyer.username} confirmed an in-person cash arrangement for ₱{transaction.price}. Confirm once payment is received.',
             notification_type='transaction',
             url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
         )
         
-        messages.success(request, "Cash meeting arrangement confirmed. Your receipt has been saved to your inbox.")
+        messages.success(request, "Cash arrangement recorded. Your receipt is pending seller payment confirmation.")
         return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
     
     context = {
@@ -2851,6 +3200,10 @@ def payment_other_arrangement(request, transaction_id):
     if transaction.status != 'confirmed':
         messages.error(request, "This transaction is not ready for payment.")
         return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+
+    if 'other' not in _get_allowed_payment_methods(transaction.listing):
+        messages.error(request, "Custom arrangements are not allowed for this listing.")
+        return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
     
     if request.method == 'POST':
         arrangement_details = request.POST.get('arrangement_details', '').strip()

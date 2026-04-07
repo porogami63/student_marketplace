@@ -35,6 +35,7 @@ urlpatterns = [
     path('transactions/<int:transaction_id>/cancel/', views.cancel_transaction, name='cancel_transaction'),
     # Payment URLs
     path('transactions/<int:transaction_id>/payment/', views.payment_checkout, name='payment_checkout'),
+    path('transactions/<int:transaction_id>/payment/confirm-received/', views.confirm_payment_received, name='confirm_payment_received'),
     path('transactions/<int:transaction_id>/payment/finalize/', views.payment_finalize_pending, name='payment_finalize_pending'),
     path('transactions/<int:transaction_id>/payment/gcash/', views.payment_gcash, name='payment_gcash'),
     path('transactions/<int:transaction_id>/payment/bank/', views.payment_bank_transfer, name='payment_bank_transfer'),
@@ -51,6 +52,7 @@ urlpatterns = [
     path('register/', views.register, name='register'),
     path('profile/complete/', views.complete_profile, name='complete_profile'),
     path('profile/', views.profile_view, name='profile'),
+    path('profile/verification/school-id/submit/', views.submit_school_id_verification, name='submit_school_id_verification'),
     path('user/<str:username>/', views.public_profile_view, name='public_profile'),
     path('user/<str:username>/review/', views.leave_review, name='leave_review'),
     path('profile/post/create/', views.create_profile_post, name='create_profile_post'),

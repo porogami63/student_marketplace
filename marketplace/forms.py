@@ -1,7 +1,23 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
-from .models import Listing, Profile, ForumPost, ForumReply, Transaction, Category, ProfilePost, ProfilePostComment, School, UserReport
+from django.utils import timezone
+from datetime import timedelta
+from .models import (
+    Listing,
+    Profile,
+    ForumPost,
+    ForumReply,
+    Transaction,
+    Category,
+    ProfilePost,
+    ProfilePostComment,
+    School,
+    UserReport,
+    SchoolIDVerificationRequest,
+    PUBLIC_UBELT_HUB_CHOICES,
+    get_school_specific_meetup_choices,
+)
 import re
 
 # Category-specific product attribute definitions
@@ -45,6 +61,33 @@ PRODUCT_ATTRIBUTES = {
         {'field': 'delivery_available', 'label': 'Delivery Available', 'type': 'checkbox', 'required': False},
     ],
 }
+
+
+def _extract_choice_values(choices):
+    values = set()
+    for value, label in choices:
+        if isinstance(label, (list, tuple)):
+            for grouped_value, _ in label:
+                values.add(grouped_value)
+        else:
+            values.add(value)
+    return values
+
+
+def _build_grouped_meetup_choices(school):
+    grouped_choices = []
+
+    if school is not None:
+        school_specific = get_school_specific_meetup_choices(
+            short_name=getattr(school, 'short_name', ''),
+            name=getattr(school, 'name', ''),
+        )
+        if school_specific:
+            school_label = getattr(school, 'short_name', '') or getattr(school, 'name', 'Lister School')
+            grouped_choices.append((f'Near {school_label}', list(school_specific)))
+
+    grouped_choices.append(('Public hubs around U-Belt Manila', list(PUBLIC_UBELT_HUB_CHOICES)))
+    return grouped_choices
 
 
 class SchoolSelect(forms.Select):
@@ -216,10 +259,18 @@ class ProfileRegistrationForm(forms.ModelForm):
 
 
 class ListingForm(forms.ModelForm):
+    preferred_payment_methods = forms.MultipleChoiceField(
+        choices=Listing.PREFERRED_PAYMENT_CHOICES,
+        required=True,
+        widget=forms.CheckboxSelectMultiple,
+        label='Allowed Payment Methods',
+        help_text='Buyers will only see these payment options during checkout.'
+    )
+
     class Meta:
         model = Listing
         fields = [
-            'listing_type', 'title', 'description', 'price', 'category', 'condition',
+            'listing_type', 'title', 'description', 'price', 'quantity_total', 'preferred_payment_methods', 'category', 'condition',
             'campus', 'image', 'school', 'contact_info'
         ]
         widgets = {
@@ -251,6 +302,14 @@ class ListingForm(forms.ModelForm):
                 'step': '0.01',
                 'inputmode': 'decimal'
             }),
+            'quantity_total': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '1',
+                'min': '1',
+                'max': '9999',
+                'step': '1',
+                'inputmode': 'numeric'
+            }),
             'category': forms.Select(attrs={'class': 'form-control category-select', 'id': 'id_category'}),
             'condition': forms.Select(attrs={'class': 'form-control'}),
             'campus': forms.Select(attrs={'class': 'form-control'}),
@@ -265,10 +324,50 @@ class ListingForm(forms.ModelForm):
                 'maxlength': '200'
             }),
         }
+        labels = {
+            'campus': 'Preferred meetup location',
+        }
+        help_texts = {
+            'campus': 'Choose a safe, public U-Belt meetup point (optional).',
+        }
     
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         self.product_attribute_fields = {}
+        self._original_quantity_total = self.instance.quantity_total if self.instance and self.instance.pk else None
+
+        preferred_methods = []
+        if self.instance and self.instance.pk:
+            preferred_methods = self.instance.preferred_payment_methods or []
+        if not preferred_methods:
+            preferred_methods = ['in_person']
+        self.fields['preferred_payment_methods'].initial = preferred_methods
+
+        lister_school = None
+        if user is not None and getattr(user, 'is_authenticated', False):
+            lister_profile = Profile.objects.select_related('school').filter(user=user).first()
+            if lister_profile:
+                lister_school = lister_profile.school
+        if lister_school is None and self.instance and self.instance.school:
+            lister_school = self.instance.school
+
+        campus_choices = [('', 'No preferred meetup spot yet')]
+        campus_choices.extend(_build_grouped_meetup_choices(lister_school))
+
+        selected_campus = None
+        if self.data:
+            selected_campus = (self.data.get('campus') or '').strip() or None
+        elif self.instance and self.instance.pk:
+            selected_campus = self.instance.campus
+
+        allowed_values = _extract_choice_values(campus_choices)
+        if selected_campus and selected_campus not in allowed_values:
+            label_lookup = dict(Listing.CAMPUS_CHOICES)
+            saved_label = label_lookup.get(selected_campus, f'Saved location ({selected_campus})')
+            campus_choices.append(('Saved location', [(selected_campus, saved_label)]))
+
+        self.fields['campus'].choices = campus_choices
         
         # Determine listing type from data or instance
         listing_type = None
@@ -390,12 +489,47 @@ class ListingForm(forms.ModelForm):
             if price == 0:
                 raise forms.ValidationError('Price must be greater than zero.')
         return price
+
+    def clean_quantity_total(self):
+        quantity_total = self.cleaned_data.get('quantity_total')
+        if quantity_total is None:
+            return 1
+        if quantity_total < 1:
+            raise forms.ValidationError('Quantity must be at least 1.')
+        if quantity_total > 9999:
+            raise forms.ValidationError('Quantity is too high. Maximum is 9,999.')
+        return quantity_total
+
+    def clean_preferred_payment_methods(self):
+        methods = self.cleaned_data.get('preferred_payment_methods') or []
+        if not methods:
+            raise forms.ValidationError('Select at least one payment method.')
+        valid_codes = {choice[0] for choice in Listing.PREFERRED_PAYMENT_CHOICES}
+        invalid = [m for m in methods if m not in valid_codes]
+        if invalid:
+            raise forms.ValidationError('One or more selected payment methods are invalid.')
+        return methods
     
     def save(self, commit=True):
         """Save the listing with product details."""
         instance = super().save(commit=False)
         if hasattr(self, 'product_details'):
             instance.product_details = self.product_details
+
+        methods = self.cleaned_data.get('preferred_payment_methods') or []
+        instance.preferred_payment_methods = methods
+
+        if instance.pk:
+            original_total = self._original_quantity_total if self._original_quantity_total is not None else instance.quantity_total
+            delta = instance.quantity_total - original_total
+            instance.quantity_available = max(0, instance.quantity_available + delta)
+            if instance.quantity_available > instance.quantity_total:
+                instance.quantity_available = instance.quantity_total
+        else:
+            instance.quantity_available = instance.quantity_total
+
+        instance.is_sold = instance.quantity_available == 0
+
         if commit:
             instance.save()
         return instance
@@ -540,9 +674,29 @@ class PurchaseForm(forms.ModelForm):
     """Form for initiating a purchase with exchange method and notes."""
     class Meta:
         model = Transaction
-        fields = ['exchange_method', 'notes']
+        fields = [
+            'quantity',
+            'exchange_method',
+            'proposed_meetup_location',
+            'proposed_meetup_datetime',
+            'notes',
+        ]
         widgets = {
+            'quantity': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '1',
+                'step': '1',
+                'inputmode': 'numeric',
+                'placeholder': 'How many units?'
+            }),
             'exchange_method': forms.RadioSelect(choices=Transaction.EXCHANGE_METHOD_CHOICES),
+            'proposed_meetup_location': forms.Select(attrs={
+                'class': 'form-select',
+            }),
+            'proposed_meetup_datetime': forms.DateTimeInput(attrs={
+                'type': 'datetime-local',
+                'class': 'form-control',
+            }),
             'notes': forms.Textarea(attrs={
                 'rows': 3,
                 'placeholder': 'Add any notes for the seller (e.g., "Can meet at SM Mall" or "Available after 5pm")',
@@ -550,9 +704,77 @@ class PurchaseForm(forms.ModelForm):
             }),
         }
         labels = {
+            'quantity': 'Quantity',
             'exchange_method': 'How would you like to exchange payment & goods?',
+            'proposed_meetup_location': 'Proposed meetup location',
+            'proposed_meetup_datetime': 'Proposed meetup date & time',
             'notes': 'Message to seller (optional)',
         }
+
+    def __init__(self, *args, **kwargs):
+        listing = kwargs.pop('listing', None)
+        super().__init__(*args, **kwargs)
+
+        min_schedule = timezone.localtime(timezone.now() + timedelta(minutes=30)).replace(second=0, microsecond=0)
+        self.fields['proposed_meetup_datetime'].widget.attrs['min'] = min_schedule.strftime('%Y-%m-%dT%H:%M')
+
+        lister_school = None
+        if listing is not None:
+            self.fields['quantity'].widget.attrs['max'] = str(max(1, listing.quantity_available))
+            self.fields['quantity'].help_text = f'Available quantity: {listing.quantity_available}'
+
+            lister_profile = Profile.objects.select_related('school').filter(user=listing.seller).first()
+            if lister_profile:
+                lister_school = lister_profile.school
+            if lister_school is None:
+                lister_school = listing.school
+
+            if listing.campus and not self.initial.get('proposed_meetup_location'):
+                self.fields['proposed_meetup_location'].initial = listing.campus
+
+        meetup_choices = [('', 'Select a meetup location')]
+        meetup_choices.extend(_build_grouped_meetup_choices(lister_school))
+
+        selected_meetup = None
+        if self.data:
+            selected_meetup = (self.data.get('proposed_meetup_location') or '').strip() or None
+        elif self.initial.get('proposed_meetup_location'):
+            selected_meetup = self.initial.get('proposed_meetup_location')
+
+        allowed_values = _extract_choice_values(meetup_choices)
+        if selected_meetup and selected_meetup not in allowed_values:
+            label_lookup = dict(Listing.CAMPUS_CHOICES)
+            saved_label = label_lookup.get(selected_meetup, f'Saved location ({selected_meetup})')
+            meetup_choices.append(('Saved location', [(selected_meetup, saved_label)]))
+
+        self.fields['proposed_meetup_location'].choices = meetup_choices
+
+        self.fields['proposed_meetup_location'].required = False
+        self.fields['proposed_meetup_datetime'].required = False
+
+    def clean_quantity(self):
+        quantity = self.cleaned_data.get('quantity')
+        if quantity is None:
+            quantity = 1
+        if quantity < 1:
+            raise forms.ValidationError('Quantity must be at least 1.')
+        return quantity
+
+    def clean_proposed_meetup_datetime(self):
+        proposed_meetup_datetime = self.cleaned_data.get('proposed_meetup_datetime')
+        if not proposed_meetup_datetime:
+            return proposed_meetup_datetime
+
+        if timezone.is_naive(proposed_meetup_datetime):
+            proposed_meetup_datetime = timezone.make_aware(
+                proposed_meetup_datetime,
+                timezone.get_current_timezone(),
+            )
+
+        if proposed_meetup_datetime < timezone.now() - timedelta(minutes=1):
+            raise forms.ValidationError('Please choose a future meetup date and time.')
+
+        return proposed_meetup_datetime
 
 
 class TransactionConfirmForm(forms.ModelForm):
@@ -570,6 +792,37 @@ class TransactionConfirmForm(forms.ModelForm):
         labels = {
             'seller_notes': 'Your confirmation & meeting details (optional)',
         }
+
+
+class SchoolIDVerificationRequestForm(forms.ModelForm):
+    class Meta:
+        model = SchoolIDVerificationRequest
+        fields = ['id_image']
+        widgets = {
+            'id_image': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*'
+            }),
+        }
+        labels = {
+            'id_image': 'Upload your school ID',
+        }
+
+    def clean_id_image(self):
+        id_image = self.cleaned_data.get('id_image')
+        if not id_image:
+            raise forms.ValidationError('Please upload an image of your school ID.')
+
+        max_size = 5 * 1024 * 1024
+        if id_image.size > max_size:
+            raise forms.ValidationError('Image is too large. Maximum allowed size is 5MB.')
+
+        allowed_types = {'image/jpeg', 'image/png', 'image/webp'}
+        content_type = getattr(id_image, 'content_type', '')
+        if content_type and content_type.lower() not in allowed_types:
+            raise forms.ValidationError('Only JPEG, PNG, or WEBP images are allowed.')
+
+        return id_image
 
 
 class ProfilePostForm(forms.ModelForm):

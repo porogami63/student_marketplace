@@ -24,6 +24,8 @@ from .models import (
     ForumReply,
     Listing,
     ModerationLog,
+    Profile,
+    SchoolIDVerificationRequest,
     Transaction,
     UserReport,
     SupportTicket,
@@ -176,6 +178,7 @@ class SecurityAdminSite(admin.AdminSite):
 
         reports_open_count = UserReport.objects.filter(status__in=['new', 'reviewing']).count()
         tickets_open_count = SupportTicket.objects.filter(status__in=['open', 'assigned', 'in_progress']).count()
+        pending_school_id_count = SchoolIDVerificationRequest.objects.filter(status='pending').count()
 
         def _safe_reverse(name, args=None):
             try:
@@ -185,6 +188,7 @@ class SecurityAdminSite(admin.AdminSite):
 
         reports_changelist_url = _safe_reverse('admin:marketplace_userreport_changelist') or '/admin/marketplace/userreport/'
         tickets_changelist_url = _safe_reverse('admin:marketplace_supportticket_changelist') or '/admin/marketplace/supportticket/'
+        school_id_changelist_url = _safe_reverse('admin:marketplace_schoolidverificationrequest_changelist') or '/admin/marketplace/schoolidverificationrequest/'
 
         recent_reports = UserReport.objects.select_related(
             'reporter',
@@ -231,6 +235,34 @@ class SecurityAdminSite(admin.AdminSite):
                 'thumb_url': thumb_url,
             })
 
+        pending_school_id_rows = []
+        verification_tier_labels = dict(Profile.VERIFICATION_TIER_CHOICES)
+        pending_school_ids = SchoolIDVerificationRequest.objects.select_related(
+            'profile__user',
+            'profile__school',
+        ).filter(status='pending').order_by('submitted_at')[:8]
+
+        for req in pending_school_ids:
+            admin_change_url = _safe_reverse('admin:marketplace_schoolidverificationrequest_change', args=[req.pk])
+            school = req.profile.school
+            school_name = school.short_name if school and school.short_name else (school.name if school else 'Not set')
+            try:
+                public_profile_url = reverse('marketplace:public_profile', kwargs={'username': req.profile.user.username})
+            except Exception:
+                public_profile_url = ''
+
+            pending_school_id_rows.append({
+                'id': req.pk,
+                'username': req.profile.user.username,
+                'full_name': req.profile.full_name or 'Not set',
+                'school_name': school_name,
+                'verification_tier': verification_tier_labels.get(req.profile.verification_tier, req.profile.verification_tier),
+                'submitted_at': req.submitted_at,
+                'id_image_url': req.id_image.url if req.id_image else '',
+                'review_url': admin_change_url,
+                'public_profile_url': public_profile_url,
+            })
+
         return {
             'moderation_metrics': {
                 'total_revenue': total_revenue,
@@ -245,11 +277,14 @@ class SecurityAdminSite(admin.AdminSite):
                 'hidden_forum_count': hidden_forum_count,
                 'reports_open_count': reports_open_count,
                 'tickets_open_count': tickets_open_count,
+                'pending_school_id_count': pending_school_id_count,
                 'reports_changelist_url': reports_changelist_url,
                 'tickets_changelist_url': tickets_changelist_url,
+                'school_id_changelist_url': school_id_changelist_url,
             },
             'recent_moderation_logs': recent_logs,
             'recent_reports': recent_report_rows,
+            'pending_school_id_requests': pending_school_id_rows,
         }
 
     def get_quick_links(self, request):
@@ -264,6 +299,7 @@ class SecurityAdminSite(admin.AdminSite):
         return {
             'Users': _safe_reverse('admin:auth_user_changelist'),
             'Profiles': _safe_reverse('admin:marketplace_profile_changelist'),
+            'School ID Verifications': _safe_reverse('admin:marketplace_schoolidverificationrequest_changelist'),
             'Listings': _safe_reverse('admin:marketplace_listing_changelist'),
             'Transactions': _safe_reverse('admin:marketplace_transaction_changelist'),
             'Payments': _safe_reverse('admin:marketplace_payment_changelist'),
@@ -293,6 +329,7 @@ class SecurityAdminSite(admin.AdminSite):
                 'labels': [
                     'Users',
                     'Profiles',
+                    'School ID Verifications',
                     'Listings',
                     'Transactions',
                     'Payments',

@@ -254,8 +254,12 @@
                     <div class="detail-value">{{ receipt.listing_title }}</div>
                 </div>
                 <div class="detail-row">
-                    <div class="detail-label">Item Price:</div>
-                    <div class="detail-value">₱{{ receipt.listing_price|floatformat:2 }}</div>
+                    <div class="detail-label">Unit Price:</div>
+                    <div class="detail-value">₱{{ receipt.listing_price|floatformat:2 }} each</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Quantity:</div>
+                    <div class="detail-value">{{ receipt.transaction.quantity }}</div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Transaction ID:</div>
@@ -324,8 +328,16 @@
                 
                 <table class="pricing-table">
                     <tr>
-                        <td>Item Price:</td>
+                        <td>Unit Price:</td>
                         <td>₱{{ receipt.listing_price|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Quantity:</td>
+                        <td>{{ receipt.transaction.quantity }}</td>
+                    </tr>
+                    <tr>
+                        <td>Subtotal:</td>
+                        <td>₱{{ receipt.transaction.price|floatformat:2 }}</td>
                     </tr>
                     {% if receipt.processing_fee > 0 %}
                         <tr>

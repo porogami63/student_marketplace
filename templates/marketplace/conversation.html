@@ -434,7 +434,7 @@
         {% endif %}
         <div class="preview-info">
             <div class="preview-title">{{ conversation.listing.title }}</div>
-            <div class="preview-price">₱{{ conversation.listing.price|floatformat:2 }}</div>
+            <div class="preview-price">₱{{ conversation.listing.price|floatformat:2 }} each</div>
         </div>
         <div class="text-muted small">
             View Item <i class="bi bi-chevron-right"></i>
@@ -454,7 +454,7 @@
             <div class="message-bubble {% if msg.is_offer %}offer-bubble {{ msg.offer_status }}{% endif %}">
                 <span class="message-author">{{ msg.sender.username }}</span>
                 {% if msg.is_offer %}
-                    <span class="offer-amount">₱{{ msg.offer_amount|floatformat:2 }}</span>
+                    <span class="offer-amount">{{ msg.offer_quantity|default:1 }} x ₱{{ msg.offer_amount|floatformat:2 }}</span>
                     <div class="offer-title mb-2">
                         {% if conversation.listing %}
                         <a href="{% url 'marketplace:listing_detail' conversation.listing.pk %}" class="text-decoration-none hover-underline" style="color: inherit;">
@@ -477,7 +477,7 @@
                         <div class="badge bg-success mb-2">Accepted</div>
                         {% if msg.sender == request.user and conversation.listing and not conversation.listing.is_sold %}
                         <div class="mt-2 text-center">
-                            <a href="{% url 'marketplace:initiate_purchase' conversation.listing.pk %}?offer_id={{ msg.id }}" class="btn btn-sm btn-success w-100">Checkout now at ₱{{ msg.offer_amount|floatformat:2 }}</a>
+                            <a href="{% url 'marketplace:initiate_purchase' conversation.listing.pk %}?offer_id={{ msg.id }}" class="btn btn-sm btn-success w-100">Checkout now at {{ msg.offer_quantity|default:1 }} x ₱{{ msg.offer_amount|floatformat:2 }}</a>
                             <small class="text-muted d-block mt-1">Complete the deal before someone else buys it!</small>
                         </div>
                         {% endif %}
@@ -539,9 +539,13 @@
                     {% else %}
                     <p class="small text-muted mb-3">
                         Item: <strong>{{ conversation.listing.title }}</strong><br>
-                        Listed Price: ₱{{ conversation.listing.price|floatformat:2 }}
+                        Listed Price: ₱{{ conversation.listing.price|floatformat:2 }} each
                     </p>
                     {% endif %}
+                    <div class="mb-2">
+                        <label class="form-label">Quantity</label>
+                        <input type="number" name="quantity" class="form-control" value="1" min="1" required>
+                    </div>
                     <div class="input-group">
                         <span class="input-group-text">₱</span>
                         <input type="number" name="amount" class="form-control" placeholder="0.00" step="0.01" required min="1">

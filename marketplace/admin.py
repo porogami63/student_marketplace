@@ -22,6 +22,7 @@ from .models import (
     Payment,
     Receipt,
     EmailTwoFactorCode,
+    SchoolIDVerificationRequest,
 )
 from .security import AuditLog, LoginAttempt
 
@@ -68,6 +69,156 @@ class ProfileAdmin(admin.ModelAdmin):
         ('Other', {'fields': ('pinned_post', 'is_verified')}),
     )
     readonly_fields = ['vouch_count', 'total_sold', 'total_bought', 'forum_posts_count']
+
+
+@admin.register(SchoolIDVerificationRequest)
+class SchoolIDVerificationRequestAdmin(admin.ModelAdmin):
+    list_display = [
+        'id_image_thumbnail',
+        'profile_user_link',
+        'profile_school',
+        'profile_tier',
+        'status',
+        'submitted_at',
+        'reviewed_at',
+        'reviewed_by',
+    ]
+    list_filter = ['status', 'submitted_at', 'reviewed_at', 'profile__school']
+    search_fields = [
+        'profile__user__username',
+        'profile__user__email',
+        'profile__full_name',
+        'profile__school__name',
+        'reviewer_notes',
+    ]
+    readonly_fields = [
+        'submitted_at',
+        'reviewed_at',
+        'reviewed_by',
+        'id_image_preview',
+        'profile_summary',
+        'profile_links',
+    ]
+    fieldsets = (
+        ('Request Status', {'fields': ('profile', 'status', 'reviewer_notes')}),
+        ('Submitted School ID', {'fields': ('id_image_preview', 'id_image')}),
+        ('Applicant Context', {'fields': ('profile_summary', 'profile_links')}),
+        ('Review Metadata', {'fields': ('submitted_at', 'reviewed_at', 'reviewed_by')}),
+    )
+    actions = ['approve_requests', 'reject_requests']
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related('profile__user', 'profile__school', 'reviewed_by')
+
+    @admin.display(description='School ID')
+    def id_image_thumbnail(self, obj):
+        if not obj.id_image:
+            return 'No image'
+        return format_html(
+            '<a href="{}" target="_blank" rel="noopener"><img src="{}" alt="School ID" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #d1d5db;" /></a>',
+            obj.id_image.url,
+            obj.id_image.url,
+        )
+
+    @admin.display(description='Applicant')
+    def profile_user_link(self, obj):
+        user = obj.profile.user
+        profile_admin_url = reverse('admin:marketplace_profile_change', args=[obj.profile_id])
+        public_profile_url = reverse('marketplace:public_profile', kwargs={'username': user.username})
+        return format_html(
+            '<strong>{}</strong><br><a href="{}">Profile admin</a> · <a href="{}" target="_blank" rel="noopener">Public profile</a>',
+            user.username,
+            profile_admin_url,
+            public_profile_url,
+        )
+
+    @admin.display(description='School')
+    def profile_school(self, obj):
+        school = obj.profile.school
+        return school.short_name if school and school.short_name else (school.name if school else 'Not set')
+
+    @admin.display(description='Tier')
+    def profile_tier(self, obj):
+        return obj.profile.get_verification_tier_display()
+
+    @admin.display(description='School ID Preview')
+    def id_image_preview(self, obj):
+        if not obj.id_image:
+            return 'No image uploaded.'
+        return format_html(
+            '<a href="{0}" target="_blank" rel="noopener">'
+            '<img src="{0}" alt="School ID" style="max-width:420px;width:100%;height:auto;border:1px solid #d1d5db;border-radius:10px;" />'
+            '</a><p style="margin-top:8px;"><a href="{0}" target="_blank" rel="noopener">Open full image</a></p>',
+            obj.id_image.url,
+        )
+
+    @admin.display(description='Profile Summary')
+    def profile_summary(self, obj):
+        profile = obj.profile
+        year = profile.get_year_level_display() if profile.year_level else 'Not set'
+        return format_html(
+            '<strong>Name:</strong> {}<br>'
+            '<strong>Email:</strong> {}<br>'
+            '<strong>Phone:</strong> {}<br>'
+            '<strong>School:</strong> {}<br>'
+            '<strong>Year level:</strong> {}<br>'
+            '<strong>Current tier:</strong> {}<br>'
+            '<strong>ID submitted:</strong> {}<br>'
+            '<strong>ID verified:</strong> {}',
+            profile.full_name or 'Not set',
+            profile.user.email or 'Not set',
+            profile.phone or 'Not set',
+            self.profile_school(obj),
+            year,
+            profile.get_verification_tier_display(),
+            'Yes' if profile.id_submitted else 'No',
+            'Yes' if profile.id_verified else 'No',
+        )
+
+    @admin.display(description='Profile Links')
+    def profile_links(self, obj):
+        profile_admin_url = reverse('admin:marketplace_profile_change', args=[obj.profile_id])
+        public_profile_url = reverse('marketplace:public_profile', kwargs={'username': obj.profile.user.username})
+        return format_html(
+            '<a href="{}">Open profile in admin</a> · <a href="{}" target="_blank" rel="noopener">Open public profile</a>',
+            profile_admin_url,
+            public_profile_url,
+        )
+
+    @admin.action(description='Approve selected school ID requests')
+    def approve_requests(self, request, queryset):
+        count = 0
+        for req in queryset:
+            if req.status == 'approved':
+                continue
+            req.approve(reviewer=request.user, notes=req.reviewer_notes)
+            ModerationLog.objects.create(
+                actor=request.user,
+                action='approve_school_id',
+                target_model='school_id_verification_request',
+                target_id=req.pk,
+            )
+            count += 1
+
+        self.message_user(request, f'{count} request(s) approved.')
+
+    @admin.action(description='Reject selected school ID requests')
+    def reject_requests(self, request, queryset):
+        count = 0
+        for req in queryset:
+            if req.status == 'rejected':
+                continue
+            req.reject(reviewer=request.user, notes=req.reviewer_notes)
+            ModerationLog.objects.create(
+                actor=request.user,
+                action='reject_school_id',
+                target_model='school_id_verification_request',
+                target_id=req.pk,
+            )
+            count += 1
+
+        self.message_user(request, f'{count} request(s) rejected.')
 
 
 @admin.register(SocialMedia)

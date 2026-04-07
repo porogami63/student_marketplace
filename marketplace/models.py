@@ -35,6 +35,190 @@ class Category(models.Model):
         return self.name
 
 
+SCHOOL_SPECIFIC_MEETUP_CHOICES = {
+    'ust': [
+        ('ust_q_pavilion', 'UST Q-Pavilion (Espana)'),
+        ('ust_dapitan_gate', 'UST Dapitan Gate'),
+        ('ust_p_noval_gate', 'UST P. Noval Gate'),
+    ],
+    'feu': [
+        ('feu_gate4_morayta', 'FEU Gate 4 (Morayta)'),
+        ('feu_grandstand', 'FEU Grandstand / Freedom Square'),
+        ('feu_nicanor_reyes', 'FEU Nicanor Reyes Gate'),
+    ],
+    'ue': [
+        ('ue_lualhati_sq', 'UE Lualhati Square'),
+        ('ue_gastambide', 'UE Gastambide Gate'),
+        ('ue_recto_entrance', 'UE Recto Entrance'),
+    ],
+    'nu': [
+        ('nu_main_lobby', 'NU Main Lobby'),
+        ('nu_jocson_gate', 'NU Jocson Gate'),
+    ],
+    'san_beda': [
+        ('sbu_mendiola_gate', 'San Beda Mendiola Gate'),
+        ('sbu_plaza_mayor', 'San Beda Plaza Mayor'),
+    ],
+    'ceu': [
+        ('ceu_mendiola_gate', 'CEU Mendiola Gate'),
+        ('ceu_legarda_gate', 'CEU Legarda Gate'),
+    ],
+    'tip': [
+        ('tip_arlegui_gate', 'TIP Manila Arlegui Gate'),
+        ('tip_main_lobby', 'TIP Manila Main Lobby'),
+    ],
+    'arellano': [
+        ('arellano_legarda', 'Arellano Legarda Entrance'),
+        ('arellano_plaza', 'Arellano University Plaza'),
+    ],
+    'ntc': [
+        ('ntc_espana_gate', 'NTC Manila Espana Gate'),
+        ('ntc_main_lobby', 'NTC Manila Main Lobby'),
+    ],
+    'pup': [
+        ('pup_main_gate', 'PUP Main Gate'),
+        ('pup_charlie_del', 'PUP Charlie del Rosario Bldg'),
+    ],
+    'pnu': [
+        ('pnu_taft_gate', 'PNU Taft Gate'),
+        ('pnu_main_lobby', 'PNU Main Lobby'),
+    ],
+    'plm': [
+        ('plm_intramuros', 'PLM Intramuros Entrance'),
+        ('plm_plaza_mx', 'PLM Plaza Mexico Side'),
+    ],
+    'udm': [
+        ('udm_intramuros', 'UDM Intramuros Entrance'),
+        ('udm_main_lobby', 'UDM Main Lobby'),
+    ],
+    'letran': [
+        ('letran_intramuros', 'Letran Intramuros Gate'),
+        ('letran_muralla', 'Letran Muralla Side'),
+    ],
+    'mapua': [
+        ('mapua_intramuros', 'Mapua Intramuros Gate'),
+        ('mapua_muralla', 'Mapua Muralla Side'),
+    ],
+    'lccm': [
+        ('lccm_mendiola', 'LCCM Mendiola Side'),
+        ('lccm_main_lobby', 'LCCM Main Lobby'),
+    ],
+    'adamson': [
+        ('adamson_sanmarcel', 'Adamson San Marcelino Gate'),
+        ('adamson_lobby', 'Adamson Main Lobby'),
+    ],
+    'dlsu': [
+        ('dlsu_taft_vito', 'DLSU Taft (Vito Cruz) Gate'),
+        ('dlsu_henry_sy', 'DLSU Henry Sy Hall'),
+    ],
+    'upm': [
+        ('upm_pgh_lobby', 'UP Manila PGH Lobby'),
+        ('upm_padre_faura', 'UP Manila Padre Faura Gate'),
+    ],
+    'ateneo': [
+        ('ateneo_gate2', 'Ateneo Gate 2 (Katipunan)'),
+        ('ateneo_escaler', 'Ateneo Escaler Hall Drop-off'),
+    ],
+    'upd': [
+        ('upd_sunken_gdn', 'UP Diliman Sunken Garden'),
+        ('upd_quezon_hall', 'UP Diliman Quezon Hall'),
+    ],
+}
+
+PUBLIC_UBELT_HUB_CHOICES = [
+    ('lrt2_legarda', 'LRT-2 Legarda Station Concourse'),
+    ('lrt2_recto', 'LRT-2 Recto Station Concourse'),
+    ('sm_san_lazaro', 'SM San Lazaro Main Entrance'),
+    ('isetann_recto', 'Isetann Recto Main Entrance'),
+    ('mendiola_arch', 'Mendiola Peace Arch'),
+    ('espana_crossing', 'Espana-Laon Laan Footbridge'),
+    ('morayta_overpass', 'Morayta Overpass'),
+]
+
+LEGACY_MEETUP_CHOICES = [
+    ('manila', 'General U-Belt Area (Legacy)'),
+    ('dapitan', 'Dapitan Area (Legacy)'),
+    ('pureza', 'Pureza Area (Legacy)'),
+    ('public', 'Public Place (Legacy)'),
+]
+
+SCHOOL_MEETUP_ALIAS_MAP = {
+    'ust': 'ust',
+    'university of santo tomas': 'ust',
+    'feu': 'feu',
+    'far eastern university': 'feu',
+    'ue': 'ue',
+    'university of the east': 'ue',
+    'nu': 'nu',
+    'national university': 'nu',
+    'san beda': 'san_beda',
+    'san beda university': 'san_beda',
+    'ceu': 'ceu',
+    'ceu manila': 'ceu',
+    'centro escolar university manila': 'ceu',
+    'tip': 'tip',
+    'tip manila': 'tip',
+    'technological institute of the philippines manila': 'tip',
+    'arellano': 'arellano',
+    'arellano university': 'arellano',
+    'ntc': 'ntc',
+    'ntc manila': 'ntc',
+    'national teachers college manila': 'ntc',
+    'pup': 'pup',
+    'polytechnic university of the philippines': 'pup',
+    'pnu': 'pnu',
+    'philippine normal university': 'pnu',
+    'plm': 'plm',
+    'pamantasan ng lungsod ng maynila': 'plm',
+    'udm': 'udm',
+    'universidad de manila': 'udm',
+    'letran': 'letran',
+    'colegio de san juan de letran': 'letran',
+    'mapua': 'mapua',
+    'mapua university': 'mapua',
+    'lccm': 'lccm',
+    'la consolacion college manila': 'lccm',
+    'adamson': 'adamson',
+    'adamson university': 'adamson',
+    'dlsu': 'dlsu',
+    'de la salle university': 'dlsu',
+    'up manila': 'upm',
+    'university of the philippines manila': 'upm',
+    'ateneo': 'ateneo',
+    'ateneo de manila university': 'ateneo',
+    'up diliman': 'upd',
+    'university of the philippines diliman': 'upd',
+}
+
+
+def resolve_school_meetup_group(short_name='', name=''):
+    candidates = []
+    if short_name:
+        candidates.append(short_name.strip().lower())
+    if name:
+        candidates.append(name.strip().lower())
+
+    for candidate in candidates:
+        group = SCHOOL_MEETUP_ALIAS_MAP.get(candidate)
+        if group:
+            return group
+    return ''
+
+
+def get_school_specific_meetup_choices(short_name='', name=''):
+    group = resolve_school_meetup_group(short_name=short_name, name=name)
+    if not group:
+        return []
+    return SCHOOL_SPECIFIC_MEETUP_CHOICES.get(group, [])
+
+
+UBELT_MEETUP_LOCATION_CHOICES = []
+for school_choice_group in SCHOOL_SPECIFIC_MEETUP_CHOICES.values():
+    UBELT_MEETUP_LOCATION_CHOICES.extend(school_choice_group)
+UBELT_MEETUP_LOCATION_CHOICES.extend(PUBLIC_UBELT_HUB_CHOICES)
+UBELT_MEETUP_LOCATION_CHOICES.extend(LEGACY_MEETUP_CHOICES)
+
+
 class Listing(models.Model):
     """Marketplace listing."""
     LISTING_TYPE_CHOICES = [
@@ -50,20 +234,33 @@ class Listing(models.Model):
         ('used', 'Well Used'),
     ]
 
-    CAMPUS_CHOICES = [
-        ('manila', 'Manila'),
-        ('dapitan', 'Dapitan'),
-        ('pureza', 'Pureza'),
-        ('public', 'Public'),
+    MEETUP_LOCATION_CHOICES = UBELT_MEETUP_LOCATION_CHOICES
+    CAMPUS_CHOICES = MEETUP_LOCATION_CHOICES
+
+    PREFERRED_PAYMENT_CHOICES = [
+        ('credit_card', 'Credit / Debit Card'),
+        ('gcash', 'GCash'),
+        ('bank_transfer', 'Bank Transfer'),
+        ('in_person', 'In-Person Cash'),
+        ('other', 'Other Arrangement'),
     ]
 
     listing_type = models.CharField(max_length=10, choices=LISTING_TYPE_CHOICES, default='wts', help_text='Specify if you want to sell or buy an item')
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    quantity_total = models.PositiveIntegerField(default=1, help_text='Total quantity posted for this listing')
+    quantity_available = models.PositiveIntegerField(default=1, help_text='Remaining quantity available for purchase')
+    preferred_payment_methods = JSONField(default=list, blank=True, help_text='Allowed payment methods selected by the lister')
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True)
     condition = models.CharField(max_length=20, choices=CONDITION_CHOICES, default='good')
-    campus = models.CharField(max_length=20, choices=CAMPUS_CHOICES, blank=True, null=True)
+    campus = models.CharField(
+        max_length=20,
+        choices=CAMPUS_CHOICES,
+        blank=True,
+        null=True,
+        help_text='Preferred safe public meetup point in U-Belt',
+    )
     image = models.ImageField(upload_to='listings/', blank=True, null=True)
     seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='listings')
     school = models.ForeignKey(School, on_delete=models.SET_NULL, null=True, blank=True)
@@ -174,10 +371,10 @@ class Profile(models.Model):
         if self.id_verified and completed_transactions >= 20:
             self.verification_tier = 'blue'
         # Green tier: Active member - forum posts, transactions, and general activity
-        elif completed_transactions > 0 and (self.forum_posts_count > 0 or self.vouch_count > 0):
+        elif self.id_verified and completed_transactions > 0 and (self.forum_posts_count > 0 or self.vouch_count > 0):
             self.verification_tier = 'green'
-        # Yellow tier: Complete profile information
-        elif self.is_profile_complete():
+        # Yellow tier: Complete profile information and ID verification
+        elif self.id_verified and self.is_profile_complete():
             self.verification_tier = 'yellow'
         # Grey tier: Minimal information
         else:
@@ -331,6 +528,7 @@ class Message(models.Model):
     body = models.TextField()
     is_offer = models.BooleanField(default=False)
     offer_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    offer_quantity = models.PositiveIntegerField(default=1)
     offer_status = models.CharField(
         max_length=20, 
         choices=[('pending', 'Pending'), ('accepted', 'Accepted'), ('declined', 'Declined')],
@@ -422,9 +620,22 @@ class Transaction(models.Model):
     buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='purchases')
     seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sales')
     listing = models.ForeignKey(Listing, on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions')
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     exchange_method = models.CharField(max_length=20, choices=EXCHANGE_METHOD_CHOICES, default='in_person')
+    proposed_meetup_location = models.CharField(
+        max_length=40,
+        choices=UBELT_MEETUP_LOCATION_CHOICES,
+        blank=True,
+        help_text='Proposed safe meetup location for this deal',
+    )
+    proposed_meetup_datetime = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Proposed meetup date and time',
+    )
     notes = models.TextField(blank=True, help_text='Buyer notes about delivery/exchange (e.g., preferred meetup location)')
     seller_notes = models.TextField(blank=True, help_text='Seller confirmation notes (e.g., availability, location)')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -433,6 +644,7 @@ class Transaction(models.Model):
     buyer_completed = models.BooleanField(default=False, help_text='Buyer confirmed exchange happened')
     seller_completed = models.BooleanField(default=False, help_text='Seller confirmed exchange happened')
     buyer_confirmed_meeting = models.BooleanField(default=False, help_text='Buyer confirmed attendance at meeting')
+    seller_confirmed_meeting = models.BooleanField(default=False, help_text='Seller confirmed meetup/agreement before payment')
     admin_notes = models.TextField(blank=True, help_text='Internal admin notes for dispute/fraud follow-up')
     flagged_for_review = models.BooleanField(default=False, help_text='Flagged by admin for follow-up')
     admin_cancelled_at = models.DateTimeField(null=True, blank=True)
@@ -461,19 +673,19 @@ class TransactionMessage(models.Model):
 
 
 class Review(models.Model):
-    """User vouch/endorsement for a seller."""
+    """User vouch/endorsement after a completed transaction."""
     reviewer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_given')
-    seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_received')
+    seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews_received', help_text='User being reviewed')
     listing = models.ForeignKey(Listing, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviews')
-    transaction = models.OneToOneField(Transaction, on_delete=models.SET_NULL, null=True, blank=True, related_name='review')
-    is_vouch = models.BooleanField(default=True, help_text='True if reviewer vouches for seller')
+    transaction = models.ForeignKey(Transaction, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviews')
+    is_vouch = models.BooleanField(default=True, help_text='True if reviewer vouches for the reviewed user')
     comment = models.TextField(blank=True, help_text='Optional feedback from the transaction')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
-        unique_together = ['reviewer', 'seller', 'listing']
+        unique_together = ['reviewer', 'seller', 'transaction']
 
     def __str__(self):
         vouch_text = "Vouched" if self.is_vouch else "Not Vouched"
@@ -494,7 +706,7 @@ class Review(models.Model):
         
         super().save(*args, **kwargs)
         
-        # Update seller's vouch count and verification tier
+        # Update reviewed user's vouch count and verification tier
         if hasattr(self.seller, 'profile'):
             profile = self.seller.profile
             
@@ -516,6 +728,73 @@ class Review(models.Model):
             profile.save()
 
 
+class SchoolIDVerificationRequest(models.Model):
+    """Admin-reviewed school ID verification request for trusted tiers."""
+    STATUS_CHOICES = [
+        ('pending', 'Pending Review'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='school_id_requests')
+    id_image = models.ImageField(upload_to='school_ids/')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reviewer_notes = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_school_id_requests')
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+
+    def __str__(self):
+        return f"School ID request - {self.profile.user.username} ({self.status})"
+
+    def approve(self, reviewer=None, notes=''):
+        """Approve this request and upgrade profile verification flags."""
+        from django.utils import timezone
+
+        update_fields = ['status', 'reviewed_at', 'reviewed_by']
+        self.status = 'approved'
+        self.reviewed_at = timezone.now()
+        self.reviewed_by = reviewer
+
+        cleaned_notes = (notes or '').strip()
+        if cleaned_notes:
+            self.reviewer_notes = cleaned_notes
+            update_fields.append('reviewer_notes')
+
+        self.save(update_fields=update_fields)
+
+        profile = self.profile
+        profile.id_submitted = True
+        profile.id_verified = True
+        profile.save(update_fields=['id_submitted', 'id_verified'])
+        profile.update_verification_tier()
+
+    def reject(self, reviewer=None, notes=''):
+        """Reject this request and clear profile verification flags."""
+        from django.utils import timezone
+
+        update_fields = ['status', 'reviewed_at', 'reviewed_by']
+        self.status = 'rejected'
+        self.reviewed_at = timezone.now()
+        self.reviewed_by = reviewer
+
+        cleaned_notes = (notes or '').strip()
+        if cleaned_notes:
+            self.reviewer_notes = cleaned_notes
+            update_fields.append('reviewer_notes')
+
+        self.save(update_fields=update_fields)
+
+        profile = self.profile
+        profile.id_verified = False
+        profile.id_submitted = False
+        profile.save(update_fields=['id_verified', 'id_submitted'])
+        profile.update_verification_tier()
+
+
 class ModerationLog(models.Model):
     """Audit log for admin moderation actions."""
     ACTION_CHOICES = [
@@ -529,6 +808,8 @@ class ModerationLog(models.Model):
         ('unflag_transaction', 'Unflag Transaction'),
         ('admin_cancel_transaction', 'Admin Cancel Transaction'),
         ('add_transaction_note', 'Add Transaction Note'),
+        ('approve_school_id', 'Approve School ID'),
+        ('reject_school_id', 'Reject School ID'),
     ]
     actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='moderation_actions')
     action = models.CharField(max_length=40, choices=ACTION_CHOICES)

@@ -11,8 +11,24 @@
                 
                 <div class="alert alert-info small mb-3">
                     <i class="bi bi-info-circle me-2"></i>
-                    Buyer {{ transaction.buyer.username }} wants to buy <strong>{{ transaction.listing.title }}</strong> for <strong>₱{{ transaction.price|floatformat:2 }}</strong>
+                    Buyer {{ transaction.buyer.username }} wants to buy <strong>{{ transaction.quantity }} x {{ transaction.listing.title }}</strong> at <strong>₱{{ transaction.unit_price|floatformat:2 }} each</strong> (Total: <strong>₱{{ transaction.price|floatformat:2 }}</strong>)
                 </div>
+
+                {% if transaction.proposed_meetup_location or transaction.proposed_meetup_datetime %}
+                <div class="alert alert-success small mb-3">
+                    <i class="bi bi-calendar-event me-2"></i>
+                    <strong>Buyer proposed:</strong>
+                    {% if transaction.proposed_meetup_location %}
+                    {{ transaction.get_proposed_meetup_location_display }}
+                    {% endif %}
+                    {% if transaction.proposed_meetup_location and transaction.proposed_meetup_datetime %}
+                    &bull;
+                    {% endif %}
+                    {% if transaction.proposed_meetup_datetime %}
+                    {{ transaction.proposed_meetup_datetime|date:"M d, Y h:i A" }}
+                    {% endif %}
+                </div>
+                {% endif %}
 
                 <form method="post">
                     {% csrf_token %}

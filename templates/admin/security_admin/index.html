@@ -91,6 +91,11 @@
             <p style="font-size:20px;margin:0;">{{ moderation_metrics.tickets_open_count|default:0 }}</p>
             <p class="help" style="margin:6px 0 0 0;"><a href="{{ moderation_metrics.tickets_changelist_url }}">View tickets</a></p>
         </div>
+        <div class="module">
+            <h3>Pending School IDs</h3>
+            <p style="font-size:20px;margin:0;">{{ moderation_metrics.pending_school_id_count|default:0 }}</p>
+            <p class="help" style="margin:6px 0 0 0;"><a href="{{ moderation_metrics.school_id_changelist_url }}">Open verification queue</a></p>
+        </div>
     </div>
 
     <h2>Reports & Tickets</h2>
@@ -98,6 +103,7 @@
         <div class="ubx-action-buttons" style="margin-bottom:10px;">
             <a class="ubx-btn" href="{{ moderation_metrics.reports_changelist_url }}">Open Reports</a>
             <a class="ubx-btn ubx-btn--secondary" href="{{ moderation_metrics.tickets_changelist_url }}">Open Tickets</a>
+            <a class="ubx-btn ubx-btn--secondary" href="{{ moderation_metrics.school_id_changelist_url }}">School ID Verifications</a>
         </div>
 
         <h3 style="margin-top:0;">Recent Reports</h3>
@@ -146,6 +152,60 @@
                     </tr>
                 {% empty %}
                     <tr><td colspan="8" class="help">No reports yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h2>School ID Verification Queue</h2>
+    <div class="module" style="padding:12px;margin-bottom:16px;">
+        <div class="ubx-action-buttons" style="margin-bottom:10px;">
+            <a class="ubx-btn" href="{{ moderation_metrics.school_id_changelist_url }}">Open Full Queue</a>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:74px;">ID Image</th>
+                    <th>User</th>
+                    <th>School</th>
+                    <th>Submitted</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in pending_school_id_requests %}
+                    <tr>
+                        <td>
+                            {% if req.id_image_url %}
+                                <a href="{{ req.id_image_url }}" target="_blank" rel="noopener">
+                                    <img src="{{ req.id_image_url }}" alt="School ID" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />
+                                </a>
+                            {% else %}
+                                <span class="help">No image</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>{{ req.username }}</strong><br>
+                            <span class="help">{{ req.full_name }} · {{ req.verification_tier }}</span>
+                        </td>
+                        <td>{{ req.school_name }}</td>
+                        <td>{{ req.submitted_at }}</td>
+                        <td>
+                            {% if req.review_url %}
+                                <a href="{{ req.review_url }}">Review</a>
+                            {% endif %}
+                            {% if req.public_profile_url %}
+                                {% if req.review_url %} · {% endif %}
+                                <a href="{{ req.public_profile_url }}" target="_blank" rel="noopener">Public profile</a>
+                            {% endif %}
+                            {% if req.id_image_url %}
+                                {% if req.review_url or req.public_profile_url %} · {% endif %}
+                                <a href="{{ req.id_image_url }}" target="_blank" rel="noopener">Open image</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="help">No pending school ID verification requests.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

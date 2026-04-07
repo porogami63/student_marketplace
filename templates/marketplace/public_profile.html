@@ -893,7 +893,7 @@
                                     <i class="bi bi-star-fill"></i> Yellow
                                     <div class="tier-popup">
                                         <strong>Yellow - Profile Complete</strong><br>
-                                        All profile information filled in
+                                        Profile complete + school ID approved
                                     </div>
                                 </div>
                             {% else %}
@@ -1002,8 +1002,8 @@
                         <div class="tier-item-requirements">
                             <strong>Requirements:</strong><br>
                             • Complete all profile information<br>
-                            • Add a profile picture<br>
-                            • Add school/university
+                            • Add school/university<br>
+                            • School ID approved by admin
                         </div>
                     </div>
 
@@ -1079,9 +1079,9 @@
                     {% elif profile.verification_tier == 'green' %}
                         ✓ {{ buyer_transactions.count|add:seller_transactions.count }} transaction{{ buyer_transactions.count|add:seller_transactions.count|pluralize }} completed
                     {% elif profile.verification_tier == 'yellow' %}
-                        ✓ Profile information complete
+                        ✓ Profile complete and school ID approved
                     {% else %}
-                        Complete your profile to reach Yellow tier
+                        Complete your profile and submit school ID to reach Yellow tier
                     {% endif %}
                 </div>
             </div>
@@ -1112,6 +1112,33 @@
                         Complete transactions to build trust
                     {% endif %}
                 </div>
+            </div>
+        </div>
+
+        <div class="mt-3 p-3 rounded-3" style="background: #f8fafc; border: 1px solid #e2e8f0;">
+            <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                <div>
+                    <div class="fw-semibold">School ID Verification</div>
+                    {% if profile.id_verified %}
+                    <small class="text-success"><i class="bi bi-check-circle-fill"></i> Approved</small>
+                    {% elif latest_school_id_request and latest_school_id_request.status == 'pending' %}
+                    <small class="text-warning"><i class="bi bi-hourglass-split"></i> Pending admin review</small>
+                    {% elif latest_school_id_request and latest_school_id_request.status == 'rejected' %}
+                    <small class="text-danger"><i class="bi bi-x-circle"></i> Rejected. Please re-submit a clearer image.</small>
+                    {% else %}
+                    <small class="text-muted">Not submitted yet</small>
+                    {% endif %}
+                </div>
+
+                {% if school_id_form %}
+                <form method="post" action="{% url 'marketplace:submit_school_id_verification' %}" enctype="multipart/form-data" class="d-flex gap-2 align-items-center flex-wrap">
+                    {% csrf_token %}
+                    {{ school_id_form.id_image }}
+                    <button type="submit" class="btn btn-sm btn-ubelt">
+                        <i class="bi bi-upload me-1"></i> Submit School ID
+                    </button>
+                </form>
+                {% endif %}
             </div>
         </div>
     </div>

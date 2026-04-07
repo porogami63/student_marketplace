@@ -504,11 +504,13 @@
                 <i class="bi bi-credit-card"></i>
                 Select Payment Method
             </div>
+            <p class="small text-muted mb-3">Only methods approved by the lister are shown below.</p>
             
             <form method="post" id="payment-form">
                 {% csrf_token %}
                 <div class="payment-methods">
                     <!-- In-Person -->
+                    {% if 'in_person' in allowed_methods %}
                     <label class="method-option">
                         <input type="radio" name="exchange_method" value="in_person" 
                                {% if exchange_method == 'in_person' %}checked{% endif %}>
@@ -518,8 +520,10 @@
                         </div>
                         <div class="method-checkmark"></div>
                     </label>
+                    {% endif %}
                     
                     <!-- GCash -->
+                    {% if 'gcash' in allowed_methods %}
                     <label class="method-option">
                         <input type="radio" name="exchange_method" value="gcash" 
                                {% if exchange_method == 'gcash' %}checked{% endif %}>
@@ -529,8 +533,10 @@
                         </div>
                         <div class="method-checkmark"></div>
                     </label>
+                    {% endif %}
                     
                     <!-- Bank Transfer -->
+                    {% if 'bank_transfer' in allowed_methods %}
                     <label class="method-option">
                         <input type="radio" name="exchange_method" value="bank_transfer" 
                                {% if exchange_method == 'bank_transfer' %}checked{% endif %}>
@@ -540,8 +546,10 @@
                         </div>
                         <div class="method-checkmark"></div>
                     </label>
+                    {% endif %}
                     
                     <!-- Credit Card (Stripe) -->
+                    {% if 'credit_card' in allowed_methods %}
                     <label class="method-option">
                         <input type="radio" name="exchange_method" value="credit_card" 
                                {% if exchange_method == 'credit_card' %}checked{% endif %}>
@@ -551,8 +559,10 @@
                         </div>
                         <div class="method-checkmark"></div>
                     </label>
+                    {% endif %}
                     
                     <!-- Other -->
+                    {% if 'other' in allowed_methods %}
                     <label class="method-option">
                         <input type="radio" name="exchange_method" value="other" 
                                {% if exchange_method == 'other' %}checked{% endif %}>
@@ -562,6 +572,7 @@
                         </div>
                         <div class="method-checkmark"></div>
                     </label>
+                    {% endif %}
                 </div>
                 
                 <!-- Stripe Payment Form (shown/hidden via JS) -->
@@ -711,8 +722,16 @@
                 <h6>Payment Details</h6>
                 <div style="margin-bottom: 1rem;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.95rem;">
-                        <span>Item Price:</span>
-                        <span>₱{{ transaction.price }}</span>
+                        <span>Unit Price:</span>
+                        <span>₱{{ transaction.unit_price|floatformat:2 }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.95rem;">
+                        <span>Quantity:</span>
+                        <span>{{ transaction.quantity }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.95rem;">
+                        <span>Subtotal:</span>
+                        <span>₱{{ transaction.price|floatformat:2 }}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.95rem;" id="fee-display">
                         <span>Processing Fee (2%):</span>

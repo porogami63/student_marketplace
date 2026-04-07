@@ -261,6 +261,14 @@
                 <span class="btn btn-sm btn-success disabled" title="Payment confirmed">
                     <i class="bi bi-check-circle-fill me-1"></i> Paid
                 </span>
+                {% elif payment_pending %}
+                <span class="btn btn-sm btn-outline-warning disabled" title="Waiting for seller confirmation">
+                    <i class="bi bi-hourglass-split me-1"></i> Payment Pending
+                </span>
+                {% elif not meeting_confirmed %}
+                <span class="btn btn-sm btn-outline-secondary disabled" title="Waiting for both meetup confirmations">
+                    <i class="bi bi-lock me-1"></i> Payment Locked
+                </span>
                 {% else %}
                 <a href="{% url 'marketplace:payment_checkout' transaction.pk %}" class="btn btn-sm btn-primary" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
                     <i class="bi bi-credit-card me-1"></i> Pay Now
@@ -329,6 +337,24 @@
                         </div>
                     </div>
                 </div>
+
+                {% if transaction.proposed_meetup_location or transaction.proposed_meetup_datetime %}
+                <div class="mb-3 p-3 rounded-3" style="background: rgba(5, 150, 105, 0.08); border: 1px solid rgba(5, 150, 105, 0.22);">
+                    <div class="txn-section-label mb-1" style="color:#047857;">Proposed meetup schedule</div>
+                    <div class="small fw-semibold">
+                        {% if transaction.proposed_meetup_location %}
+                        <span><i class="bi bi-geo-alt-fill me-1"></i>{{ transaction.get_proposed_meetup_location_display }}</span>
+                        {% endif %}
+                        {% if transaction.proposed_meetup_location and transaction.proposed_meetup_datetime %}
+                        <span class="mx-1">&bull;</span>
+                        {% endif %}
+                        {% if transaction.proposed_meetup_datetime %}
+                        <span><i class="bi bi-calendar-event me-1"></i>{{ transaction.proposed_meetup_datetime|date:"M d, Y h:i A" }}</span>
+                        {% endif %}
+                    </div>
+                    <small class="text-muted">Confirm or adjust this schedule in chat before payment.</small>
+                </div>
+                {% endif %}
 
                 <div class="txn-chat-body">
                     {% if transaction.notes %}
@@ -428,7 +454,49 @@
             </div>
 
             <!-- Payment Notice for Buyer -->
-            {% if is_buyer and transaction.status == 'confirmed' and not payment_completed %}
+            {% if transaction.status == 'confirmed' %}
+            <div class="mt-3 p-3 rounded-3" style="background: rgba(15, 118, 110, 0.08); border: 1px solid rgba(15, 118, 110, 0.25);">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <div class="txn-section-label" style="color: #4b5563;">Pre-payment Safety Gate</div>
+                        <div class="fw-semibold">Confirm meetup/agreement before payment</div>
+                        <small class="text-muted d-block">Both buyer and seller must confirm this step to unlock checkout.</small>
+                        <div class="d-flex gap-3 mt-2">
+                            <span class="small {% if transaction.buyer_confirmed_meeting %}text-success{% else %}text-muted{% endif %}">
+                                <i class="bi {% if transaction.buyer_confirmed_meeting %}bi-check-circle-fill{% else %}bi-circle{% endif %} me-1"></i> Buyer Ready
+                            </span>
+                            <span class="small {% if transaction.seller_confirmed_meeting %}text-success{% else %}text-muted{% endif %}">
+                                <i class="bi {% if transaction.seller_confirmed_meeting %}bi-check-circle-fill{% else %}bi-circle{% endif %} me-1"></i> Seller Ready
+                            </span>
+                        </div>
+                    </div>
+
+                    {% if is_buyer and not transaction.buyer_confirmed_meeting %}
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="confirm_meeting">
+                        <button type="submit" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-shield-check me-1"></i> I Confirm Readiness
+                        </button>
+                    </form>
+                    {% elif is_seller and not transaction.seller_confirmed_meeting %}
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="confirm_meeting">
+                        <button type="submit" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-shield-check me-1"></i> I Confirm Readiness
+                        </button>
+                    </form>
+                    {% else %}
+                    <button class="btn btn-sm btn-outline-success" disabled>
+                        <i class="bi bi-check2-circle me-1"></i> Confirmation Saved
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if is_buyer and transaction.status == 'confirmed' and not payment_completed and meeting_confirmed and not payment_pending %}
             <div class="alert alert-primary mt-3 p-3 border-start border-4" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%); border-color: #667eea !important;">
                 <div class="d-flex gap-3 align-items-start">
                     <div style="font-size: 1.5rem; color: #667eea;">
@@ -439,12 +507,29 @@
                             Ready to complete your purchase?
                         </h5>
                         <p class="mb-2" style="color: #666;">
-                            Both parties have agreed to the deal. Complete the payment to proceed with the exchange.
+                            Both parties have confirmed meetup/agreement. Complete payment to proceed.
                         </p>
                         <a href="{% url 'marketplace:payment_checkout' transaction.pk %}" class="btn btn-primary" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; font-weight: 600;">
-                            <i class="bi bi-credit-card me-2"></i> Pay ₱{{ transaction.listing.price|floatformat:2 }} Now
+                            <i class="bi bi-credit-card me-2"></i> Pay ₱{{ transaction.price|floatformat:2 }} Now
                         </a>
                     </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if is_seller and payment_pending %}
+            <div class="alert alert-warning mt-3 p-3 border-start border-4" style="border-color: #f59e0b !important; background: rgba(245, 158, 11, 0.08);">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <h6 class="mb-1">Pending payment confirmation</h6>
+                        <small class="text-muted">Confirm once you have verified receipt of payment from the buyer.</small>
+                    </div>
+                    <form method="post" action="{% url 'marketplace:confirm_payment_received' transaction.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-warning">
+                            <i class="bi bi-cash-coin me-1"></i> Confirm Payment Received
+                        </button>
+                    </form>
                 </div>
             </div>
             {% endif %}
@@ -512,7 +597,7 @@
                     <div>
                         <div class="txn-section-label" style="color: #4b5563;">Order Completion</div>
                         <div class="fw-semibold">Have you met and exchanged the items?</div>
-                        <small class="text-muted d-block">Both parties must mark this as completed to finish the transaction.</small>
+                        <small class="text-muted d-block">Both parties must mark this as completed after payment is confirmed.</small>
                         
                         <div class="d-flex gap-3 mt-2">
                             <span class="small {% if transaction.buyer_completed %}text-success{% else %}text-muted{% endif %}">
@@ -526,6 +611,7 @@
                     
                     {% if is_buyer %}
                         {% if not transaction.buyer_completed %}
+                        {% if payment_completed %}
                         <form method="post" action="{% url 'marketplace:complete_transaction' transaction.pk %}" class="d-inline">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-success btn-sm">
@@ -533,18 +619,29 @@
                             </button>
                         </form>
                         {% else %}
+                        <button class="btn btn-outline-secondary btn-sm" disabled>
+                            <i class="bi bi-lock me-1"></i> Waiting for payment confirmation
+                        </button>
+                        {% endif %}
+                        {% else %}
                         <button class="btn btn-outline-success btn-sm" disabled>
                             <i class="bi bi-hourglass-split me-1"></i> Waiting for other party
                         </button>
                         {% endif %}
                     {% elif is_seller %}
                         {% if not transaction.seller_completed %}
+                        {% if payment_completed %}
                         <form method="post" action="{% url 'marketplace:complete_transaction' transaction.pk %}" class="d-inline">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-success btn-sm">
                                 <i class="bi bi-check2-circle me-1"></i> Mark as complete
                             </button>
                         </form>
+                        {% else %}
+                        <button class="btn btn-outline-secondary btn-sm" disabled>
+                            <i class="bi bi-lock me-1"></i> Waiting for payment confirmation
+                        </button>
+                        {% endif %}
                         {% else %}
                         <button class="btn btn-outline-success btn-sm" disabled>
                             <i class="bi bi-hourglass-split me-1"></i> Waiting for other party
@@ -578,7 +675,8 @@
                                 Listing removed
                             {% endif %}
                         </div>
-                        <div class="txn-price mb-2">₱{{ transaction.price|floatformat:2 }}</div>
+                        <div class="txn-price mb-1">₱{{ transaction.price|floatformat:2 }}</div>
+                        <div class="small text-muted mb-2">{{ transaction.quantity }} x ₱{{ transaction.unit_price|floatformat:2 }} each</div>
                         {% if transaction.listing %}
                         <a href="{{ transaction.listing.get_absolute_url }}" class="btn btn-outline-ubelt btn-sm">
                             View listing

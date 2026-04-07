@@ -243,6 +243,11 @@
             <div class="seller-badge">
                 For: <strong>{{ seller.get_full_name|default:seller.username }}</strong>
             </div>
+            {% if transaction %}
+            <div class="subtitle" style="margin-top: 0.75rem;">
+                <i class="bi bi-receipt"></i> Transaction #{{ transaction.id }} • {{ transaction.quantity }} x ₱{{ transaction.unit_price|floatformat:2 }}
+            </div>
+            {% endif %}
             <div class="subtitle"><i class="bi bi-hand-thumbs-up-fill"></i> Vouching helps build community trust</div>
             {% if existing_review %}
                 <div class="existing-review-notice" style="margin-top: 1.5rem; margin-bottom: 0;">
@@ -254,6 +259,9 @@
 
         <form method="post">
             {% csrf_token %}
+            {% if transaction %}
+            <input type="hidden" name="transaction_id" value="{{ transaction.id }}">
+            {% endif %}
 
             <div class="form-group">
                 <label class="form-label">Would you vouch for this user?</label>

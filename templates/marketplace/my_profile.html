@@ -1116,8 +1116,8 @@
                         <div class="tier-item-requirements">
                             <strong>Requirements:</strong><br>
                             • Complete all profile information<br>
-                            • Add a profile picture<br>
-                            • Add school/university
+                            • Add school/university<br>
+                            • School ID approved by admin
                         </div>
                     </div>
 
@@ -1193,16 +1193,16 @@
                     {% elif user.profile.verification_tier == 'green' %}
                         ✓ {{ buyer_transactions.count|add:seller_transactions.count }} transaction{{ buyer_transactions.count|add:seller_transactions.count|pluralize }} completed
                     {% elif user.profile.verification_tier == 'yellow' %}
-                        ✓ Profile information complete
+                        ✓ Profile complete and school ID approved
                     {% else %}
-                        Complete your profile to reach Yellow tier
+                        Complete your profile and submit school ID to reach Yellow tier
                     {% endif %}
                 </div>
                 
                 <!-- Hover Tooltip (Next Level) -->
                 <div class="tier-tooltip" style="position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 10px; background: rgba(31, 31, 31, 0.95); color: white; padding: 12px 16px; border-radius: 8px; font-size: 0.85rem; white-space: nowrap; opacity: 0; visibility: hidden; transition: all 0.3s ease; z-index: 10; pointer-events: none; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);">
                     {% if user.profile.verification_tier == 'grey' %}
-                        Next: Fill all profile fields → Yellow tier
+                        Next: Fill profile + submit school ID → Yellow tier
                     {% elif user.profile.verification_tier == 'yellow' %}
                         Next: Complete transactions → Green tier
                     {% elif user.profile.verification_tier == 'green' %}
