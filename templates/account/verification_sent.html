@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Verify Your Email Address{% endblock %}
+{% block extra_css %}
+<style>
+    .verify-stage {
+        --verify-background-image: url("{% static 'media/hero/ubelt-campus-park.jpg' %}");
+        position: relative;
+        margin-left: calc(50% - 50vw);
+        margin-right: calc(50% - 50vw);
+        margin-top: -1.5rem;
+        margin-bottom: -1.5rem;
+        min-height: clamp(620px, 84vh, 900px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: clamp(1.1rem, 3vw, 3rem);
+        overflow: hidden;
+    }
+
+    .verify-stage::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: var(--verify-background-image);
+        background-size: cover;
+        background-position: center;
+        filter: saturate(1.05);
+    }
+
+    .verify-stage::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(130deg, rgba(11, 26, 43, 0.84), rgba(16, 41, 67, 0.68));
+    }
+
+    .verify-panel {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        max-width: 560px;
+        border-radius: 22px;
+        border: 1px solid rgba(255, 255, 255, 0.44);
+        background: rgba(250, 252, 255, 0.95);
+        box-shadow: 0 26px 56px rgba(7, 18, 36, 0.38);
+        backdrop-filter: blur(5px);
+        padding: clamp(1.25rem, 2.4vw, 2rem);
+    }
+
+    .verify-kicker {
+        margin-bottom: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.11em;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #355575;
+    }
+
+    .verify-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: clamp(1.55rem, 2.7vw, 2.1rem);
+        font-weight: 700;
+        color: #102744;
+        margin-bottom: 0.6rem;
+    }
+
+    .verify-subtitle {
+        margin-bottom: 1rem;
+        color: #4c6075;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    .verify-checklist {
+        margin: 0 0 1.15rem;
+        padding-left: 1.25rem;
+        color: #2f4760;
+        font-size: 0.92rem;
+        line-height: 1.55;
+    }
+
+    .verify-checklist li {
+        margin-bottom: 0.32rem;
+    }
+
+    .verify-note {
+        border-radius: 10px;
+        border: 1px solid #c9d8e9;
+        background: #edf3fa;
+        color: #204a71;
+        padding: 0.75rem 0.9rem;
+        font-size: 0.87rem;
+        line-height: 1.45;
+        margin-bottom: 1rem;
+    }
+
+    .verify-actions {
+        display: flex;
+        gap: 0.65rem;
+        flex-wrap: wrap;
+    }
+
+    .verify-primary,
+    .verify-secondary {
+        flex: 1;
+        min-width: 190px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 11px;
+        padding: 0.8rem 1rem;
+        font-weight: 700;
+        text-decoration: none;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .verify-primary {
+        border: none;
+        background: linear-gradient(135deg, #2f5981, #3f79aa);
+        color: #ffffff;
+    }
+
+    .verify-secondary {
+        border: 1px solid #c9d8e9;
+        background: #edf3fa;
+        color: #204a71;
+    }
+
+    .verify-primary:hover,
+    .verify-secondary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 18px rgba(37, 71, 106, 0.16);
+    }
+
+    @media (max-width: 767px) {
+        .verify-stage {
+            min-height: auto;
+        }
+
+        .verify-panel {
+            border-radius: 18px;
+            padding: 1.2rem;
+        }
+
+        .verify-title {
+            font-size: 1.45rem;
+        }
+
+        .verify-primary,
+        .verify-secondary {
+            min-width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<section class="verify-stage">
+    <article class="verify-panel" aria-labelledby="verify-email-title">
+        <p class="verify-kicker">One More Step</p>
+        <h1 class="verify-title" id="verify-email-title">Verify Your Email Address</h1>
+        <p class="verify-subtitle">
+            We sent a verification message to your email address. Open your inbox and click the
+            confirmation link to finish account setup.
+        </p>
+
+        <ol class="verify-checklist">
+            <li>Check your inbox and spam or junk folder.</li>
+            <li>Open the email from UBXchange and click the verification link.</li>
+            <li>Return here and sign in once verification is complete.</li>
+        </ol>
+
+        <p class="verify-note">
+            If the email does not arrive after a few minutes, verify the address you used during
+            signup or try signing up again with a valid email account.
+        </p>
+
+        <div class="verify-actions">
+            <a class="verify-primary" href="{% url 'account_login' %}">Back to Sign In</a>
+            <a class="verify-secondary" href="{% url 'account_signup' %}">Create Different Account</a>
+        </div>
+    </article>
+</section>
+{% endblock %}

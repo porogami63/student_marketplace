@@ -167,6 +167,13 @@ ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_SIGNUP_REDIRECT_URL = LOGIN_REDIRECT_URL
 
+# Accounts created before this timestamp are auto-whitelisted for allauth
+# mandatory email verification during login. Set empty string to disable.
+ACCOUNT_LEGACY_EMAIL_WHITELIST_CUTOFF = os.environ.get(
+    'ACCOUNT_LEGACY_EMAIL_WHITELIST_CUTOFF',
+    '2026-04-07T00:00:00+08:00',
+)
+
 # Email delivery settings (email verification + email-based 2FA)
 if DEBUG:
     EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
@@ -193,6 +200,9 @@ SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_QUERY_EMAIL = True
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', os.environ.get('GOOGLE_CLIENT_ID', '')).strip()
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', os.environ.get('GOOGLE_CLIENT_SECRET', '')).strip()
+
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'SCOPE': [
@@ -204,6 +214,16 @@ SOCIALACCOUNT_PROVIDERS = {
         },
     }
 }
+
+# Fallback for environments where DB-backed SocialApp is not yet seeded.
+if GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET:
+    SOCIALACCOUNT_PROVIDERS['google']['APP'] = {
+        'client_id': GOOGLE_OAUTH_CLIENT_ID,
+        'secret': GOOGLE_OAUTH_CLIENT_SECRET,
+        'key': '',
+        # Keep fallback app hidden when a DB SocialApp also exists.
+        'settings': {'hidden': True},
+    }
 
 # Stripe Configuration
 # Store API keys in .env file for security

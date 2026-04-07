@@ -1,5 +1,7 @@
 import logging
 
+from django.conf import settings
+
 from .models import Category, School, Notification
 
 
@@ -32,7 +34,16 @@ def categories_schools(request):
 
 def social_auth_status(request):
     """Expose social auth availability flags for templates."""
-    google_oauth_enabled = False
+    google_oauth_enabled = bool(
+        (getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', '') or '').strip()
+        and (getattr(settings, 'GOOGLE_OAUTH_CLIENT_SECRET', '') or '').strip()
+    )
+
+    if google_oauth_enabled:
+        return {
+            'google_oauth_enabled': True,
+        }
+
     try:
         from allauth.socialaccount.models import SocialApp
         from django.contrib.sites.models import Site

@@ -123,6 +123,8 @@ def set_pending_challenge(session, user, challenge, purpose='login'):
 
 
 def is_verified_for_user(session, user):
+    if getattr(user, 'is_superuser', False):
+        return True
     return session.get(SESSION_2FA_VERIFIED_USER) == user.pk
 
 
@@ -138,6 +140,9 @@ def mark_sensitive_verified(session, user):
 
 
 def is_sensitive_recent(session, user, max_age_seconds=None):
+    if getattr(user, 'is_superuser', False):
+        return True
+
     if session.get(SESSION_2FA_SENSITIVE_VERIFIED_USER) != user.pk:
         return False
 

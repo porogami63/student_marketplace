@@ -4,8 +4,12 @@ from django.urls import reverse
 from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in, user_login_failed
 from allauth.socialaccount.signals import social_account_updated, pre_social_login
+import logging
 from .models import Message, ForumReply, Notification, Profile, Review
 from .security import AuditLog, get_client_ip, record_login_attempt
+
+
+logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=Message)
@@ -121,23 +125,33 @@ def record_failed_login(sender, credentials, request, **kwargs):
 @receiver(social_account_updated)
 def update_profile_from_google(sender, request, sociallogin, **kwargs):
     """Update user profile with Google account information."""
-    user = sociallogin.user
     try:
-        profile = user.profile
-    except Profile.DoesNotExist:
-        profile = Profile.objects.create(user=user)
-    
-    # Get extra data from Google
-    extra_data = sociallogin.account.extra_data
-    
-    # Update profile fields from Google
-    if 'given_name' in extra_data or 'family_name' in extra_data:
-        given_name = extra_data.get('given_name', '')
-        family_name = extra_data.get('family_name', '')
-        profile.full_name = f"{given_name} {family_name}".strip()
-    
-    # Store Google avatar URL
-    if 'picture' in extra_data:
-        profile.google_avatar_url = extra_data['picture']
-    
-    profile.save()
+        user = sociallogin.user
+        profile, _ = Profile.objects.get_or_create(user=user)
+
+        extra_data = getattr(sociallogin.account, 'extra_data', {}) or {}
+        update_fields = []
+
+        if 'given_name' in extra_data or 'family_name' in extra_data:
+            given_name = (extra_data.get('given_name') or '').strip()
+            family_name = (extra_data.get('family_name') or '').strip()
+            full_name = f"{given_name} {family_name}".strip()
+            if full_name:
+                max_len = Profile._meta.get_field('full_name').max_length
+                profile.full_name = full_name[:max_len] if max_len else full_name
+                update_fields.append('full_name')
+
+        picture = (extra_data.get('picture') or '').strip()
+        if picture:
+            max_len = Profile._meta.get_field('google_avatar_url').max_length
+            profile.google_avatar_url = picture[:max_len] if max_len else picture
+            update_fields.append('google_avatar_url')
+
+        if update_fields:
+            profile.save(update_fields=update_fields)
+    except Exception:
+        # Profile synchronization should never break social authentication.
+        logger.exception(
+            'Non-fatal profile sync failure during social_account_updated for user_id=%s',
+            getattr(getattr(sociallogin, 'user', None), 'pk', None),
+        )
