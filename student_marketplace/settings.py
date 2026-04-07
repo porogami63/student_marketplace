@@ -133,12 +133,16 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-MEDIA_URL = 'media/'
+MEDIA_URL = '/media/'
 
 # Render note: local filesystem is ephemeral unless you attach a Persistent Disk.
 # Set MEDIA_ROOT to the mounted disk path (e.g., /var/data/media) in production.
 _media_root_env = os.environ.get('MEDIA_ROOT', '').strip()
 MEDIA_ROOT = Path(_media_root_env) if _media_root_env else (BASE_DIR / 'media')
+
+# Emergency compatibility switch for platforms without a dedicated media server.
+# Keep disabled unless you intentionally want Django/Gunicorn to serve MEDIA_URL.
+SERVE_MEDIA_IN_PRODUCTION = os.environ.get('SERVE_MEDIA_IN_PRODUCTION', 'False').lower() == 'true'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

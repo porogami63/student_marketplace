@@ -72,6 +72,11 @@ CSRF_TRUSTED_ORIGINS=https://your-app.onrender.com,https://www.your-app.onrender
 SECURE_SSL_REDIRECT=True
 SESSION_COOKIE_SECURE=True
 CSRF_COOKIE_SECURE=True
+
+# Media uploads on Render (attach a Persistent Disk and use its mount path)
+MEDIA_ROOT=/var/data/media
+# Optional compatibility mode if you do not have a separate media server/CDN yet
+SERVE_MEDIA_IN_PRODUCTION=True
 ```
 
 Optional CSP extensions (only set when adding integrations like Google Maps):
