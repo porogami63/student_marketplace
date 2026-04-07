@@ -11,10 +11,12 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from .email_2fa import (
+    Email2FADeliveryError,
     clear_pending_state,
     get_active_session_challenge,
     get_max_attempts,
     is_email_2fa_emergency_bypass_enabled,
+    is_email_2fa_fail_open_enabled,
     is_sensitive_recent,
     is_verified_for_user,
     issue_login_challenge,
@@ -92,6 +94,25 @@ def email_2fa_verify(request):
     if challenge is None:
         try:
             challenge = issue_login_challenge(request.user, ip_address=get_client_ip(request))
+        except Email2FADeliveryError:
+            if is_email_2fa_fail_open_enabled():
+                mark_verified(request.session, request.user)
+                auth_logger.critical(
+                    'Email 2FA delivery failed; fail-open enabled for user=%s path=%s',
+                    request.user.username,
+                    request.path,
+                )
+                messages.warning(
+                    request,
+                    'Verification code delivery is temporarily unavailable. You were signed in without email code verification.',
+                )
+                return _safe_next_redirect(request, purpose='login')
+
+            auth_logger.exception('Failed to issue email 2FA challenge for user=%s', request.user.username)
+            clear_pending_state(request.session)
+            logout(request)
+            messages.error(request, 'Unable to deliver your verification code. Please sign in again.')
+            return redirect('account_login')
         except Exception:
             auth_logger.exception('Failed to issue email 2FA challenge for user=%s', request.user.username)
             clear_pending_state(request.session)
@@ -164,6 +185,25 @@ def email_2fa_resend(request):
 
     try:
         challenge = issue_login_challenge(request.user, ip_address=get_client_ip(request))
+    except Email2FADeliveryError:
+        if is_email_2fa_fail_open_enabled():
+            mark_verified(request.session, request.user)
+            auth_logger.critical(
+                'Email 2FA resend delivery failed; fail-open enabled for user=%s path=%s',
+                request.user.username,
+                request.path,
+            )
+            messages.warning(
+                request,
+                'Verification code delivery is temporarily unavailable. You were signed in without email code verification.',
+            )
+            return _safe_next_redirect(request, purpose='login')
+
+        auth_logger.exception('Failed to resend email 2FA challenge for user=%s', request.user.username)
+        clear_pending_state(request.session)
+        logout(request)
+        messages.error(request, 'Unable to send a new code. Please sign in again.')
+        return redirect('account_login')
     except Exception:
         auth_logger.exception('Failed to resend email 2FA challenge for user=%s', request.user.username)
         clear_pending_state(request.session)

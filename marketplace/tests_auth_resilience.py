@@ -13,7 +13,12 @@ from django.test import RequestFactory, TestCase, override_settings
 
 from marketplace import auth_views, context_processors
 from marketplace.adapters import CustomAccountAdapter
-from marketplace.email_2fa import is_sensitive_recent, is_verified_for_user, issue_login_challenge
+from marketplace.email_2fa import (
+    Email2FADeliveryError,
+    is_sensitive_recent,
+    is_verified_for_user,
+    issue_login_challenge,
+)
 from marketplace.login_stages import LegacyAwareEmailVerificationStage
 from marketplace.middleware import EmailTwoFactorMiddleware
 from marketplace.models import EmailTwoFactorCode, Profile
@@ -92,12 +97,60 @@ class AuthenticatedPathResilienceTests(TestCase):
 
     @patch('marketplace.email_2fa._send_code_email', side_effect=TimeoutError('smtp timeout'))
     def test_issue_challenge_cleanup_on_send_failure(self, _mock_send_email):
-        with self.assertRaises(TimeoutError):
+        with self.assertRaises(Email2FADeliveryError) as caught:
             issue_login_challenge(self.user, ip_address='127.0.0.1')
 
+        self.assertIsInstance(caught.exception.__cause__, TimeoutError)
         self.assertFalse(
             EmailTwoFactorCode.objects.filter(user=self.user, purpose='login').exists()
         )
+
+    @override_settings(EMAIL_2FA_FAIL_OPEN_ON_DELIVERY_FAILURE=True)
+    @patch('marketplace.middleware.issue_login_challenge', side_effect=Email2FADeliveryError('smtp timeout'))
+    @patch('marketplace.middleware.get_active_session_challenge', return_value=None)
+    @patch('marketplace.middleware.is_verified_for_user', return_value=False)
+    def test_middleware_fail_open_on_delivery_error(
+        self,
+        _mock_is_verified,
+        _mock_get_challenge,
+        _mock_issue,
+    ):
+        request = self._build_request('/')
+        middleware = EmailTwoFactorMiddleware(lambda req: HttpResponse('ok'))
+
+        response = middleware.process_request(request)
+
+        self.assertIsNone(response)
+        self.assertTrue(is_verified_for_user(request.session, request.user))
+
+    @override_settings(EMAIL_2FA_FAIL_OPEN_ON_DELIVERY_FAILURE=True)
+    @patch('marketplace.auth_views.issue_login_challenge', side_effect=Email2FADeliveryError('smtp timeout'))
+    def test_email_2fa_verify_fail_open_on_delivery_error(self, _mock_issue):
+        request = self._build_request('/accounts/email-2fa/')
+        request.session['email_2fa_next_url'] = '/'
+
+        response = auth_views.email_2fa_verify(request)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/')
+        self.assertTrue(is_verified_for_user(request.session, request.user))
+
+    @override_settings(EMAIL_2FA_FAIL_OPEN_ON_DELIVERY_FAILURE=True)
+    @patch('marketplace.auth_views.issue_login_challenge', side_effect=Email2FADeliveryError('smtp timeout'))
+    @patch('marketplace.auth_views.seconds_until_resend_allowed', return_value=0)
+    def test_email_2fa_resend_fail_open_on_delivery_error(
+        self,
+        _mock_cooldown,
+        _mock_issue,
+    ):
+        request = self._build_request('/accounts/email-2fa/resend/', method='post')
+        request.session['email_2fa_next_url'] = '/'
+
+        response = auth_views.email_2fa_resend(request)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/')
+        self.assertTrue(is_verified_for_user(request.session, request.user))
 
     @override_settings(EMAIL_2FA_EMERGENCY_BYPASS=True)
     def test_middleware_emergency_bypass_allows_authenticated_request(self):

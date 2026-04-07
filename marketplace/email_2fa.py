@@ -24,6 +24,10 @@ SESSION_2FA_SENSITIVE_VERIFIED_USER = 'email_2fa_sensitive_verified_user_id'
 SESSION_2FA_SENSITIVE_VERIFIED_AT = 'email_2fa_sensitive_verified_at'
 
 
+class Email2FADeliveryError(Exception):
+    """Raised when an email 2FA challenge cannot be delivered."""
+
+
 def _safe_positive_int(value, default):
     try:
         parsed = int(value)
@@ -57,6 +61,14 @@ def get_sensitive_window_seconds():
 def is_email_2fa_emergency_bypass_enabled():
     """Return True when emergency bypass mode is enabled for email 2FA."""
     raw_value = getattr(settings, 'EMAIL_2FA_EMERGENCY_BYPASS', False)
+    if isinstance(raw_value, str):
+        return raw_value.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return bool(raw_value)
+
+
+def is_email_2fa_fail_open_enabled():
+    """Return True when delivery failures should temporarily fail-open login 2FA."""
+    raw_value = getattr(settings, 'EMAIL_2FA_FAIL_OPEN_ON_DELIVERY_FAILURE', False)
     if isinstance(raw_value, str):
         return raw_value.strip().lower() in {'1', 'true', 'yes', 'on'}
     return bool(raw_value)
@@ -247,7 +259,7 @@ def _send_code_email(user, raw_code, purpose='login'):
 def issue_challenge(user, purpose='login', ip_address=''):
     recipient = resolve_user_delivery_email(user)
     if not recipient:
-        raise ValueError('User does not have an email address for 2FA delivery.')
+        raise Email2FADeliveryError('User does not have an email address for 2FA delivery.')
 
     raw_code = f"{secrets.randbelow(1000000):06d}"
     expires_at = timezone.now() + timedelta(seconds=get_code_ttl_seconds())
@@ -263,7 +275,7 @@ def issue_challenge(user, purpose='login', ip_address=''):
 
     try:
         _send_code_email(user, raw_code, purpose=purpose)
-    except Exception:
+    except Exception as exc:
         # Remove undelivered challenges so resend cooldown is not enforced after a failed send.
         try:
             challenge.delete()
@@ -274,7 +286,7 @@ def issue_challenge(user, purpose='login', ip_address=''):
                 purpose,
                 challenge.pk,
             )
-        raise
+        raise Email2FADeliveryError('Unable to deliver email 2FA challenge.') from exc
 
     auth_logger.info('Email 2FA code sent to user=%s purpose=%s', user.username, purpose)
     return challenge

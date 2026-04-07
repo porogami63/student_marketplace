@@ -9,11 +9,13 @@ from django.contrib.auth import logout
 from django.shortcuts import redirect
 from marketplace.security import AuditLog, get_client_ip
 from marketplace.email_2fa import (
+    Email2FADeliveryError,
     SESSION_2FA_NEXT_URL,
     SESSION_2FA_PENDING_USER,
     clear_pending_state,
     get_active_session_challenge,
     is_email_2fa_emergency_bypass_enabled,
+    is_email_2fa_fail_open_enabled,
     is_verified_for_user,
     issue_login_challenge,
     mark_verified,
@@ -115,6 +117,29 @@ class EmailTwoFactorMiddleware(MiddlewareMixin):
         if challenge is None:
             try:
                 challenge = issue_login_challenge(request.user, ip_address=get_client_ip(request))
+            except Email2FADeliveryError:
+                if is_email_2fa_fail_open_enabled():
+                    mark_verified(request.session, request.user)
+                    security_logger.critical(
+                        'Email 2FA delivery failed; fail-open enabled for user=%s path=%s',
+                        request.user.username,
+                        request.path,
+                    )
+                    messages.warning(
+                        request,
+                        'Verification code delivery is temporarily unavailable. You were signed in without email code verification.',
+                    )
+                    return None
+
+                security_logger.exception(
+                    'Unable to send email 2FA challenge for user=%s path=%s',
+                    request.user.username,
+                    request.path,
+                )
+                clear_pending_state(request.session)
+                logout(request)
+                messages.error(request, 'Could not send your verification code. Please sign in again.')
+                return redirect('account_login')
             except Exception:
                 security_logger.exception(
                     'Unable to send email 2FA challenge for user=%s path=%s',
