@@ -168,6 +168,122 @@
     </div>
 </div>
 
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="font-display fw-bold"><i class="bi bi-flag me-2"></i>Reports Queue</span>
+        <a href="{{ reports_admin_url }}" class="btn btn-sm btn-outline-secondary">Back Office Queue</a>
+    </div>
+    <div class="card-body p-0">
+        {% if open_reports %}
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th style="min-width: 320px;">Report</th>
+                        <th style="min-width: 230px;">Target / Reporter</th>
+                        <th style="min-width: 240px;">Quick Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in open_reports %}
+                    <tr>
+                        <td>
+                            <div class="fw-semibold">#{{ report.id }} · {{ report.get_reason_display }}</div>
+                            <div class="small text-muted mt-1">Submitted {{ report.created_at|timesince }} ago</div>
+                            <div class="small text-muted">Priority: {{ report.priority }}</div>
+                            {% if report.description %}
+                            <div class="small mt-1">{{ report.description|truncatewords:20 }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="small"><strong>Target:</strong> {{ report.content_type.model|default:'target'|title }} #{{ report.object_id }}</div>
+                            <div class="small"><strong>Reporter:</strong> {{ report.reporter.username }}</div>
+                            <div class="small"><strong>Reported:</strong> {% if report.reported_user %}{{ report.reported_user.username }}{% else %}N/A{% endif %}</div>
+                            <div class="small mt-1">
+                                <span class="badge {% if report.status == 'new' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ report.get_status_display }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <form method="post" class="d-grid gap-2">
+                                {% csrf_token %}
+                                <input type="hidden" name="report_id" value="{{ report.id }}">
+                                <textarea name="report_resolution_notes" rows="2" class="form-control form-control-sm" placeholder="Resolution note (optional)"></textarea>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button type="submit" name="report_action" value="review" class="btn btn-sm btn-outline-secondary">Review</button>
+                                    <button type="submit" name="report_action" value="resolve" class="btn btn-sm btn-success">Resolve</button>
+                                    <button type="submit" name="report_action" value="dismiss" class="btn btn-sm btn-outline-danger">Dismiss</button>
+                                </div>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-3 text-muted">No open reports in queue.</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="font-display fw-bold"><i class="bi bi-ticket-perforated me-2"></i>Support Tickets Queue</span>
+        <a href="{{ tickets_admin_url }}" class="btn btn-sm btn-outline-secondary">Back Office Queue</a>
+    </div>
+    <div class="card-body p-0">
+        {% if open_tickets %}
+        <div class="table-responsive">
+            <table class="table mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th style="min-width: 330px;">Ticket</th>
+                        <th style="min-width: 230px;">Assignment</th>
+                        <th style="min-width: 260px;">Quick Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in open_tickets %}
+                    <tr>
+                        <td>
+                            <div class="fw-semibold">#{{ ticket.id }} · {{ ticket.title|truncatechars:70 }}</div>
+                            <div class="small text-muted mt-1">Report #{{ ticket.report_id }} · {{ ticket.report.get_reason_display }}</div>
+                            <div class="small text-muted">Reporter: {{ ticket.report.reporter.username }}</div>
+                            <div class="small text-muted">Opened {{ ticket.created_at|timesince }} ago · Priority {{ ticket.priority }}</div>
+                        </td>
+                        <td>
+                            <div class="small"><strong>Assigned to:</strong> {% if ticket.assigned_to %}{{ ticket.assigned_to.username }}{% else %}Unassigned{% endif %}</div>
+                            <div class="small mt-1">
+                                <span class="badge {% if ticket.status == 'open' %}bg-danger{% elif ticket.status == 'assigned' %}bg-info text-dark{% else %}bg-warning text-dark{% endif %}">{{ ticket.get_status_display }}</span>
+                            </div>
+                            {% if ticket.internal_notes %}
+                            <div class="small text-muted mt-2">{{ ticket.internal_notes|truncatewords:14 }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <form method="post" class="d-grid gap-2">
+                                {% csrf_token %}
+                                <input type="hidden" name="ticket_id" value="{{ ticket.id }}">
+                                <input type="text" name="ticket_internal_notes" class="form-control form-control-sm" placeholder="Internal note (optional)">
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button type="submit" name="ticket_action" value="assign" class="btn btn-sm btn-outline-secondary">Assign to Me</button>
+                                    <button type="submit" name="ticket_action" value="start" class="btn btn-sm btn-warning">Start</button>
+                                    <button type="submit" name="ticket_action" value="resolve" class="btn btn-sm btn-success">Resolve</button>
+                                    <button type="submit" name="ticket_action" value="close" class="btn btn-sm btn-outline-danger">Close</button>
+                                </div>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-3 text-muted">No open support tickets in queue.</div>
+        {% endif %}
+    </div>
+</div>
+
 <div class="row">
     <div class="col-md-8">
         <div class="card">

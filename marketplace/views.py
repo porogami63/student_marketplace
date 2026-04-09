@@ -2068,53 +2068,164 @@ def mod_dashboard(request):
         return ''
 
     if request.method == 'POST':
-        action = (request.POST.get('verification_action') or '').strip().lower()
-        request_id = (request.POST.get('verification_request_id') or '').strip()
-        reviewer_notes = (request.POST.get('reviewer_notes') or '').strip()
+        verification_action = (request.POST.get('verification_action') or '').strip().lower()
+        report_action = (request.POST.get('report_action') or '').strip().lower()
+        ticket_action = (request.POST.get('ticket_action') or '').strip().lower()
 
-        if action not in {'approve', 'reject'}:
-            messages.error(request, 'Invalid school ID verification action.')
+        if verification_action:
+            request_id = (request.POST.get('verification_request_id') or '').strip()
+            reviewer_notes = (request.POST.get('reviewer_notes') or '').strip()
+
+            if verification_action not in {'approve', 'reject'}:
+                messages.error(request, 'Invalid school ID verification action.')
+                return redirect('marketplace:mod_dashboard')
+
+            if not request_id.isdigit():
+                messages.error(request, 'Invalid verification request ID.')
+                return redirect('marketplace:mod_dashboard')
+
+            verification_request = SchoolIDVerificationRequest.objects.select_related(
+                'profile__user',
+            ).filter(pk=int(request_id)).first()
+
+            if not verification_request:
+                messages.error(request, 'School ID verification request not found.')
+                return redirect('marketplace:mod_dashboard')
+
+            if verification_request.status != 'pending':
+                messages.info(request, 'This verification request was already reviewed.')
+                return redirect('marketplace:mod_dashboard')
+
+            if verification_action == 'reject' and not reviewer_notes:
+                messages.error(request, 'Reviewer notes are required when rejecting a school ID request.')
+                return redirect('marketplace:mod_dashboard')
+
+            if verification_action == 'approve':
+                verification_request.approve(reviewer=request.user, notes=reviewer_notes)
+                ModerationLog.objects.create(
+                    actor=request.user,
+                    action='approve_school_id',
+                    target_model='school_id_verification_request',
+                    target_id=verification_request.pk,
+                )
+                messages.success(request, f"Approved school ID for {verification_request.profile.user.username}.")
+            else:
+                verification_request.reject(reviewer=request.user, notes=reviewer_notes)
+                ModerationLog.objects.create(
+                    actor=request.user,
+                    action='reject_school_id',
+                    target_model='school_id_verification_request',
+                    target_id=verification_request.pk,
+                )
+                messages.success(request, f"Rejected school ID for {verification_request.profile.user.username}.")
+
             return redirect('marketplace:mod_dashboard')
 
-        if not request_id.isdigit():
-            messages.error(request, 'Invalid verification request ID.')
+        if report_action:
+            report_id = (request.POST.get('report_id') or '').strip()
+            report_notes = (request.POST.get('report_resolution_notes') or '').strip()
+
+            if report_action not in {'review', 'resolve', 'dismiss'}:
+                messages.error(request, 'Invalid report action.')
+                return redirect('marketplace:mod_dashboard')
+
+            if not report_id.isdigit():
+                messages.error(request, 'Invalid report ID.')
+                return redirect('marketplace:mod_dashboard')
+
+            report = UserReport.objects.filter(pk=int(report_id)).first()
+            if not report:
+                messages.error(request, 'Report not found.')
+                return redirect('marketplace:mod_dashboard')
+
+            update_fields = []
+            if report_action == 'review':
+                report.status = 'reviewing'
+                report.resolved_at = None
+                report.resolved_by = None
+                update_fields.extend(['status', 'resolved_at', 'resolved_by'])
+                if report_notes:
+                    report.resolution_notes = report_notes
+                    update_fields.append('resolution_notes')
+                report.save(update_fields=update_fields)
+                messages.success(request, f"Report #{report.pk} moved to reviewing.")
+            else:
+                report.status = 'resolved' if report_action == 'resolve' else 'dismissed'
+                report.resolved_at = timezone.now()
+                report.resolved_by = request.user
+                update_fields.extend(['status', 'resolved_at', 'resolved_by'])
+                if report_notes:
+                    report.resolution_notes = report_notes
+                    update_fields.append('resolution_notes')
+                report.save(update_fields=update_fields)
+                if report_action == 'resolve':
+                    messages.success(request, f"Report #{report.pk} marked as resolved.")
+                else:
+                    messages.success(request, f"Report #{report.pk} dismissed.")
+
             return redirect('marketplace:mod_dashboard')
 
-        verification_request = SchoolIDVerificationRequest.objects.select_related(
-            'profile__user',
-        ).filter(pk=int(request_id)).first()
+        if ticket_action:
+            ticket_id = (request.POST.get('ticket_id') or '').strip()
+            ticket_note = (request.POST.get('ticket_internal_notes') or '').strip()
 
-        if not verification_request:
-            messages.error(request, 'School ID verification request not found.')
+            if ticket_action not in {'assign', 'start', 'resolve', 'close'}:
+                messages.error(request, 'Invalid ticket action.')
+                return redirect('marketplace:mod_dashboard')
+
+            if not ticket_id.isdigit():
+                messages.error(request, 'Invalid ticket ID.')
+                return redirect('marketplace:mod_dashboard')
+
+            ticket = SupportTicket.objects.select_related('assigned_to').filter(pk=int(ticket_id)).first()
+            if not ticket:
+                messages.error(request, 'Ticket not found.')
+                return redirect('marketplace:mod_dashboard')
+
+            now_ts = timezone.now()
+            update_fields = []
+
+            if ticket_action == 'assign':
+                ticket.assigned_to = request.user
+                update_fields.append('assigned_to')
+                if ticket.status == 'open':
+                    ticket.status = 'assigned'
+                    update_fields.append('status')
+                success_message = f"Ticket #{ticket.pk} assigned to you."
+            elif ticket_action == 'start':
+                if not ticket.assigned_to:
+                    ticket.assigned_to = request.user
+                    update_fields.append('assigned_to')
+                ticket.status = 'in_progress'
+                update_fields.append('status')
+                success_message = f"Ticket #{ticket.pk} moved to in progress."
+            elif ticket_action == 'resolve':
+                if not ticket.assigned_to:
+                    ticket.assigned_to = request.user
+                    update_fields.append('assigned_to')
+                ticket.status = 'resolved'
+                ticket.resolved_at = now_ts
+                update_fields.extend(['status', 'resolved_at'])
+                success_message = f"Ticket #{ticket.pk} marked as resolved."
+            else:
+                ticket.status = 'closed'
+                update_fields.append('status')
+                if not ticket.resolved_at:
+                    ticket.resolved_at = now_ts
+                    update_fields.append('resolved_at')
+                success_message = f"Ticket #{ticket.pk} closed."
+
+            if ticket_note:
+                note_line = f"[{now_ts:%Y-%m-%d %H:%M}] {request.user.username}: {ticket_note}"
+                ticket.internal_notes = f"{ticket.internal_notes}\n\n{note_line}".strip() if ticket.internal_notes else note_line
+                update_fields.append('internal_notes')
+
+            unique_fields = list(dict.fromkeys(update_fields))
+            ticket.save(update_fields=unique_fields)
+            messages.success(request, success_message)
             return redirect('marketplace:mod_dashboard')
 
-        if verification_request.status != 'pending':
-            messages.info(request, 'This verification request was already reviewed.')
-            return redirect('marketplace:mod_dashboard')
-
-        if action == 'reject' and not reviewer_notes:
-            messages.error(request, 'Reviewer notes are required when rejecting a school ID request.')
-            return redirect('marketplace:mod_dashboard')
-
-        if action == 'approve':
-            verification_request.approve(reviewer=request.user, notes=reviewer_notes)
-            ModerationLog.objects.create(
-                actor=request.user,
-                action='approve_school_id',
-                target_model='school_id_verification_request',
-                target_id=verification_request.pk,
-            )
-            messages.success(request, f"Approved school ID for {verification_request.profile.user.username}.")
-        else:
-            verification_request.reject(reviewer=request.user, notes=reviewer_notes)
-            ModerationLog.objects.create(
-                actor=request.user,
-                action='reject_school_id',
-                target_model='school_id_verification_request',
-                target_id=verification_request.pk,
-            )
-            messages.success(request, f"Rejected school ID for {verification_request.profile.user.username}.")
-
+        messages.error(request, 'No moderation action was submitted.')
         return redirect('marketplace:mod_dashboard')
 
     now = timezone.now()
@@ -2147,6 +2258,15 @@ def mod_dashboard(request):
     # Reports / tickets
     reports_open_count = UserReport.objects.filter(status__in=['new', 'reviewing']).count()
     tickets_open_count = SupportTicket.objects.filter(status__in=['open', 'assigned', 'in_progress']).count()
+    open_reports = list(UserReport.objects.select_related(
+        'reporter',
+        'reported_user',
+        'content_type',
+    ).filter(status__in=['new', 'reviewing']).order_by('-priority', 'created_at')[:8])
+    open_tickets = list(SupportTicket.objects.select_related(
+        'report__reporter',
+        'assigned_to',
+    ).filter(status__in=['open', 'assigned', 'in_progress']).order_by('-priority', 'created_at')[:8])
     pending_school_id_requests = list(SchoolIDVerificationRequest.objects.select_related(
         'profile__user',
         'profile__school',
@@ -2174,6 +2294,8 @@ def mod_dashboard(request):
         'recent_logs': recent_logs,
         'reports_open_count': reports_open_count,
         'tickets_open_count': tickets_open_count,
+        'open_reports': open_reports,
+        'open_tickets': open_tickets,
         'pending_school_id_requests': pending_school_id_requests,
         'pending_school_id_count': len(pending_school_id_requests),
         'recent_school_id_reviews': recent_school_id_reviews,
