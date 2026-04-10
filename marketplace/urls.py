@@ -81,4 +81,6 @@ urlpatterns = [
     path('mod/transactions/<int:transaction_id>/', views.mod_transaction_detail, name='mod_transaction_detail'),
     path('mod/users/', views.mod_users, name='mod_users'),
     path('mod/log/', views.mod_log, name='mod_log'),
+    path('mod/security-tests/', views.mod_security_tests, name='mod_security_tests'),
+    path('mod/security-tests/probe/', views.mod_security_probe, name='mod_security_probe'),
 ]

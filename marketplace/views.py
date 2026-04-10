@@ -1,8 +1,11 @@
 import logging
+import io
+import re
 from decimal import Decimal
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from allauth.account.models import EmailAddress
+from django.core.management import call_command
 
 logger = logging.getLogger(__name__)
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -56,7 +59,8 @@ from .forms import (
     SchoolIDVerificationRequestForm,
 )
 from .utils import get_similar_listings_price_stats
-from .security import rate_limit
+from .security import rate_limit, AuditLog, get_client_ip
+from .security_testing import build_security_test_context, run_active_security_check
 from .email_2fa import is_sensitive_recent, set_next_url
 import stripe
 from django.conf import settings
@@ -2053,6 +2057,44 @@ def _superuser_required(view_func):
     return user_passes_test(lambda u: u.is_superuser)(decorated)
 
 
+def _has_mod_security_access(user):
+    return bool(user and user.is_authenticated and (user.is_staff or user.is_superuser))
+
+
+def _record_security_test_event(request, action, result):
+    status = (result or {}).get('status', 'warn')
+    severity = 'info' if status == 'pass' else 'warning' if status == 'warn' else 'error'
+    details = {
+        'feature': 'mod_security_testing',
+        'action': action,
+        'status': status,
+        'summary': (result or {}).get('summary', ''),
+        'title': (result or {}).get('title', ''),
+    }
+
+    demo_report = (result or {}).get('demo_report') or {}
+    tests_ran = demo_report.get('tests_ran') or []
+    if tests_ran:
+        details['tests_ran'] = tests_ran
+
+    result_details = (result or {}).get('details') or []
+    if result_details:
+        details['result_details'] = result_details
+
+    try:
+        AuditLog.objects.create(
+            event_type='security_alert',
+            severity=severity,
+            user=request.user if request.user.is_authenticated else None,
+            ip_address=get_client_ip(request) or '127.0.0.1',
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:255],
+            resource=request.path,
+            details=details,
+        )
+    except Exception:
+        logger.exception('Failed to write security test audit log action=%s', action)
+
+
 def mod_dashboard(request):
     """Moderation dashboard: overview, quick stats, recent activity."""
     if not request.user.is_authenticated or not request.user.is_superuser:
@@ -2564,6 +2606,87 @@ def mod_log(request):
 
     logs = ModerationLog.objects.select_related('actor').order_by('-created_at')[:100]
     return render(request, 'marketplace/mod/mod_log.html', {'logs': logs})
+
+
+def mod_security_probe(request):
+    """Probe endpoint intentionally protected by CSRF for active checks."""
+    if not _has_mod_security_access(request.user):
+        return HttpResponseForbidden('Access denied.')
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    return JsonResponse({'ok': True, 'message': 'Probe accepted with valid CSRF'})
+
+
+def mod_security_tests(request):
+    """Staff-accessible security testing lab for demonstration checks."""
+    if not _has_mod_security_access(request.user):
+        messages.error(request, 'Access denied.')
+        return redirect('marketplace:home')
+
+    def _admin_url(name: str) -> str:
+        for current_app in ('security_admin', None):
+            try:
+                return reverse(name, current_app=current_app)
+            except Exception:
+                continue
+        return ''
+
+    context = build_security_test_context(request)
+    context['active_result'] = None
+    context['security_audit_output'] = ''
+    context['admin_security_urls'] = {
+        'security_dashboard': _admin_url('admin:security_dashboard') or '/admin/security/',
+        'compliance': _admin_url('admin:compliance') or '/admin/security/compliance/',
+        'audit_logs': _admin_url('admin:audit_logs') or '/admin/security/audit-logs/',
+    }
+
+    if request.method == 'GET':
+        _record_security_test_event(
+            request,
+            'view_security_testing_lab',
+            {
+                'title': 'Security testing lab viewed',
+                'status': 'pass',
+                'summary': 'User opened the moderator security testing lab page.',
+            },
+        )
+
+    if request.method == 'POST':
+        action = (request.POST.get('action') or '').strip()
+        if action == 'run_security_audit':
+            output = io.StringIO()
+            try:
+                call_command('run_security_audit', stdout=output, no_color=True)
+                clean_output = re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', output.getvalue())
+                context['security_audit_output'] = clean_output.strip()
+                result = {
+                    'title': 'Security audit command',
+                    'status': 'pass',
+                    'summary': 'Security audit command ran successfully.',
+                    'details': [
+                        {'label': 'Command', 'value': 'run_security_audit'},
+                        {'label': 'Output length', 'value': str(len(context['security_audit_output']))},
+                    ],
+                }
+            except Exception as exc:
+                context['security_audit_output'] = str(exc)
+                result = {
+                    'title': 'Security audit command',
+                    'status': 'fail',
+                    'summary': 'Security audit command failed.',
+                    'details': [
+                        {'label': 'Error', 'value': str(exc)},
+                    ],
+                }
+        else:
+            result = run_active_security_check(action, request, csrf_probe_view=mod_security_probe)
+
+        context['active_result'] = result
+        _record_security_test_event(request, action, result)
+
+    return render(request, 'marketplace/mod/security_tests.html', context)
 
 
 @login_required

@@ -14,6 +14,7 @@ from PIL import Image
 
 from marketplace.admin import SchoolIDVerificationRequestAdmin
 from marketplace.email_2fa import SESSION_2FA_VERIFIED_USER
+from marketplace.security import AuditLog
 from marketplace.models import (
     Listing,
     ModerationLog,
@@ -40,6 +41,12 @@ class PanelFixRegressionTests(TestCase):
             username='admin_panel',
             email='admin_panel@example.com',
             password='pass12345',
+        )
+        self.staff_user = User.objects.create_user(
+            username='staff_panel',
+            email='staff_panel@example.com',
+            password='pass12345',
+            is_staff=True,
         )
         self.request_factory = RequestFactory()
 
@@ -681,3 +688,157 @@ class PanelFixRegressionTests(TestCase):
                 target_id=verification_request.pk,
             ).exists()
         )
+
+    def test_mod_security_tests_allows_staff_and_superuser(self):
+        self._login_verified(self.staff_user)
+        response = self.client.get(reverse('marketplace:mod_security_tests'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Security Testing Lab')
+
+        self._login_verified(self.admin_user)
+        response = self.client.get(reverse('marketplace:mod_security_tests'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Security Testing Lab')
+
+    def test_mod_security_tests_denies_regular_user(self):
+        self._login_verified(self.buyer)
+
+        response = self.client.get(reverse('marketplace:mod_security_tests'))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('marketplace:home'), response['Location'])
+
+    def test_mod_security_probe_requires_staff_and_post(self):
+        self._login_verified(self.staff_user)
+
+        response = self.client.get(reverse('marketplace:mod_security_probe'))
+        self.assertEqual(response.status_code, 405)
+
+        response = self.client.post(reverse('marketplace:mod_security_probe'))
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {'ok': True, 'message': 'Probe accepted with valid CSRF'})
+
+        self._login_verified(self.buyer)
+        response = self.client.post(reverse('marketplace:mod_security_probe'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_mod_security_tests_active_check_logs_audit_event(self):
+        self._login_verified(self.staff_user)
+
+        before = AuditLog.objects.filter(
+            user=self.staff_user,
+            event_type='security_alert',
+            resource=reverse('marketplace:mod_security_tests'),
+        ).count()
+
+        response = self.client.post(
+            reverse('marketplace:mod_security_tests'),
+            {'action': 'active_csrf_check'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['active_result']['title'], 'CSRF enforcement probe')
+
+        after = AuditLog.objects.filter(
+            user=self.staff_user,
+            event_type='security_alert',
+            resource=reverse('marketplace:mod_security_tests'),
+        ).count()
+        self.assertGreater(after, before)
+
+    def test_mod_security_tests_run_security_audit_returns_output(self):
+        self._login_verified(self.staff_user)
+
+        response = self.client.post(
+            reverse('marketplace:mod_security_tests'),
+            {'action': 'run_security_audit'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        output = response.context['security_audit_output']
+        self.assertIn('SECURITY AUDIT INITIATED', output)
+
+    def test_mod_security_tests_get_logs_view_action(self):
+        self._login_verified(self.staff_user)
+        target_url = reverse('marketplace:mod_security_tests')
+
+        before = AuditLog.objects.filter(
+            user=self.staff_user,
+            event_type='security_alert',
+            resource=target_url,
+        ).count()
+
+        response = self.client.get(target_url)
+
+        self.assertEqual(response.status_code, 200)
+        after = AuditLog.objects.filter(
+            user=self.staff_user,
+            event_type='security_alert',
+            resource=target_url,
+        ).count()
+        self.assertGreater(after, before)
+
+        latest = AuditLog.objects.filter(
+            user=self.staff_user,
+            event_type='security_alert',
+            resource=target_url,
+        ).order_by('-timestamp').first()
+        self.assertIsNotNone(latest)
+        self.assertEqual(latest.details.get('action'), 'view_security_testing_lab')
+
+    def test_mod_security_tests_realtime_xss_demo_outputs_framework(self):
+        self._login_verified(self.staff_user)
+
+        response = self.client.post(
+            reverse('marketplace:mod_security_tests'),
+            {'action': 'active_xss_realtime_check'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        active_result = response.context['active_result']
+        self.assertEqual(active_result['title'], 'Realtime XSS scripting demo')
+        self.assertIn('demo_report', active_result)
+        self.assertIn('tests_ran', active_result['demo_report'])
+        self.assertTrue(active_result['demo_report']['sample_case'])
+        self.assertTrue(active_result['demo_report']['problem'])
+        self.assertTrue(active_result['demo_report']['solution'])
+        self.assertGreater(len(active_result['demo_report']['tests_ran']), 0)
+
+        latest = AuditLog.objects.filter(
+            user=self.staff_user,
+            event_type='security_alert',
+            resource=reverse('marketplace:mod_security_tests'),
+        ).order_by('-timestamp').first()
+        self.assertIsNotNone(latest)
+        self.assertEqual(latest.details.get('action'), 'active_xss_realtime_check')
+
+    def test_mod_security_tests_realtime_sqli_demo_outputs_framework(self):
+        self._login_verified(self.staff_user)
+
+        response = self.client.post(
+            reverse('marketplace:mod_security_tests'),
+            {'action': 'active_sqli_realtime_check'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        active_result = response.context['active_result']
+        self.assertEqual(active_result['title'], 'Realtime SQL injection demo')
+        self.assertIn('demo_report', active_result)
+        self.assertIn('tests_ran', active_result['demo_report'])
+        self.assertGreater(len(active_result['demo_report']['tests_ran']), 0)
+
+    def test_mod_security_tests_realtime_report_combines_xss_and_sqli(self):
+        self._login_verified(self.staff_user)
+
+        response = self.client.post(
+            reverse('marketplace:mod_security_tests'),
+            {'action': 'active_realtime_demo_report'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        active_result = response.context['active_result']
+        self.assertEqual(active_result['title'], 'Realtime attack simulation report')
+        self.assertIn('child_results', active_result)
+        self.assertEqual(len(active_result['child_results']), 2)
+        self.assertIn('demo_report', active_result)
+        self.assertGreaterEqual(len(active_result['demo_report']['tests_ran']), 2)

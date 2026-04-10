@@ -29,6 +29,7 @@
     <a href="{% url 'marketplace:mod_forum' %}" class="{% if request.resolver_match.url_name == 'mod_forum' %}active{% endif %}"><i class="bi bi-chat-dots"></i> Forum</a>
     <a href="{% url 'marketplace:mod_chat' %}" class="{% if request.resolver_match.url_name == 'mod_chat' or request.resolver_match.url_name == 'mod_conversation' %}active{% endif %}"><i class="bi bi-envelope"></i> Chat</a>
     <a href="{% url 'marketplace:mod_transactions' %}" class="{% if request.resolver_match.url_name == 'mod_transactions' or request.resolver_match.url_name == 'mod_transaction_detail' %}active{% endif %}"><i class="bi bi-receipt"></i> Transactions</a>
+    <a href="{% url 'marketplace:mod_security_tests' %}" class="{% if request.resolver_match.url_name == 'mod_security_tests' %}active{% endif %}"><i class="bi bi-shield-lock"></i> Security Tests</a>
     <a href="{% url 'marketplace:mod_log' %}" class="{% if request.resolver_match.url_name == 'mod_log' %}active{% endif %}"><i class="bi bi-journal-text"></i> Audit Log</a>
 </nav>
 {% block mod_content %}{% endblock %}
