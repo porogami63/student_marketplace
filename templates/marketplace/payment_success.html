@@ -142,6 +142,8 @@
                     Your GCash payment has been registered. The seller will confirm receipt.
                 {% elif payment.payment_method == 'bank_transfer' %}
                     Your bank transfer has been registered. The seller will verify the deposit.
+                {% elif payment.payment_method == 'third_party_delivery' %}
+                    Third-party delivery setup is registered. Keep monitoring the shared live tracking link until handoff is complete.
                 {% else %}
                     Your payment arrangement has been registered with the seller.
                 {% endif %}
@@ -227,6 +229,9 @@
             This payment is <strong>FINAL and IRREVOCABLE</strong>. You cannot cancel this transaction. 
             Please coordinate with the seller immediately to complete the exchange. If you have any issues, 
             contact support within 24 hours of payment.
+            {% if payment and payment.payment_method == 'third_party_delivery' %}
+            For third-party courier deliveries, keep your tracking link open and record delays or route anomalies.
+            {% endif %}
         </p>
     </div>
 

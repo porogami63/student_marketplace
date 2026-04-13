@@ -40,9 +40,11 @@ urlpatterns = [
     path('transactions/<int:transaction_id>/payment/gcash/', views.payment_gcash, name='payment_gcash'),
     path('transactions/<int:transaction_id>/payment/bank/', views.payment_bank_transfer, name='payment_bank_transfer'),
     path('transactions/<int:transaction_id>/payment/cash/', views.payment_cash_arrangement, name='payment_cash_arrangement'),
+    path('transactions/<int:transaction_id>/payment/third-party-delivery/', views.payment_third_party_delivery, name='payment_third_party_delivery'),
     path('transactions/<int:transaction_id>/payment/other/', views.payment_other_arrangement, name='payment_other_arrangement'),
     path('transactions/<int:transaction_id>/payment/success/', views.payment_success, name='payment_success'),
     path('transactions/<int:transaction_id>/payment/cancel/', views.payment_cancel, name='payment_cancel'),
+    path('payments/webhooks/stripe/', views.stripe_webhook, name='stripe_webhook'),
     # Receipt URLs
     path('receipts/', views.receipts_list, name='receipts_list'),
     path('receipts/<int:receipt_id>/', views.receipt_detail, name='receipt_detail'),

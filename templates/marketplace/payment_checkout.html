@@ -493,6 +493,7 @@
                         <li><strong>Payment is final:</strong> Once you confirm and submit payment, it cannot be reversed. Please verify all details before proceeding.</li>
                         <li><strong>Verify seller authenticity:</strong> Confirm you're buying from the correct seller and that this is the correct item before paying.</li>
                         <li><strong>No refunds for buyer's remorse:</strong> If you change your mind after payment, refunds may not be possible.</li>
+                        <li><strong>Third-party delivery risk:</strong> Courier apps (Lalamove/Grab) are outside platform control. Track deliveries actively and keep link/screenshot evidence.</li>
                         <li><strong>Report fraud immediately:</strong> If something seems suspicious, contact support before making payment.</li>
                         <li><strong>Documentation required:</strong> Take proof of payment and communication with the seller for dispute resolution.</li>
                     </ul>
@@ -505,6 +506,14 @@
                 Select Payment Method
             </div>
             <p class="small text-muted mb-3">Only methods approved by the lister are shown below.</p>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                {% if 'gcash' in allowed_methods %}<span class="badge bg-danger">GCash: Manual proof + moderator approval</span>{% endif %}
+                {% if 'bank_transfer' in allowed_methods %}<span class="badge bg-danger">Bank: Manual proof + moderator approval</span>{% endif %}
+                {% if 'in_person' in allowed_methods %}<span class="badge bg-danger">Cash meetup: Dual photo proof + moderator approval</span>{% endif %}
+                {% if 'third_party_delivery' in allowed_methods %}<span class="badge bg-danger">Courier: Tracking gate + moderator approval</span>{% endif %}
+                {% if 'other' in allowed_methods %}<span class="badge bg-danger">Custom: Chat-proof evidence + moderator approval</span>{% endif %}
+                {% if 'credit_card' in allowed_methods and stripe_webhook_required %}<span class="badge bg-warning text-dark">Card: Finalized by signed webhook</span>{% endif %}
+            </div>
             
             <form method="post" id="payment-form">
                 {% csrf_token %}
@@ -515,7 +524,7 @@
                         <input type="radio" name="exchange_method" value="in_person" 
                                {% if exchange_method == 'in_person' %}checked{% endif %}>
                         <div class="method-content">
-                            <div class="method-title">Cash Payment (In Person)</div>
+                            <div class="method-title">Cash Payment (In Person) <span class="badge bg-danger ms-1">Manual</span></div>
                             <div class="method-description">Exchange cash directly when you meet the seller. Coordinate details via chat.</div>
                         </div>
                         <div class="method-checkmark"></div>
@@ -528,7 +537,7 @@
                         <input type="radio" name="exchange_method" value="gcash" 
                                {% if exchange_method == 'gcash' %}checked{% endif %}>
                         <div class="method-content">
-                            <div class="method-title">GCash / E-Wallet</div>
+                            <div class="method-title">GCash / E-Wallet <span class="badge bg-danger ms-1">Manual</span></div>
                             <div class="method-description">Pay via GCash, PayMaya, or similar e-wallet platforms. Seller will confirm receipt.</div>
                         </div>
                         <div class="method-checkmark"></div>
@@ -541,8 +550,21 @@
                         <input type="radio" name="exchange_method" value="bank_transfer" 
                                {% if exchange_method == 'bank_transfer' %}checked{% endif %}>
                         <div class="method-content">
-                            <div class="method-title">Bank Transfer</div>
+                            <div class="method-title">Bank Transfer <span class="badge bg-danger ms-1">Manual</span></div>
                             <div class="method-description">Direct bank-to-bank transfer. Seller provides account details for payment.</div>
+                        </div>
+                        <div class="method-checkmark"></div>
+                    </label>
+                    {% endif %}
+
+                    <!-- Third-Party Delivery -->
+                    {% if 'third_party_delivery' in allowed_methods %}
+                    <label class="method-option">
+                        <input type="radio" name="exchange_method" value="third_party_delivery"
+                               {% if exchange_method == 'third_party_delivery' %}checked{% endif %}>
+                        <div class="method-content">
+                            <div class="method-title">Third-Party Delivery (Lalamove/Grab) <span class="badge bg-danger ms-1">Manual</span></div>
+                            <div class="method-description">Use external courier service. Shared live tracking link and both-party acknowledgment are required.</div>
                         </div>
                         <div class="method-checkmark"></div>
                     </label>
@@ -555,7 +577,11 @@
                                {% if exchange_method == 'credit_card' %}checked{% endif %}>
                         <div class="method-content">
                             <div class="method-title">Credit / Debit Card</div>
+                            {% if stripe_webhook_required %}
+                            <div class="method-description">Secure payment processing via Stripe. Authorization is captured first, then finalized only after signed webhook verification. 2% processing fee applies.</div>
+                            {% else %}
                             <div class="method-description">Secure payment processing via Stripe. Card transactions processed immediately. 2% processing fee applies.</div>
+                            {% endif %}
                         </div>
                         <div class="method-checkmark"></div>
                     </label>
@@ -567,12 +593,17 @@
                         <input type="radio" name="exchange_method" value="other" 
                                {% if exchange_method == 'other' %}checked{% endif %}>
                         <div class="method-content">
-                            <div class="method-title">Other Arrangement</div>
+                            <div class="method-title">Other Arrangement <span class="badge bg-danger ms-1">Manual</span></div>
                             <div class="method-description">Discuss a custom payment method with the seller via chat.</div>
                         </div>
                         <div class="method-checkmark"></div>
                     </label>
                     {% endif %}
+                </div>
+
+                <div class="alert alert-warning py-2 px-3 mb-3" style="font-size: 0.85rem;">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Manual methods are high-risk and complete only after moderator approval. For third-party delivery, stay vigilant and monitor live tracking continuously.
                 </div>
                 
                 <!-- Stripe Payment Form (shown/hidden via JS) -->
@@ -586,7 +617,11 @@
                             <ul style="margin: 0.75rem 0 0 1.5rem; padding: 0;">
                                 <li>A 2% processing fee will be added to your total</li>
                                 <li>Your card information is encrypted and secure</li>
+                                {% if stripe_webhook_required %}
+                                <li>Final status is applied only after signed Stripe webhook confirmation</li>
+                                {% else %}
                                 <li>Transaction is processed immediately upon submission</li>
+                                {% endif %}
                                 <li>You will receive a receipt via email after successful payment</li>
                             </ul>
                         </div>
@@ -646,11 +681,11 @@
                     </div>
                     <div class="checklist-item">
                         <input type="checkbox" id="confirm-3" name="confirm_item" value="3">
-                        <label for="confirm-3" style="cursor: pointer; margin-bottom: 0;">I have coordinated meetup location and time with the seller</label>
+                        <label for="confirm-3" style="cursor: pointer; margin-bottom: 0;">I have coordinated meetup or delivery details with the seller</label>
                     </div>
                     <div class="checklist-item">
                         <input type="checkbox" id="confirm-4" name="confirm_item" value="4">
-                        <label for="confirm-4" style="cursor: pointer; margin-bottom: 0;">I will inspect the item in a safe, public location before completing payment</label>
+                        <label for="confirm-4" style="cursor: pointer; margin-bottom: 0;">I will only complete the transaction after safe handoff and item verification</label>
                     </div>
                     <div class="checklist-item">
                         <input type="checkbox" id="confirm-5" name="confirm_item" value="5">

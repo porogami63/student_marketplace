@@ -1,0 +1,263 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Third-Party Delivery Payment - {{ transaction.listing.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .payment-container {
+        max-width: 900px;
+        margin: 0 auto;
+        animation: slideIn 0.5s ease-out;
+    }
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .payment-header {
+        background: linear-gradient(135deg, #1F1F1F 0%, #97C2EC 100%);
+        color: white;
+        padding: 1.25rem 2rem;
+        border-radius: 0;
+        margin-bottom: 1.25rem;
+        text-align: center;
+    }
+    .payment-header h1 {
+        font-family: 'Space Grotesk', sans-serif;
+        margin-bottom: 0.25rem;
+        font-size: 1.8rem;
+        font-weight: 700;
+    }
+    .payment-content {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 2rem;
+        padding: 0 1rem;
+    }
+    @media (max-width: 768px) {
+        .payment-content {
+            grid-template-columns: 1fr;
+        }
+    }
+    .payment-main {
+        background: white;
+        border-radius: 0;
+        padding: 2rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .payment-summary {
+        background: #f8f9fa;
+        border-radius: 0;
+        padding: 1.5rem;
+        border: 1px solid #e0e0e0;
+        height: fit-content;
+    }
+    .payment-title {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #1f1f1f;
+        margin-bottom: 1.5rem;
+        text-align: center;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    .danger-box {
+        background: #f8d7da;
+        border: 1px solid #f5c2c7;
+        padding: 1rem;
+        border-radius: 6px;
+        margin-bottom: 1.25rem;
+    }
+    .danger-box h6 {
+        color: #842029;
+        margin-bottom: 0.5rem;
+    }
+    .danger-box p,
+    .danger-box li {
+        color: #842029;
+        font-size: 0.9rem;
+    }
+    .instruction-box {
+        background: #fff3cd;
+        border: 1px solid #ffecb5;
+        padding: 1rem;
+        border-radius: 6px;
+        margin-bottom: 1.25rem;
+    }
+    .instruction-box h6 {
+        color: #664d03;
+        margin-bottom: 0.5rem;
+    }
+    .instruction-box li {
+        color: #664d03;
+        font-size: 0.9rem;
+        margin-bottom: 0.35rem;
+    }
+    .form-label {
+        font-weight: 600;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+    }
+    .btn-confirm {
+        flex: 1;
+        padding: 0.9rem;
+        font-size: 1.02rem;
+        font-weight: 600;
+    }
+    .btn-cancel {
+        flex: 1;
+    }
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .summary-item.total {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: #0b4a7a;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 2px solid #e0e0e0;
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="payment-container">
+    <div class="payment-header">
+        <h1><i class="bi bi-truck"></i> Third-Party Delivery Payment</h1>
+        <p>Lalamove / Grab delivery with shared live tracking</p>
+    </div>
+
+    <div class="payment-content">
+        <div class="payment-main">
+            <div class="payment-title">
+                <i class="bi bi-geo-alt"></i> Delivery Tracking Setup
+            </div>
+
+            <div class="danger-box">
+                <h6><i class="bi bi-exclamation-triangle"></i> Vigilance Required</h6>
+                <p class="mb-2">
+                    This method relies on third-party courier apps that are outside platform control.
+                    Route updates, delays, or app issues may occur without our intervention.
+                </p>
+                <ul class="mb-0">
+                    <li>Use only official app-generated tracking links.</li>
+                    <li>Monitor the live route continuously until delivery is complete.</li>
+                    <li>Keep screenshots and chat logs in case of disputes.</li>
+                </ul>
+            </div>
+
+            <div class="instruction-box">
+                <h6><i class="bi bi-shield-check"></i> Required before verification</h6>
+                <ul class="mb-0">
+                    <li>Submit one shared rider tracking link for both parties.</li>
+                    <li>Both buyer and seller must acknowledge the tracking link in transaction details.</li>
+                    <li>Seller verification is blocked until both acknowledgments are complete.</li>
+                </ul>
+            </div>
+
+            <form method="post" id="third-party-delivery-form">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label for="tracking_provider" class="form-label">Courier Provider</label>
+                    <select id="tracking_provider" name="tracking_provider" class="form-select" required>
+                        <option value="">Select provider</option>
+                        <option value="lalamove" {% if tracking_provider == 'lalamove' %}selected{% endif %}>Lalamove</option>
+                        <option value="grab" {% if tracking_provider == 'grab' %}selected{% endif %}>Grab</option>
+                        <option value="other" {% if tracking_provider == 'other' %}selected{% endif %}>Other</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="tracking_link" class="form-label">Shared Live Tracking Link</label>
+                    <input
+                        type="url"
+                        id="tracking_link"
+                        name="tracking_link"
+                        class="form-control"
+                        value="{{ tracking_link }}"
+                        placeholder="https://..."
+                        required
+                    >
+                    <small class="text-muted">Paste the official tracking/GPS link shared from the courier app.</small>
+                </div>
+
+                <div class="mb-3">
+                    <label for="delivery_notes" class="form-label">Delivery Coordination Notes</label>
+                    <textarea
+                        id="delivery_notes"
+                        name="delivery_notes"
+                        class="form-control"
+                        rows="3"
+                        minlength="12"
+                        required
+                        placeholder="Include pickup/drop-off checkpoints and expected update cadence."
+                    >{{ delivery_notes }}</textarea>
+                </div>
+
+                <div class="action-buttons">
+                    <a href="{% url 'marketplace:transaction_detail' transaction_id=transaction.id %}" class="btn btn-secondary btn-cancel">
+                        Back to Transaction
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-confirm">
+                        <i class="bi bi-check-circle"></i> Submit Delivery Tracking
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="payment-summary">
+            <h6 style="font-weight: 700; color: #1f1f1f; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.5px;">Summary</h6>
+
+            <div style="margin-bottom: 1.5rem;">
+                <h6 style="font-size: 0.85rem; font-weight: 700; color: #495057; text-transform: uppercase; margin-bottom: 0.5rem;">Item</h6>
+                <div style="font-weight: 600; margin-bottom: 0.5rem;">{{ transaction.listing.title }}</div>
+                <div style="font-size: 0.85rem; color: #666;">
+                    {% if transaction.listing.school %}
+                        <div>{{ transaction.listing.school.name }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <h6 style="font-size: 0.85rem; font-weight: 700; color: #495057; text-transform: uppercase; margin-bottom: 0.5rem;">Seller</h6>
+                <div style="font-weight: 600;">{{ transaction.seller.profile.display_name|default:transaction.seller.username }}</div>
+            </div>
+
+            <div style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 2px solid #e0e0e0;">
+                <div class="summary-item">
+                    <span>Item Price:</span>
+                    <span>₱{{ transaction.price }}</span>
+                </div>
+                <div class="summary-item total">
+                    <span>Total Amount:</span>
+                    <span>₱{{ transaction.price }}</span>
+                </div>
+            </div>
+
+            <div style="background: white; padding: 0.75rem; border-radius: 6px; border: 1px solid #e0e0e0;">
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 0.25rem;">Transaction ID</div>
+                <div style="font-family: monospace; font-size: 0.85rem; word-break: break-all;">
+                    #{{ transaction.id }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -19,6 +19,48 @@
     }
     .mod-sidebar a:hover { background: rgba(255,255,255,0.1); color: white; }
     .mod-sidebar a.active { background: var(--ubelt-gold); color: var(--ubelt-navy); }
+
+    .txn-status-pending { --txn-status-color: #f0ad4e; }
+    .txn-status-confirmed { --txn-status-color: #0dcaf0; }
+    .txn-status-completed { --txn-status-color: #198754; }
+    .txn-status-cancelled { --txn-status-color: #dc3545; }
+
+    .txn-flagged {
+        background: #fff9e8;
+    }
+
+    .txn-status-pill {
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        padding: 0.35rem 0.55rem;
+        border: 1px solid transparent;
+    }
+
+    .txn-status-pill-pending {
+        color: #7b5f00;
+        background: #fff3cd;
+        border-color: #ffe69c;
+    }
+
+    .txn-status-pill-confirmed {
+        color: #045f7a;
+        background: #cff4fc;
+        border-color: #9eeaf9;
+    }
+
+    .txn-status-pill-completed {
+        color: #0f5132;
+        background: #d1e7dd;
+        border-color: #a3cfbb;
+    }
+
+    .txn-status-pill-cancelled {
+        color: #842029;
+        background: #f8d7da;
+        border-color: #f1aeb5;
+    }
 </style>
 {% endblock %}
 {% block content %}

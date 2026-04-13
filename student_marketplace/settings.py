@@ -247,6 +247,11 @@ STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 # If you add Stripe webhooks (refunds, payment status sync, disputes), set this to True in production.
 STRIPE_WEBHOOK_REQUIRED = os.environ.get('STRIPE_WEBHOOK_REQUIRED', 'False').lower() == 'true'
 
+# Manual/off-platform payment hardening controls.
+MANUAL_PAYMENT_MOD_REVIEW_ENABLED = os.environ.get('MANUAL_PAYMENT_MOD_REVIEW_ENABLED', 'True').lower() == 'true'
+MANUAL_PAYMENT_ALWAYS_REQUIRE_MOD_REVIEW = os.environ.get('MANUAL_PAYMENT_ALWAYS_REQUIRE_MOD_REVIEW', 'True').lower() == 'true'
+MANUAL_PAYMENT_MOD_REVIEW_THRESHOLD = os.environ.get('MANUAL_PAYMENT_MOD_REVIEW_THRESHOLD', '0.00')
+
 # Optional CSP extension points for future integrations (e.g., Google Maps).
 # Use full origins like "https://maps.googleapis.com".
 CSP_SCRIPT_SRC_EXTRA = [v.strip() for v in os.environ.get('CSP_SCRIPT_SRC_EXTRA', '').split(',') if v.strip()]

@@ -517,19 +517,220 @@
             </div>
             {% endif %}
 
+            {% if in_person_payment_pending %}
+            <div class="alert alert-secondary mt-3 p-3 border-start border-4" style="border-color: #6b7280 !important; background: rgba(107, 114, 128, 0.08);">
+                <h6 class="mb-2">In-Person Meetup Photo Confirmation</h6>
+                <small class="text-muted d-block mb-2">
+                    Before a receipt can be issued for cash-on-delivery, both buyer and seller must upload meetup photo proof.
+                </small>
+
+                <div class="d-flex gap-3 mb-2">
+                    <span class="small {% if buyer_meetup_photo_uploaded %}text-success{% else %}text-muted{% endif %}">
+                        <i class="bi {% if buyer_meetup_photo_uploaded %}bi-check-circle-fill{% else %}bi-circle{% endif %} me-1"></i> Buyer Photo
+                    </span>
+                    <span class="small {% if seller_meetup_photo_uploaded %}text-success{% else %}text-muted{% endif %}">
+                        <i class="bi {% if seller_meetup_photo_uploaded %}bi-check-circle-fill{% else %}bi-circle{% endif %} me-1"></i> Seller Photo
+                    </span>
+                </div>
+
+                {% if is_buyer and not buyer_meetup_photo_uploaded %}
+                <form method="post" enctype="multipart/form-data" class="mb-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="upload_meetup_proof">
+                    <label class="form-label small fw-semibold">Buyer meetup photo</label>
+                    <input type="file" name="meetup_photo" class="form-control form-control-sm mb-2" accept="image/*" required>
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-camera me-1"></i> Upload Buyer Proof
+                    </button>
+                </form>
+                {% endif %}
+
+                {% if is_seller and not seller_meetup_photo_uploaded %}
+                <form method="post" enctype="multipart/form-data" class="mb-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="upload_meetup_proof">
+                    <label class="form-label small fw-semibold">Seller meetup photo</label>
+                    <input type="file" name="meetup_photo" class="form-control form-control-sm mb-2" accept="image/*" required>
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-camera me-1"></i> Upload Seller Proof
+                    </button>
+                </form>
+                {% endif %}
+
+                {% if in_person_meetup_proof_ready %}
+                <small class="text-success d-block mt-1">
+                    <i class="bi bi-shield-check me-1"></i>Both meetup photo proofs are complete.
+                </small>
+                {% else %}
+                <small class="text-muted d-block mt-1">
+                    Waiting for both parties to upload meetup photos.
+                </small>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if third_party_delivery_payment_pending %}
+            <div class="alert alert-danger mt-3 p-3 border-start border-4" style="border-color: #dc3545 !important; background: rgba(220, 53, 69, 0.08);">
+                <h6 class="mb-2">Third-Party Delivery Tracking Gate</h6>
+                <small class="text-muted d-block mb-2">
+                    Courier platforms are outside our control. A shared live tracking link and both-party acknowledgment are required before verification.
+                </small>
+
+                <div class="d-flex flex-wrap gap-3 mb-2">
+                    <span class="small {% if third_party_tracking_link_ready %}text-success{% else %}text-muted{% endif %}">
+                        <i class="bi {% if third_party_tracking_link_ready %}bi-check-circle-fill{% else %}bi-circle{% endif %} me-1"></i> Shared Tracking Link
+                    </span>
+                    <span class="small {% if buyer_tracking_acknowledged %}text-success{% else %}text-muted{% endif %}">
+                        <i class="bi {% if buyer_tracking_acknowledged %}bi-check-circle-fill{% else %}bi-circle{% endif %} me-1"></i> Buyer Acknowledged
+                    </span>
+                    <span class="small {% if seller_tracking_acknowledged %}text-success{% else %}text-muted{% endif %}">
+                        <i class="bi {% if seller_tracking_acknowledged %}bi-check-circle-fill{% else %}bi-circle{% endif %} me-1"></i> Seller Acknowledged
+                    </span>
+                </div>
+
+                {% if third_party_tracking_link_ready %}
+                <div class="small mb-2">
+                    <strong>Provider:</strong> {{ third_party_tracking_provider|default:'Not set' }}<br>
+                    <strong>Link:</strong> <a href="{{ third_party_tracking_link }}" target="_blank" rel="noopener">Open shared tracking</a><br>
+                    {% if third_party_tracking_link_submitted_by %}
+                    <strong>Submitted by:</strong> {{ third_party_tracking_link_submitted_by.username }}
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <form method="post" class="mb-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="submit_delivery_tracking">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <label class="form-label small fw-semibold">Provider</label>
+                            <select name="tracking_provider" class="form-select form-select-sm" required>
+                                <option value="">Select</option>
+                                <option value="lalamove" {% if third_party_tracking_provider == 'lalamove' %}selected{% endif %}>Lalamove</option>
+                                <option value="grab" {% if third_party_tracking_provider == 'grab' %}selected{% endif %}>Grab</option>
+                                <option value="other" {% if third_party_tracking_provider == 'other' %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-9">
+                            <label class="form-label small fw-semibold">Shared Tracking Link</label>
+                            <input type="url" name="tracking_link" class="form-control form-control-sm" value="{{ third_party_tracking_link }}" placeholder="https://..." required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-outline-danger mt-2">
+                        <i class="bi bi-link-45deg me-1"></i> Submit / Update Tracking Link
+                    </button>
+                </form>
+
+                {% if third_party_tracking_link_ready %}
+                    {% if is_buyer and not buyer_tracking_acknowledged %}
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="ack_delivery_tracking">
+                        <button type="submit" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-check2-square me-1"></i> Buyer Acknowledge Tracking Link
+                        </button>
+                    </form>
+                    {% elif is_seller and not seller_tracking_acknowledged %}
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="ack_delivery_tracking">
+                        <button type="submit" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-check2-square me-1"></i> Seller Acknowledge Tracking Link
+                        </button>
+                    </form>
+                    {% endif %}
+                {% endif %}
+
+                {% if third_party_tracking_ack_ready %}
+                <small class="text-success d-block mt-2">
+                    <i class="bi bi-shield-check me-1"></i>Both parties acknowledged the shared tracking link.
+                </small>
+                {% else %}
+                <small class="text-muted d-block mt-2">
+                    Verification remains locked until both parties acknowledge the shared tracking link.
+                </small>
+                {% endif %}
+            </div>
+            {% endif %}
+
             {% if is_seller and payment_pending %}
             <div class="alert alert-warning mt-3 p-3 border-start border-4" style="border-color: #f59e0b !important; background: rgba(245, 158, 11, 0.08);">
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                    <div>
-                        <h6 class="mb-1">Pending payment confirmation</h6>
-                        <small class="text-muted">Confirm once you have verified receipt of payment from the buyer.</small>
+                <div>
+                    <h6 class="mb-1">Pending payment confirmation</h6>
+                    {% if manual_payment_pending %}
+                    <small class="text-muted d-block">
+                        Manual payments require two steps: acknowledge submission, then submit objective evidence for moderator safety approval.
+                    </small>
+                    <small class="text-muted d-block mt-1">
+                        Current verification status: <strong>{{ payment_manual_verification_status|default:'submitted' }}</strong>
+                    </small>
+
+                    {% if payment_manual_verification_status == 'awaiting_moderator_review' %}
+                    <div class="alert alert-info mt-2 py-2 px-3 mb-0">
+                        <i class="bi bi-shield-lock me-1"></i>
+                        This payment is awaiting moderator safety approval before it can be marked completed.
                     </div>
-                    <form method="post" action="{% url 'marketplace:confirm_payment_received' transaction.pk %}" class="d-inline">
+                    {% else %}
+
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <form method="post" action="{% url 'marketplace:confirm_payment_received' transaction.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="verification_action" value="acknowledge">
+                            <button type="submit" class="btn btn-sm btn-outline-warning">
+                                <i class="bi bi-clipboard-check me-1"></i> Acknowledge Submission
+                            </button>
+                        </form>
+                    </div>
+
+                    <form method="post" action="{% url 'marketplace:confirm_payment_received' transaction.pk %}" class="mt-3">
+                        {% if payment.payment_method == 'in_person' and not in_person_meetup_proof_ready %}
+                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled>
+                            <i class="bi bi-lock me-1"></i> Waiting for both meetup photo proofs
+                        </button>
+                        {% elif payment.payment_method == 'third_party_delivery' and not third_party_tracking_ack_ready %}
+                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled>
+                            <i class="bi bi-lock me-1"></i> Waiting for shared tracking link acknowledgments
+                        </button>
+                        {% else %}
+                        {% csrf_token %}
+                        <input type="hidden" name="verification_action" value="verify">
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">Evidence Type</label>
+                                <select name="evidence_type" class="form-select form-select-sm" required>
+                                    <option value="">Select evidence</option>
+                                    <option value="gcash_reference">GCash reference</option>
+                                    <option value="bank_reference">Bank reference</option>
+                                    <option value="cash_receipt">Cash receipt/meetup proof</option>
+                                    <option value="delivery_tracking">Delivery tracking proof</option>
+                                    <option value="chat_confirmation">Chat confirmation</option>
+                                    <option value="other">Other evidence</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label small fw-semibold">Evidence Reference</label>
+                                <input type="text" name="evidence_reference" class="form-control form-control-sm" minlength="6" required placeholder="Reference code, receipt ID, or proof handle">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold">Verification Notes</label>
+                                <textarea name="evidence_notes" class="form-control form-control-sm" rows="2" minlength="12" required placeholder="Document how payment receipt was verified."></textarea>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-warning mt-2">
+                            <i class="bi bi-shield-check me-1"></i> Submit Evidence for Moderator Review
+                        </button>
+                        {% endif %}
+                    </form>
+                    {% endif %}
+                    {% else %}
+                    <small class="text-muted">Confirm once you have verified receipt of payment from the buyer.</small>
+                    <form method="post" action="{% url 'marketplace:confirm_payment_received' transaction.pk %}" class="d-inline mt-2">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-warning">
                             <i class="bi bi-cash-coin me-1"></i> Confirm Payment Received
                         </button>
                     </form>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
@@ -555,6 +756,11 @@
                         <a href="{% url 'marketplace:receipt_detail' payment.receipt.id %}" class="btn btn-sm btn-outline-success">
                             <i class="bi bi-file-earmark-text me-1"></i> View Receipt
                         </a>
+                        {% if payment.payment_method != 'credit_card' %}
+                        <small class="d-block mt-2 text-muted">
+                            Keep receipts, chat logs, and handoff evidence until both parties mark this transaction complete.
+                        </small>
+                        {% endif %}
                         {% endif %}
                     </div>
                 </div>

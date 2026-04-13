@@ -204,6 +204,7 @@
         <p class="mb-0">
             <strong>No funds have been charged.</strong> You can safely try again with a different card. 
             The transaction is still pending seller confirmation, so you have time to retry the payment.
+            If you plan to switch to manual or third-party delivery methods, verify all recipient/tracking details in chat before proceeding.
         </p>
     </div>
 
@@ -215,7 +216,7 @@
         <a href="{% url 'marketplace:transaction_detail' transaction.id %}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-2"></i>Back to Transaction
         </a>
-        <a href="{% url 'marketplace:contact_support' %}" class="btn btn-outline-info" style="display:none;">
+        <a href="mailto:support@studentmarketplace.ph" class="btn btn-outline-info" style="display:none;">
             <i class="bi bi-chat-dots me-2"></i>Contact Support
         </a>
     </div>

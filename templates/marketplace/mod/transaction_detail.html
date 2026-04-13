@@ -1,5 +1,13 @@
 {% extends 'marketplace/mod/base.html' %}
 {% block title %}Transaction #{{ transaction.pk }}{% endblock %}
+{% block extra_css %}
+{{ block.super }}
+<style>
+    .txn-summary-card {
+        border-left: 4px solid var(--txn-status-color, transparent);
+    }
+</style>
+{% endblock %}
 {% block mod_content %}
 <h2 class="font-display fw-bold mb-4">
     <i class="bi bi-receipt me-2"></i>Transaction #{{ transaction.pk }}
@@ -8,9 +16,16 @@
 
 <div class="row">
     <div class="col-md-8">
-        <div class="card mb-4">
+        <div class="card mb-4 txn-summary-card txn-status-{{ transaction.status }}{% if transaction.flagged_for_review %} txn-flagged{% endif %}">
             <div class="card-body">
-                <p><strong>Status:</strong> {{ transaction.get_status_display }}{% if transaction.flagged_for_review %} <span class="badge bg-warning text-dark">Flagged for review</span>{% endif %}</p>
+                <p>
+                    <strong>Status:</strong>
+                    <span class="badge txn-status-pill txn-status-pill-{{ transaction.status }}">{{ transaction.status|title }}</span>
+                    <span class="small text-muted ms-1">{{ transaction.get_status_display }}</span>
+                    {% if transaction.flagged_for_review %}
+                    <span class="badge bg-warning text-dark ms-1">Flagged for review</span>
+                    {% endif %}
+                </p>
                 <p><strong>Buyer:</strong> <a href="{% url 'marketplace:public_profile' transaction.buyer.username %}">{{ transaction.buyer.username }}</a></p>
                 <p><strong>Seller:</strong> <a href="{% url 'marketplace:public_profile' transaction.seller.username %}">{{ transaction.seller.username }}</a></p>
                 <p><strong>Price:</strong> ₱{{ transaction.price|floatformat:0 }}</p>
@@ -46,6 +61,78 @@
                 </form>
             </div>
         </div>
+
+        {% if payment and manual_review_pending %}
+        <div class="card mb-4 border-warning">
+            <div class="card-header font-display fw-bold text-warning">
+                <i class="bi bi-shield-exclamation me-2"></i>Manual Payment Review Required
+            </div>
+            <div class="card-body">
+                <p class="mb-2"><strong>Method:</strong> {{ payment.get_payment_method_display }}</p>
+                <p class="mb-2"><strong>Amount:</strong> ₱{{ payment.amount|floatformat:2 }}</p>
+                <p class="mb-2"><strong>Evidence Type:</strong> {{ payment.manual_evidence_type|default:'Not set' }}</p>
+                <p class="mb-2"><strong>Evidence Reference:</strong> {{ payment.manual_evidence_reference|default:'Not set' }}</p>
+                {% if payment.buyer_meetup_photo %}
+                <p class="mb-2">
+                    <strong>Buyer Meetup Photo:</strong>
+                    <a href="{{ payment.buyer_meetup_photo.url }}" target="_blank" rel="noopener">View image</a>
+                </p>
+                {% endif %}
+                {% if payment.seller_meetup_photo %}
+                <p class="mb-2">
+                    <strong>Seller Meetup Photo:</strong>
+                    <a href="{{ payment.seller_meetup_photo.url }}" target="_blank" rel="noopener">View image</a>
+                </p>
+                {% endif %}
+                {% if payment.payment_method == 'third_party_delivery' %}
+                <p class="mb-2"><strong>Provider:</strong> {{ payment.third_party_provider|default:'Not set' }}</p>
+                <p class="mb-2">
+                    <strong>Shared Tracking Link:</strong>
+                    {% if payment.third_party_tracking_link %}
+                    <a href="{{ payment.third_party_tracking_link }}" target="_blank" rel="noopener">Open link</a>
+                    {% else %}
+                    Not submitted
+                    {% endif %}
+                </p>
+                <p class="mb-2">
+                    <strong>Buyer Acknowledged:</strong>
+                    {% if payment.buyer_tracking_acknowledged_at %}
+                    Yes ({{ payment.buyer_tracking_acknowledged_at|date:"M d, Y h:i A" }})
+                    {% else %}
+                    No
+                    {% endif %}
+                </p>
+                <p class="mb-2">
+                    <strong>Seller Acknowledged:</strong>
+                    {% if payment.seller_tracking_acknowledged_at %}
+                    Yes ({{ payment.seller_tracking_acknowledged_at|date:"M d, Y h:i A" }})
+                    {% else %}
+                    No
+                    {% endif %}
+                </p>
+                {% endif %}
+                <p class="small text-muted mb-3">Review submitted evidence and approve or reject this verification.</p>
+
+                <form method="post" class="mb-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="approve_manual_payment">
+                    <textarea name="manual_review_reason" class="form-control form-control-sm mb-2" rows="2" placeholder="Optional approval note"></textarea>
+                    <button type="submit" class="btn btn-sm btn-success">
+                        <i class="bi bi-check2-circle me-1"></i>Approve Manual Payment
+                    </button>
+                </form>
+
+                <form method="post" onsubmit="return confirm('Reject this manual payment verification?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="reject_manual_payment">
+                    <textarea name="manual_review_reason" class="form-control form-control-sm mb-2" rows="2" minlength="12" required placeholder="Reason for rejection (required)"></textarea>
+                    <button type="submit" class="btn btn-sm btn-danger">
+                        <i class="bi bi-x-circle me-1"></i>Reject Manual Payment
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
 
         {% if transaction.status == 'pending' or transaction.status == 'confirmed' %}
         <div class="card mb-4">

@@ -4,6 +4,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
 from django.db.models import JSONField
+from django.core.exceptions import ValidationError
 
 
 class School(models.Model):
@@ -242,6 +243,7 @@ class Listing(models.Model):
         ('gcash', 'GCash'),
         ('bank_transfer', 'Bank Transfer'),
         ('in_person', 'In-Person Cash'),
+        ('third_party_delivery', 'Third-Party Delivery (Lalamove/Grab)'),
         ('other', 'Other Arrangement'),
     ]
 
@@ -614,6 +616,7 @@ class Transaction(models.Model):
         ('in_person', 'Meet in Person'),
         ('gcash', 'GCash (or similar e-wallet)'),
         ('bank_transfer', 'Bank Transfer'),
+        ('third_party_delivery', 'Third-Party Delivery (Lalamove/Grab)'),
         ('other', 'Other arrangement'),
     ]
 
@@ -808,6 +811,8 @@ class ModerationLog(models.Model):
         ('unflag_transaction', 'Unflag Transaction'),
         ('admin_cancel_transaction', 'Admin Cancel Transaction'),
         ('add_transaction_note', 'Add Transaction Note'),
+        ('approve_manual_payment', 'Approve Manual Payment'),
+        ('reject_manual_payment', 'Reject Manual Payment'),
         ('approve_school_id', 'Approve School ID'),
         ('reject_school_id', 'Reject School ID'),
     ]
@@ -982,7 +987,32 @@ class Payment(models.Model):
         ('gcash', 'GCash'),
         ('bank_transfer', 'Bank Transfer'),
         ('in_person', 'In-Person Cash'),
+        ('third_party_delivery', 'Third-Party Delivery (Lalamove/Grab)'),
         ('other', 'Other Arrangement'),
+    ]
+
+    MANUAL_VERIFICATION_STATUS_CHOICES = [
+        ('not_required', 'Not Required'),
+        ('submitted', 'Submitted by buyer'),
+        ('seller_acknowledged', 'Seller acknowledged submission'),
+        ('awaiting_moderator_review', 'Awaiting moderator review'),
+        ('verified', 'Verified with evidence'),
+        ('rejected', 'Rejected'),
+    ]
+
+    MANUAL_EVIDENCE_TYPE_CHOICES = [
+        ('gcash_reference', 'GCash reference code'),
+        ('bank_reference', 'Bank transfer reference'),
+        ('cash_receipt', 'Cash receipt or meetup proof'),
+        ('delivery_tracking', 'Delivery tracking proof'),
+        ('chat_confirmation', 'Chat confirmation evidence'),
+        ('other', 'Other evidence'),
+    ]
+
+    THIRD_PARTY_PROVIDER_CHOICES = [
+        ('lalamove', 'Lalamove'),
+        ('grab', 'Grab'),
+        ('other', 'Other Provider'),
     ]
 
     transaction = models.OneToOneField(Transaction, on_delete=models.CASCADE, related_name='payment')
@@ -990,6 +1020,111 @@ class Payment(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2, help_text='Amount paid in PHP')
     status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
     payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD_CHOICES, default='credit_card', help_text='Payment method used')
+    manual_verification_status = models.CharField(
+        max_length=30,
+        choices=MANUAL_VERIFICATION_STATUS_CHOICES,
+        default='not_required',
+        help_text='Verification state for off-platform/manual payment methods',
+    )
+    manual_evidence_type = models.CharField(
+        max_length=30,
+        choices=MANUAL_EVIDENCE_TYPE_CHOICES,
+        blank=True,
+        help_text='Type of supporting evidence used for manual payment verification',
+    )
+    manual_evidence_reference = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='Reference code or identifier supplied during manual verification',
+    )
+    manual_evidence_notes = models.TextField(
+        blank=True,
+        help_text='Verification notes documenting how manual payment receipt was verified',
+    )
+    manual_evidence_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text='SHA-256 hash of submitted verification evidence details',
+    )
+    seller_acknowledged_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When seller acknowledged a manual payment submission',
+    )
+    seller_acknowledged_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='acknowledged_manual_payments',
+    )
+    verified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When payment was verified with evidence and marked completed',
+    )
+    verified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='verified_manual_payments',
+    )
+    buyer_meetup_photo = models.ImageField(
+        upload_to='payment_meetup_proofs/',
+        null=True,
+        blank=True,
+        help_text='Buyer meetup photo proof for in-person cash transactions',
+    )
+    seller_meetup_photo = models.ImageField(
+        upload_to='payment_meetup_proofs/',
+        null=True,
+        blank=True,
+        help_text='Seller meetup photo proof for in-person cash transactions',
+    )
+    buyer_meetup_photo_uploaded_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Timestamp when buyer uploaded meetup photo proof',
+    )
+    seller_meetup_photo_uploaded_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Timestamp when seller uploaded meetup photo proof',
+    )
+    third_party_provider = models.CharField(
+        max_length=20,
+        choices=THIRD_PARTY_PROVIDER_CHOICES,
+        blank=True,
+        help_text='Courier provider used for third-party delivery exchanges',
+    )
+    third_party_tracking_link = models.URLField(
+        max_length=500,
+        blank=True,
+        help_text='Shared live tracking/GPS link for the delivery route',
+    )
+    third_party_tracking_link_submitted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the shared delivery tracking link was submitted',
+    )
+    third_party_tracking_link_submitted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='submitted_delivery_tracking_links',
+    )
+    buyer_tracking_acknowledged_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When buyer acknowledged receiving the delivery tracking link',
+    )
+    seller_tracking_acknowledged_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When seller acknowledged receiving the delivery tracking link',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1002,6 +1137,60 @@ class Payment(models.Model):
     def get_payment_method_display(self):
         """Return the display name for the payment method."""
         return dict(self.PAYMENT_METHOD_CHOICES).get(self.payment_method, self.payment_method)
+
+    @property
+    def is_manual_method(self):
+        return self.payment_method in {'gcash', 'bank_transfer', 'in_person', 'other'}
+
+
+class StateTransitionAuditLog(models.Model):
+    """Append-only audit trail for payment and transaction state transitions."""
+
+    ENTITY_CHOICES = [
+        ('payment', 'Payment'),
+        ('transaction', 'Transaction'),
+    ]
+
+    TRANSITION_KIND_CHOICES = [
+        ('payment_status', 'Payment Status'),
+        ('manual_verification', 'Manual Verification Status'),
+        ('participant_completion', 'Participant Completion Flag'),
+        ('transaction_status', 'Transaction Status'),
+    ]
+
+    entity_type = models.CharField(max_length=20, choices=ENTITY_CHOICES)
+    transition_kind = models.CharField(max_length=30, choices=TRANSITION_KIND_CHOICES)
+    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name='state_transition_logs')
+    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, null=True, blank=True, related_name='state_transition_logs')
+    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='state_transition_actions')
+    from_state = models.CharField(max_length=40, blank=True)
+    to_state = models.CharField(max_length=40)
+    reason = models.CharField(max_length=255, blank=True)
+    evidence_hash = models.CharField(max_length=64, blank=True)
+    details = models.JSONField(default=dict, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['entity_type', 'created_at']),
+            models.Index(fields=['transition_kind', 'created_at']),
+            models.Index(fields=['transaction', 'created_at']),
+            models.Index(fields=['payment', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.entity_type}:{self.transition_kind} {self.from_state}->{self.to_state}"
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise ValidationError('StateTransitionAuditLog is immutable and cannot be updated.')
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError('StateTransitionAuditLog is immutable and cannot be deleted.')
 
 
 class Receipt(models.Model):

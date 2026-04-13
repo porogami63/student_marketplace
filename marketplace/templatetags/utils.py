@@ -144,6 +144,7 @@ def payment_method_display(payment_method):
         'gcash': 'GCash',
         'bank_transfer': 'Bank Transfer',
         'in_person': 'In-Person Cash',
+        'third_party_delivery': 'Third-Party Delivery',
         'other': 'Other Arrangement',
     }
     return payment_method_map.get(payment_method, payment_method)

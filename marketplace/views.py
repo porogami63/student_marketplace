@@ -1,11 +1,16 @@
 import logging
 import io
 import re
+import hashlib
+from urllib.parse import urlparse
 from decimal import Decimal
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from allauth.account.models import EmailAddress
 from django.core.management import call_command
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from django.db import transaction as db_transaction
 
 logger = logging.getLogger(__name__)
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -41,6 +46,7 @@ from .models import (
     SocialMedia,
     Payment,
     Receipt,
+    StateTransitionAuditLog,
     SchoolIDVerificationRequest,
 )
 from .forms import (
@@ -1422,6 +1428,160 @@ def transaction_detail(request, transaction_id):
 
             return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
 
+        elif action == 'upload_meetup_proof' and transaction.status == 'confirmed':
+            payment = getattr(transaction, 'payment', None)
+            if payment is None or payment.payment_method != 'in_person' or payment.status != 'pending':
+                messages.error(request, 'Meetup photo proof is only available for pending in-person cash payments.')
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+            meetup_photo = request.FILES.get('meetup_photo')
+            if meetup_photo is None:
+                messages.error(request, 'Please upload a meetup photo before submitting.')
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+            if not (getattr(meetup_photo, 'content_type', '') or '').lower().startswith('image/'):
+                messages.error(request, 'Meetup proof must be a valid image file.')
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+            max_photo_size = 8 * 1024 * 1024
+            if meetup_photo.size > max_photo_size:
+                messages.error(request, 'Meetup photo must be 8MB or smaller.')
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+            now = timezone.now()
+            update_fields = []
+
+            if request.user == transaction.buyer:
+                payment.buyer_meetup_photo = meetup_photo
+                payment.buyer_meetup_photo_uploaded_at = now
+                update_fields.extend(['buyer_meetup_photo', 'buyer_meetup_photo_uploaded_at', 'updated_at'])
+                notify_user = transaction.seller
+            else:
+                payment.seller_meetup_photo = meetup_photo
+                payment.seller_meetup_photo_uploaded_at = now
+                update_fields.extend(['seller_meetup_photo', 'seller_meetup_photo_uploaded_at', 'updated_at'])
+                notify_user = transaction.buyer
+
+            payment.save(update_fields=update_fields)
+
+            Notification.objects.create(
+                user=notify_user,
+                related_user=request.user,
+                message=f'{request.user.username} uploaded in-person meetup photo proof for transaction #{transaction.pk}.',
+                notification_type='transaction',
+                url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+            )
+
+            if _in_person_meetup_proof_ready(payment):
+                messages.success(request, 'Both meetup photo proofs are uploaded. Seller can now verify payment evidence.')
+            else:
+                messages.success(request, 'Meetup photo proof uploaded. Waiting for the other party to upload theirs.')
+
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+        elif action == 'submit_delivery_tracking' and transaction.status == 'confirmed':
+            payment = getattr(transaction, 'payment', None)
+            if payment is None or payment.payment_method != 'third_party_delivery' or payment.status != 'pending':
+                messages.error(request, 'Delivery tracking link can only be set for pending third-party delivery payments.')
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+            provider_code = (request.POST.get('tracking_provider') or '').strip().lower()
+            if provider_code not in THIRD_PARTY_PROVIDER_CODES:
+                messages.error(request, 'Please select a valid delivery provider before submitting a tracking link.')
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+            tracking_link = (request.POST.get('tracking_link') or '').strip()
+            is_valid, validation_error = _is_valid_tracking_link(tracking_link, provider=provider_code)
+            if not is_valid:
+                messages.error(request, validation_error)
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+            now = timezone.now()
+            payment.third_party_provider = provider_code
+            payment.third_party_tracking_link = tracking_link
+            payment.third_party_tracking_link_submitted_at = now
+            payment.third_party_tracking_link_submitted_by = request.user
+            payment.buyer_tracking_acknowledged_at = None
+            payment.seller_tracking_acknowledged_at = None
+            payment.save(
+                update_fields=[
+                    'third_party_provider',
+                    'third_party_tracking_link',
+                    'third_party_tracking_link_submitted_at',
+                    'third_party_tracking_link_submitted_by',
+                    'buyer_tracking_acknowledged_at',
+                    'seller_tracking_acknowledged_at',
+                    'updated_at',
+                ]
+            )
+
+            notify_user = transaction.seller if request.user == transaction.buyer else transaction.buyer
+            Notification.objects.create(
+                user=notify_user,
+                related_user=request.user,
+                message=(
+                    f'{request.user.username} submitted a shared {provider_code} tracking link for transaction '
+                    f'#{transaction.pk}. Please acknowledge it before payment verification.'
+                ),
+                notification_type='transaction',
+                url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+            )
+
+            messages.success(
+                request,
+                'Tracking link submitted. Both buyer and seller must acknowledge the shared link before verification.',
+            )
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+        elif action == 'ack_delivery_tracking' and transaction.status == 'confirmed':
+            payment = getattr(transaction, 'payment', None)
+            if payment is None or payment.payment_method != 'third_party_delivery' or payment.status != 'pending':
+                messages.error(request, 'Tracking acknowledgment is only available for pending third-party delivery payments.')
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+            if not _third_party_tracking_link_ready(payment):
+                messages.error(request, 'A shared tracking link must be submitted before acknowledgments can be recorded.')
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+            now = timezone.now()
+            update_fields = ['updated_at']
+            if request.user == transaction.buyer:
+                if payment.buyer_tracking_acknowledged_at:
+                    messages.info(request, 'You already acknowledged the shared tracking link.')
+                    return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+                payment.buyer_tracking_acknowledged_at = now
+                update_fields.append('buyer_tracking_acknowledged_at')
+                role_label = 'Buyer'
+                notify_user = transaction.seller
+            else:
+                if payment.seller_tracking_acknowledged_at:
+                    messages.info(request, 'You already acknowledged the shared tracking link.')
+                    return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+                payment.seller_tracking_acknowledged_at = now
+                update_fields.append('seller_tracking_acknowledged_at')
+                role_label = 'Seller'
+                notify_user = transaction.buyer
+
+            payment.save(update_fields=update_fields)
+
+            Notification.objects.create(
+                user=notify_user,
+                related_user=request.user,
+                message=(
+                    f'{request.user.username} ({role_label}) acknowledged the shared delivery tracking link for '
+                    f'transaction #{transaction.pk}.'
+                ),
+                notification_type='transaction',
+                url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+            )
+
+            if _third_party_tracking_ack_ready(payment):
+                messages.success(request, 'Both parties acknowledged the tracking link. Seller can now continue verification.')
+            else:
+                messages.success(request, 'Tracking acknowledgment saved. Waiting for the other party to acknowledge.')
+
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
         # Any party sending a message within the transaction
         elif action == 'message':
             message_form = MessageForm(request.POST)
@@ -1450,6 +1610,32 @@ def transaction_detail(request, transaction_id):
     payment = getattr(transaction, 'payment', None)
     payment_completed = payment is not None and payment.status == 'completed'
     payment_pending = payment is not None and payment.status == 'pending'
+    manual_payment_pending = (
+        payment_pending
+        and payment is not None
+        and _is_manual_payment_method(payment.payment_method)
+    )
+    payment_manual_verification_status = payment.manual_verification_status if payment else ''
+    in_person_payment_pending = payment_pending and payment is not None and payment.payment_method == 'in_person'
+    third_party_delivery_payment_pending = (
+        payment_pending and payment is not None and payment.payment_method == 'third_party_delivery'
+    )
+    buyer_meetup_photo_uploaded = bool(payment.buyer_meetup_photo) if in_person_payment_pending and payment else False
+    seller_meetup_photo_uploaded = bool(payment.seller_meetup_photo) if in_person_payment_pending and payment else False
+    in_person_meetup_proof_ready = in_person_payment_pending and _in_person_meetup_proof_ready(payment)
+    third_party_tracking_link_ready = third_party_delivery_payment_pending and _third_party_tracking_link_ready(payment)
+    third_party_tracking_ack_ready = third_party_delivery_payment_pending and _third_party_tracking_ack_ready(payment)
+    third_party_tracking_provider = payment.third_party_provider if third_party_delivery_payment_pending and payment else ''
+    third_party_tracking_link = payment.third_party_tracking_link if third_party_delivery_payment_pending and payment else ''
+    third_party_tracking_link_submitted_by = (
+        payment.third_party_tracking_link_submitted_by if third_party_delivery_payment_pending and payment else None
+    )
+    buyer_tracking_acknowledged = bool(
+        payment.buyer_tracking_acknowledged_at
+    ) if third_party_delivery_payment_pending and payment else False
+    seller_tracking_acknowledged = bool(
+        payment.seller_tracking_acknowledged_at
+    ) if third_party_delivery_payment_pending and payment else False
     meeting_confirmed = transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting
     allowed_payment_methods = _get_allowed_payment_methods(transaction.listing)
     
@@ -1468,6 +1654,20 @@ def transaction_detail(request, transaction_id):
         'payment': payment,
         'payment_completed': payment_completed,
         'payment_pending': payment_pending,
+        'manual_payment_pending': manual_payment_pending,
+        'payment_manual_verification_status': payment_manual_verification_status,
+        'in_person_payment_pending': in_person_payment_pending,
+        'third_party_delivery_payment_pending': third_party_delivery_payment_pending,
+        'buyer_meetup_photo_uploaded': buyer_meetup_photo_uploaded,
+        'seller_meetup_photo_uploaded': seller_meetup_photo_uploaded,
+        'in_person_meetup_proof_ready': in_person_meetup_proof_ready,
+        'third_party_tracking_link_ready': third_party_tracking_link_ready,
+        'third_party_tracking_ack_ready': third_party_tracking_ack_ready,
+        'third_party_tracking_provider': third_party_tracking_provider,
+        'third_party_tracking_link': third_party_tracking_link,
+        'third_party_tracking_link_submitted_by': third_party_tracking_link_submitted_by,
+        'buyer_tracking_acknowledged': buyer_tracking_acknowledged,
+        'seller_tracking_acknowledged': seller_tracking_acknowledged,
         'meeting_confirmed': meeting_confirmed,
         'allowed_payment_methods': allowed_payment_methods,
         'is_wtb': is_wtb,
@@ -1560,14 +1760,33 @@ def complete_transaction(request, transaction_id):
     if request.method != 'POST':
         return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
 
+    previous_buyer_completed = transaction.buyer_completed
+    previous_seller_completed = transaction.seller_completed
+    previous_transaction_status = transaction.status
+
+    participant_transition_payloads = []
+    final_status_transition_payload = None
+
     from django.urls import reverse
     if request.user == transaction.buyer:
         transaction.buyer_completed = True
+        if not previous_buyer_completed:
+            participant_transition_payloads.append({
+                'from_state': 'false',
+                'to_state': 'true',
+                'reason': 'buyer_marked_completed',
+            })
         status_msg = "You've marked this purchase as successful."
         other_party = transaction.seller
         other_msg = f"{request.user.username} (Buyer) confirmed the exchange. Please confirm on your end."
     else:
         transaction.seller_completed = True
+        if not previous_seller_completed:
+            participant_transition_payloads.append({
+                'from_state': 'false',
+                'to_state': 'true',
+                'reason': 'seller_marked_completed',
+            })
         status_msg = "You've marked this sale as successful."
         other_party = transaction.buyer
         other_msg = f"{request.user.username} (Seller) confirmed the exchange. Please confirm on your end."
@@ -1576,6 +1795,17 @@ def complete_transaction(request, transaction_id):
         from django.utils import timezone
         transaction.status = 'completed'
         transaction.completed_at = timezone.now()
+        if previous_transaction_status != transaction.status:
+            final_status_transition_payload = {
+                'from_state': previous_transaction_status,
+                'to_state': transaction.status,
+                'reason': 'mutual_participant_completion',
+                'details': {
+                    'buyer_completed': transaction.buyer_completed,
+                    'seller_completed': transaction.seller_completed,
+                    'payment_status': payment.status,
+                },
+            }
         
         if transaction.listing:
             transaction.listing.is_sold = transaction.listing.quantity_available == 0
@@ -1619,6 +1849,31 @@ def complete_transaction(request, transaction_id):
         messages.info(request, f"{status_msg} Waiting for the other party to confirm.")
 
     transaction.save()
+
+    for payload in participant_transition_payloads:
+        _record_state_transition(
+            request,
+            entity_type='transaction',
+            transition_kind='participant_completion',
+            transaction=transaction,
+            from_state=payload['from_state'],
+            to_state=payload['to_state'],
+            reason=payload['reason'],
+            details={'actor_role': 'buyer' if request.user == transaction.buyer else 'seller'},
+        )
+
+    if final_status_transition_payload is not None:
+        _record_state_transition(
+            request,
+            entity_type='transaction',
+            transition_kind='transaction_status',
+            transaction=transaction,
+            from_state=final_status_transition_payload['from_state'],
+            to_state=final_status_transition_payload['to_state'],
+            reason=final_status_transition_payload['reason'],
+            details=final_status_transition_payload['details'],
+        )
+
     return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
 
 
@@ -2530,6 +2785,13 @@ def mod_transaction_detail(request, transaction_id):
     txn_messages = transaction.messages.select_related('sender').all().order_by('created_at')
     buyer_profile = getattr(transaction.buyer, 'profile', None) or Profile.objects.filter(user=transaction.buyer).first()
     seller_profile = getattr(transaction.seller, 'profile', None) or Profile.objects.filter(user=transaction.seller).first()
+    payment = getattr(transaction, 'payment', None)
+    manual_review_pending = bool(
+        payment
+        and payment.status == 'pending'
+        and payment.manual_verification_status == 'awaiting_moderator_review'
+        and _is_manual_payment_method(payment.payment_method)
+    )
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -2548,6 +2810,187 @@ def mod_transaction_detail(request, transaction_id):
             transaction.save()
             ModerationLog.objects.create(actor=request.user, action='unflag_transaction', target_model='transaction', target_id=transaction_id)
             messages.success(request, 'Flag removed.')
+        elif action == 'approve_manual_payment':
+            payment_obj = payment
+            if not manual_review_pending or payment_obj is None:
+                messages.error(request, 'No pending manual payment review found for this transaction.')
+            elif payment_obj.payment_method == 'in_person' and not _in_person_meetup_proof_ready(payment_obj):
+                messages.error(request, 'Cannot approve until both in-person meetup photo proofs are present.')
+            elif payment_obj.payment_method == 'third_party_delivery' and (
+                not _third_party_tracking_link_ready(payment_obj)
+                or not _third_party_tracking_ack_ready(payment_obj)
+            ):
+                messages.error(
+                    request,
+                    'Cannot approve third-party delivery payment until tracking link submission and both acknowledgments are complete.',
+                )
+            else:
+                review_reason = (request.POST.get('manual_review_reason') or '').strip()
+                previous_payment_status = payment_obj.status
+                previous_manual_status = payment_obj.manual_verification_status
+                payment_obj.status = 'completed'
+                payment_obj.manual_verification_status = 'verified'
+                payment_obj.verified_at = timezone.now()
+                payment_obj.verified_by = request.user
+
+                update_fields = [
+                    'status',
+                    'manual_verification_status',
+                    'verified_at',
+                    'verified_by',
+                    'updated_at',
+                ]
+
+                if review_reason:
+                    note_line = f"Moderator approval: {review_reason}"
+                    payment_obj.manual_evidence_notes = (
+                        (payment_obj.manual_evidence_notes + "\n") if payment_obj.manual_evidence_notes else ""
+                    ) + note_line
+                    update_fields.append('manual_evidence_notes')
+
+                payment_obj.save(update_fields=update_fields)
+
+                if previous_manual_status != payment_obj.manual_verification_status:
+                    _record_state_transition(
+                        request,
+                        entity_type='payment',
+                        transition_kind='manual_verification',
+                        transaction=transaction,
+                        payment=payment_obj,
+                        from_state=previous_manual_status,
+                        to_state=payment_obj.manual_verification_status,
+                        reason='moderator_approved_manual_payment',
+                        evidence_hash=payment_obj.manual_evidence_hash,
+                        details={'review_reason': review_reason},
+                    )
+
+                if previous_payment_status != payment_obj.status:
+                    _record_state_transition(
+                        request,
+                        entity_type='payment',
+                        transition_kind='payment_status',
+                        transaction=transaction,
+                        payment=payment_obj,
+                        from_state=previous_payment_status,
+                        to_state=payment_obj.status,
+                        reason='moderator_approved_manual_payment',
+                        evidence_hash=payment_obj.manual_evidence_hash,
+                        details={'review_reason': review_reason},
+                    )
+
+                receipt = _ensure_receipt_for_payment(transaction, payment_obj)
+                if receipt.status == 'pending':
+                    receipt.status = 'confirmed'
+                    receipt.confirmed_at = timezone.now()
+                    receipt.save(update_fields=['status', 'confirmed_at'])
+
+                Notification.objects.create(
+                    user=transaction.buyer,
+                    related_user=request.user,
+                    message='A moderator approved your manual payment verification. You may continue to transaction completion.',
+                    notification_type='transaction',
+                    url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+                )
+                Notification.objects.create(
+                    user=transaction.seller,
+                    related_user=request.user,
+                    message='A moderator approved this manual payment verification.',
+                    notification_type='transaction',
+                    url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+                )
+
+                ModerationLog.objects.create(
+                    actor=request.user,
+                    action='approve_manual_payment',
+                    target_model='payment',
+                    target_id=payment_obj.pk,
+                )
+                messages.success(request, 'Manual payment approved and marked completed.')
+        elif action == 'reject_manual_payment':
+            payment_obj = payment
+            if not manual_review_pending or payment_obj is None:
+                messages.error(request, 'No pending manual payment review found for this transaction.')
+            else:
+                rejection_reason = (request.POST.get('manual_review_reason') or '').strip()
+                if len(rejection_reason) < 12:
+                    messages.error(request, 'Please provide a detailed rejection reason (at least 12 characters).')
+                else:
+                    previous_payment_status = payment_obj.status
+                    previous_manual_status = payment_obj.manual_verification_status
+                    payment_obj.status = 'failed'
+                    payment_obj.manual_verification_status = 'rejected'
+                    payment_obj.verified_at = timezone.now()
+                    payment_obj.verified_by = request.user
+                    note_line = f"Moderator rejection: {rejection_reason}"
+                    payment_obj.manual_evidence_notes = (
+                        (payment_obj.manual_evidence_notes + "\n") if payment_obj.manual_evidence_notes else ""
+                    ) + note_line
+                    payment_obj.save(
+                        update_fields=[
+                            'status',
+                            'manual_verification_status',
+                            'verified_at',
+                            'verified_by',
+                            'manual_evidence_notes',
+                            'updated_at',
+                        ]
+                    )
+
+                    if previous_manual_status != payment_obj.manual_verification_status:
+                        _record_state_transition(
+                            request,
+                            entity_type='payment',
+                            transition_kind='manual_verification',
+                            transaction=transaction,
+                            payment=payment_obj,
+                            from_state=previous_manual_status,
+                            to_state=payment_obj.manual_verification_status,
+                            reason='moderator_rejected_manual_payment',
+                            evidence_hash=payment_obj.manual_evidence_hash,
+                            details={'rejection_reason': rejection_reason},
+                        )
+
+                    if previous_payment_status != payment_obj.status:
+                        _record_state_transition(
+                            request,
+                            entity_type='payment',
+                            transition_kind='payment_status',
+                            transaction=transaction,
+                            payment=payment_obj,
+                            from_state=previous_payment_status,
+                            to_state=payment_obj.status,
+                            reason='moderator_rejected_manual_payment',
+                            evidence_hash=payment_obj.manual_evidence_hash,
+                            details={'rejection_reason': rejection_reason},
+                        )
+
+                    receipt = getattr(payment_obj, 'receipt', None)
+                    if receipt and receipt.status == 'pending':
+                        receipt.status = 'failed'
+                        receipt.save(update_fields=['status'])
+
+                    Notification.objects.create(
+                        user=transaction.buyer,
+                        related_user=request.user,
+                        message='A moderator rejected your manual payment verification. Please resubmit valid payment evidence.',
+                        notification_type='transaction',
+                        url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+                    )
+                    Notification.objects.create(
+                        user=transaction.seller,
+                        related_user=request.user,
+                        message='A moderator rejected this manual payment verification. Buyer must resubmit payment evidence.',
+                        notification_type='transaction',
+                        url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+                    )
+
+                    ModerationLog.objects.create(
+                        actor=request.user,
+                        action='reject_manual_payment',
+                        target_model='payment',
+                        target_id=payment_obj.pk,
+                    )
+                    messages.success(request, 'Manual payment verification rejected.')
         elif action == 'admin_cancel' and transaction.status in ('pending', 'confirmed'):
             reason = request.POST.get('admin_cancel_reason', '').strip()
             if not reason:
@@ -2564,6 +3007,8 @@ def mod_transaction_detail(request, transaction_id):
 
     return render(request, 'marketplace/mod/transaction_detail.html', {
         'transaction': transaction,
+        'payment': payment,
+        'manual_review_pending': manual_review_pending,
         'txn_messages': txn_messages,
         'buyer_profile': buyer_profile,
         'seller_profile': seller_profile,
@@ -2780,6 +3225,404 @@ def get_social_media(request):
 # ==================== PAYMENT VIEWS ====================
 
 PENDING_SENSITIVE_PAYMENT_SESSION_KEY = 'pending_sensitive_payment_action'
+MANUAL_PAYMENT_METHODS = {'gcash', 'bank_transfer', 'in_person', 'third_party_delivery', 'other'}
+MANUAL_EVIDENCE_TYPES = {
+    'gcash_reference',
+    'bank_reference',
+    'cash_receipt',
+    'delivery_tracking',
+    'chat_confirmation',
+    'other',
+}
+THIRD_PARTY_PROVIDER_CODES = {'lalamove', 'grab', 'other'}
+THIRD_PARTY_PROVIDER_DOMAINS = {
+    'lalamove': ('lalamove.com',),
+    'grab': ('grab.com', 'grabtaxi.com'),
+}
+
+
+def _is_manual_payment_method(payment_method):
+    return payment_method in MANUAL_PAYMENT_METHODS
+
+
+def _manual_payment_review_threshold():
+    raw_threshold = getattr(settings, 'MANUAL_PAYMENT_MOD_REVIEW_THRESHOLD', '5000.00')
+    try:
+        return Decimal(str(raw_threshold))
+    except Exception:
+        return Decimal('5000.00')
+
+
+def _manual_payment_requires_moderator_review(payment):
+    if payment is None or not _is_manual_payment_method(payment.payment_method):
+        return False
+
+    # Maximum-safety policy: every manual payment is moderator-gated regardless of amount.
+    return True
+
+
+def _is_valid_tracking_link(link, provider=''):
+    cleaned_link = (link or '').strip()
+    if len(cleaned_link) < 20 or len(cleaned_link) > 500:
+        return False, 'Tracking link must be between 20 and 500 characters.'
+
+    try:
+        parsed = urlparse(cleaned_link)
+    except Exception:
+        return False, 'Tracking link format is invalid.'
+
+    if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+        return False, 'Tracking link must be a valid http/https URL.'
+
+    provider_code = (provider or '').strip().lower()
+    if provider_code in THIRD_PARTY_PROVIDER_DOMAINS:
+        host = parsed.netloc.lower()
+        allowed_domains = THIRD_PARTY_PROVIDER_DOMAINS[provider_code]
+        if not any(host.endswith(domain) for domain in allowed_domains):
+            return False, f'Tracking link must match the selected provider ({provider_code}).'
+
+    return True, ''
+
+
+def _third_party_tracking_link_ready(payment):
+    if payment is None or payment.payment_method != 'third_party_delivery':
+        return True
+    return bool(payment.third_party_tracking_link and payment.third_party_tracking_link_submitted_by)
+
+
+def _third_party_tracking_ack_ready(payment):
+    if payment is None or payment.payment_method != 'third_party_delivery':
+        return True
+    return bool(payment.buyer_tracking_acknowledged_at and payment.seller_tracking_acknowledged_at)
+
+
+def _in_person_meetup_proof_ready(payment):
+    if payment is None or payment.payment_method != 'in_person':
+        return True
+    return bool(payment.buyer_meetup_photo and payment.seller_meetup_photo)
+
+
+def _ensure_receipt_for_payment(transaction, payment):
+    receipt = _create_receipt(transaction, payment)
+    update_fields = []
+
+    if getattr(receipt, 'payment', None) != payment:
+        receipt.payment = payment
+        update_fields.append('payment')
+
+    if receipt.payment_method != payment.payment_method:
+        receipt.payment_method = payment.payment_method
+        update_fields.append('payment_method')
+
+    if update_fields:
+        receipt.save(update_fields=update_fields)
+
+    return receipt
+
+
+def _build_manual_evidence_hash(transaction, payment, evidence_type, evidence_reference, evidence_notes):
+    raw = "|".join([
+        str(transaction.pk),
+        str(payment.pk),
+        evidence_type.strip().lower(),
+        evidence_reference.strip(),
+        evidence_notes.strip(),
+    ])
+    return hashlib.sha256(raw.encode('utf-8')).hexdigest()
+
+
+def _record_state_transition(
+    request,
+    *,
+    entity_type,
+    transition_kind,
+    transaction,
+    to_state,
+    payment=None,
+    from_state='',
+    reason='',
+    evidence_hash='',
+    details=None,
+):
+    details = details or {}
+    actor = request.user if getattr(request, 'user', None) and request.user.is_authenticated else None
+
+    StateTransitionAuditLog.objects.create(
+        entity_type=entity_type,
+        transition_kind=transition_kind,
+        transaction=transaction,
+        payment=payment,
+        actor=actor,
+        from_state=from_state or '',
+        to_state=to_state,
+        reason=reason or '',
+        evidence_hash=evidence_hash or '',
+        details=details,
+        ip_address=get_client_ip(request),
+        user_agent=(request.META.get('HTTP_USER_AGENT', '') or '')[:255],
+    )
+
+
+def _normalize_whitespace(value):
+    return re.sub(r'\s+', ' ', (value or '').strip())
+
+
+def _validate_gcash_details(raw_details):
+    raw_details = raw_details or {}
+    gcash_name = _normalize_whitespace(raw_details.get('gcash_name'))
+    gcash_number_raw = re.sub(r'\D', '', raw_details.get('gcash_number') or '')
+
+    if gcash_number_raw.startswith('63') and len(gcash_number_raw) == 12:
+        gcash_number = f"0{gcash_number_raw[2:]}"
+    elif gcash_number_raw.startswith('09') and len(gcash_number_raw) == 11:
+        gcash_number = gcash_number_raw
+    else:
+        return None, 'GCash number must be a valid Philippine mobile number (for example 09XXXXXXXXX).'
+
+    if len(gcash_name) < 3 or len(gcash_name) > 120:
+        return None, 'GCash account name must be between 3 and 120 characters.'
+
+    if not re.fullmatch(r"[A-Za-z0-9 .,'\-]+", gcash_name):
+        return None, 'GCash account name contains unsupported characters.'
+
+    return {
+        'gcash_name': gcash_name,
+        'gcash_number': gcash_number,
+    }, ''
+
+
+def _validate_bank_details(raw_details):
+    raw_details = raw_details or {}
+    bank_name = _normalize_whitespace(raw_details.get('bank_name'))
+    bank_account_name = _normalize_whitespace(raw_details.get('bank_account_name'))
+    bank_account_last4 = re.sub(r'\s+', '', raw_details.get('bank_account_last4') or '')
+
+    if len(bank_name) < 2 or len(bank_name) > 80:
+        return None, 'Bank name must be between 2 and 80 characters.'
+    if not re.fullmatch(r"[A-Za-z0-9 .,&()'\-]+", bank_name):
+        return None, 'Bank name contains unsupported characters.'
+
+    if len(bank_account_name) < 3 or len(bank_account_name) > 120:
+        return None, 'Bank account name must be between 3 and 120 characters.'
+    if not re.fullmatch(r"[A-Za-z0-9 .,'\-]+", bank_account_name):
+        return None, 'Bank account name contains unsupported characters.'
+
+    if bank_account_last4 and not re.fullmatch(r'\d{4}', bank_account_last4):
+        return None, 'Bank account last 4 digits must contain exactly 4 numbers.'
+
+    return {
+        'bank_name': bank_name,
+        'bank_account_name': bank_account_name,
+        'bank_account_last4': bank_account_last4,
+    }, ''
+
+
+def _validate_other_arrangement_details(arrangement_details):
+    cleaned = _normalize_whitespace(arrangement_details)
+    if len(cleaned) < 20 or len(cleaned) > 600:
+        return '', 'Custom arrangement details must be between 20 and 600 characters.'
+    if len(cleaned.split()) < 4:
+        return '', 'Provide clearer arrangement details with at least 4 words.'
+    return cleaned, ''
+
+
+def _external_verify_gcash_reference(reference, evidence_notes):
+    return {
+        'provider': 'gcash',
+        'status': 'not_configured',
+        'message': 'GCash external verification adapter is phase-ready but not connected to a live provider.',
+        'reference_tail': reference[-6:],
+    }
+
+
+def _external_verify_bank_reference(reference, evidence_notes):
+    return {
+        'provider': 'bank_transfer',
+        'status': 'not_configured',
+        'message': 'Bank transfer external verification adapter is phase-ready but not connected to a live provider.',
+        'reference_tail': reference[-6:],
+    }
+
+
+def _run_external_manual_verification(payment_method, evidence_reference, evidence_notes):
+    if payment_method == 'gcash':
+        return _external_verify_gcash_reference(evidence_reference, evidence_notes)
+    if payment_method == 'bank_transfer':
+        return _external_verify_bank_reference(evidence_reference, evidence_notes)
+    return {
+        'provider': payment_method,
+        'status': 'not_applicable',
+        'message': 'No external verification adapter configured for this method.',
+    }
+
+
+def _stripe_event_already_processed(event_id):
+    if not event_id:
+        return False
+    return StateTransitionAuditLog.objects.filter(
+        entity_type='payment',
+        transition_kind='payment_status',
+        reason='stripe_webhook_payment_intent_succeeded',
+        details__stripe_event_id=event_id,
+    ).exists()
+
+
+def _transaction_amount_cents(transaction):
+    try:
+        return int(Decimal(str(transaction.price)) * Decimal('100'))
+    except Exception:
+        return None
+
+
+def _ensure_credit_card_pending_record(request, transaction, payment_intent_id, *, reason, details=None):
+    details = details or {}
+    existing_payment = Payment.objects.filter(transaction=transaction).first()
+    previous_payment_status = existing_payment.status if existing_payment else ''
+    previous_manual_status = existing_payment.manual_verification_status if existing_payment else ''
+
+    payment, _ = Payment.objects.update_or_create(
+        transaction=transaction,
+        defaults={
+            'stripe_charge_id': payment_intent_id,
+            'amount': transaction.price,
+            'status': 'pending',
+            'payment_method': 'credit_card',
+            'manual_verification_status': 'not_required',
+            'manual_evidence_type': '',
+            'manual_evidence_reference': '',
+            'manual_evidence_notes': '',
+            'manual_evidence_hash': '',
+            'seller_acknowledged_at': None,
+            'seller_acknowledged_by': None,
+            'verified_at': None,
+            'verified_by': None,
+        },
+    )
+
+    if previous_manual_status != payment.manual_verification_status:
+        _record_state_transition(
+            request,
+            entity_type='payment',
+            transition_kind='manual_verification',
+            transaction=transaction,
+            payment=payment,
+            from_state=previous_manual_status,
+            to_state=payment.manual_verification_status,
+            reason=reason,
+            details=details,
+        )
+
+    if previous_payment_status != payment.status:
+        _record_state_transition(
+            request,
+            entity_type='payment',
+            transition_kind='payment_status',
+            transaction=transaction,
+            payment=payment,
+            from_state=previous_payment_status,
+            to_state=payment.status,
+            reason=reason,
+            details=details,
+        )
+
+    receipt = _ensure_receipt_for_payment(transaction, payment)
+    receipt_updates = []
+    if receipt.status != 'pending':
+        receipt.status = 'pending'
+        receipt_updates.append('status')
+    if receipt.confirmed_at is not None:
+        receipt.confirmed_at = None
+        receipt_updates.append('confirmed_at')
+    if receipt_updates:
+        receipt.save(update_fields=receipt_updates)
+
+    return payment, receipt
+
+
+def _complete_credit_card_payment_record(request, transaction, payment, *, reason, details=None):
+    details = details or {}
+    previous_payment_status = payment.status
+    previous_manual_status = payment.manual_verification_status
+    now = timezone.now()
+
+    payment.status = 'completed'
+    payment.payment_method = 'credit_card'
+    payment.manual_verification_status = 'not_required'
+    payment.manual_evidence_type = ''
+    payment.manual_evidence_reference = ''
+    payment.manual_evidence_notes = ''
+    payment.manual_evidence_hash = ''
+    payment.seller_acknowledged_at = None
+    payment.seller_acknowledged_by = None
+    payment.verified_at = now
+    payment.verified_by = None
+    payment.save(
+        update_fields=[
+            'status',
+            'payment_method',
+            'manual_verification_status',
+            'manual_evidence_type',
+            'manual_evidence_reference',
+            'manual_evidence_notes',
+            'manual_evidence_hash',
+            'seller_acknowledged_at',
+            'seller_acknowledged_by',
+            'verified_at',
+            'verified_by',
+            'updated_at',
+        ]
+    )
+
+    if previous_manual_status != payment.manual_verification_status:
+        _record_state_transition(
+            request,
+            entity_type='payment',
+            transition_kind='manual_verification',
+            transaction=transaction,
+            payment=payment,
+            from_state=previous_manual_status,
+            to_state=payment.manual_verification_status,
+            reason=reason,
+            details=details,
+        )
+
+    if previous_payment_status != payment.status:
+        _record_state_transition(
+            request,
+            entity_type='payment',
+            transition_kind='payment_status',
+            transaction=transaction,
+            payment=payment,
+            from_state=previous_payment_status,
+            to_state=payment.status,
+            reason=reason,
+            details=details,
+        )
+
+    receipt = _ensure_receipt_for_payment(transaction, payment)
+    receipt_updates = []
+    if receipt.status != 'confirmed':
+        receipt.status = 'confirmed'
+        receipt_updates.append('status')
+    if receipt.confirmed_at is None:
+        receipt.confirmed_at = now
+        receipt_updates.append('confirmed_at')
+    if receipt_updates:
+        receipt.save(update_fields=receipt_updates)
+
+    if previous_payment_status != 'completed':
+        Notification.objects.create(
+            user=transaction.seller,
+            related_user=transaction.buyer,
+            message=(
+                f'{transaction.buyer.username} paid P{transaction.price} via credit card for '
+                f'{transaction.listing.title if transaction.listing else "your item"}.'
+            ),
+            notification_type='transaction',
+            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
+        )
+
+    return receipt
 
 
 def _start_sensitive_payment_step_up(request, transaction_id, action_payload):
@@ -2811,45 +3654,72 @@ def _finalize_credit_card_payment(request, transaction, payment_intent_id):
             messages.error(request, "Payment reference mismatch. Please contact support.")
             return redirect('marketplace:payment_checkout', transaction_id=transaction.id)
 
-        # If metadata is missing (or couldn't be read), fall back to strict amount/currency checks.
-        if not tx_meta:
-            try:
-                expected_amount = int(float(transaction.price) * 100)
-            except Exception:
-                expected_amount = None
-            intent_amount = getattr(intent, 'amount', None)
-            intent_currency = (getattr(intent, 'currency', '') or '').lower()
-            if expected_amount is None or intent_amount != expected_amount or intent_currency != 'php':
-                messages.error(request, "Payment reference mismatch. Please contact support.")
-                return redirect('marketplace:payment_checkout', transaction_id=transaction.id)
+        expected_amount = _transaction_amount_cents(transaction)
+        intent_amount = getattr(intent, 'amount_received', None) or getattr(intent, 'amount', None)
+        intent_currency = (getattr(intent, 'currency', '') or '').lower()
+        if expected_amount is None or intent_amount != expected_amount or intent_currency != 'php':
+            messages.error(request, "Payment reference mismatch. Please contact support.")
+            return redirect('marketplace:payment_checkout', transaction_id=transaction.id)
+
+        webhook_required = bool(getattr(settings, 'STRIPE_WEBHOOK_REQUIRED', False))
+        webhook_secret_configured = bool(getattr(settings, 'STRIPE_WEBHOOK_SECRET', ''))
 
         if intent.status == 'succeeded':
-            payment, created = Payment.objects.update_or_create(
-                transaction=transaction,
-                defaults={
-                    'stripe_charge_id': intent.id,
-                    'amount': transaction.price,
-                    'status': 'completed',
-                    'payment_method': 'credit_card',
-                }
+            payment, _ = _ensure_credit_card_pending_record(
+                request,
+                transaction,
+                intent.id,
+                reason='stripe_client_finalize_pending',
+                details={
+                    'payment_intent_id': intent.id,
+                    'source': 'client_finalize',
+                },
             )
 
-            # Create receipt for credit card payment
-            receipt = _create_receipt(transaction, payment)
-            receipt.status = 'confirmed'
-            receipt.confirmed_at = timezone.now()
-            receipt.save()
+            if webhook_required:
+                if not webhook_secret_configured:
+                    messages.error(
+                        request,
+                        'Card verification is configured to require webhooks, but STRIPE_WEBHOOK_SECRET is not set.',
+                    )
+                    return redirect('marketplace:payment_cancel', transaction_id=transaction.id)
 
-            Notification.objects.create(
-                user=transaction.seller,
-                related_user=transaction.buyer,
-                message=f'{transaction.buyer.username} paid ₱{transaction.price} via credit card for {transaction.listing.title if transaction.listing else "your item"}',
-                notification_type='transaction',
-                url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
+                messages.info(
+                    request,
+                    'Card authorization received. Final payment confirmation is pending signed webhook verification.',
+                )
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+            receipt = _complete_credit_card_payment_record(
+                request,
+                transaction,
+                payment,
+                reason='stripe_payment_intent_succeeded',
+                details={
+                    'payment_intent_id': intent.id,
+                    'source': 'client_finalize',
+                },
             )
-
             messages.success(request, "Payment successful! Your receipt has been saved to your inbox.")
             return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
+
+        if webhook_required and intent.status in {'processing', 'requires_capture'}:
+            _ensure_credit_card_pending_record(
+                request,
+                transaction,
+                intent.id,
+                reason='stripe_client_finalize_processing',
+                details={
+                    'payment_intent_id': intent.id,
+                    'status': intent.status,
+                    'source': 'client_finalize',
+                },
+            )
+            messages.info(
+                request,
+                'Card payment is processing. Final confirmation will be applied after signed webhook verification.',
+            )
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
 
         messages.error(request, f"Payment not completed. Status: {intent.status}")
         return redirect('marketplace:payment_cancel', transaction_id=transaction.id)
@@ -2863,6 +3733,15 @@ def _finalize_credit_card_payment(request, transaction, payment_intent_id):
 
 
 def _finalize_gcash_payment(request, transaction, buyer_details):
+    validated_details, validation_error = _validate_gcash_details(buyer_details)
+    if validation_error:
+        messages.error(request, validation_error)
+        return redirect('marketplace:payment_checkout', transaction_id=transaction.id)
+
+    existing_payment = Payment.objects.filter(transaction=transaction).first()
+    previous_payment_status = existing_payment.status if existing_payment else ''
+    previous_manual_status = existing_payment.manual_verification_status if existing_payment else ''
+
     payment, created = Payment.objects.update_or_create(
         transaction=transaction,
         defaults={
@@ -2870,18 +3749,53 @@ def _finalize_gcash_payment(request, transaction, buyer_details):
             'amount': transaction.price,
             'status': 'pending',
             'payment_method': 'gcash',
+            'manual_verification_status': 'submitted',
+            'manual_evidence_type': '',
+            'manual_evidence_reference': '',
+            'manual_evidence_notes': '',
+            'manual_evidence_hash': '',
+            'seller_acknowledged_at': None,
+            'seller_acknowledged_by': None,
+            'verified_at': None,
+            'verified_by': None,
         }
     )
+
+    if previous_manual_status != payment.manual_verification_status:
+        _record_state_transition(
+            request,
+            entity_type='payment',
+            transition_kind='manual_verification',
+            transaction=transaction,
+            payment=payment,
+            from_state=previous_manual_status,
+            to_state=payment.manual_verification_status,
+            reason='manual_payment_submitted',
+            details={'payment_method': 'gcash'},
+        )
+
+    if previous_payment_status != payment.status:
+        _record_state_transition(
+            request,
+            entity_type='payment',
+            transition_kind='payment_status',
+            transaction=transaction,
+            payment=payment,
+            from_state=previous_payment_status,
+            to_state=payment.status,
+            reason='manual_payment_submitted',
+            details={'payment_method': 'gcash'},
+        )
 
     receipt = _create_receipt(transaction, payment)
     receipt.status = 'pending'
     receipt.confirmed_at = None
-    if buyer_details:
+    if validated_details:
         parts = []
-        if buyer_details.get('gcash_name'):
-            parts.append(f"Name: {buyer_details.get('gcash_name')}")
-        if buyer_details.get('gcash_number'):
-            parts.append(f"Number: {buyer_details.get('gcash_number')}")
+        if validated_details.get('gcash_name'):
+            parts.append(f"Name: {validated_details.get('gcash_name')}")
+        if validated_details.get('gcash_number'):
+            parts.append(f"Number: {validated_details.get('gcash_number')}")
         if parts:
             receipt.notes = (receipt.notes or '').strip()
             receipt.notes = (receipt.notes + "\n" if receipt.notes else "") + "GCash details (buyer): " + ", ".join(parts)
@@ -2900,6 +3814,15 @@ def _finalize_gcash_payment(request, transaction, buyer_details):
 
 
 def _finalize_bank_transfer_payment(request, transaction, buyer_details):
+    validated_details, validation_error = _validate_bank_details(buyer_details)
+    if validation_error:
+        messages.error(request, validation_error)
+        return redirect('marketplace:payment_checkout', transaction_id=transaction.id)
+
+    existing_payment = Payment.objects.filter(transaction=transaction).first()
+    previous_payment_status = existing_payment.status if existing_payment else ''
+    previous_manual_status = existing_payment.manual_verification_status if existing_payment else ''
+
     payment, created = Payment.objects.update_or_create(
         transaction=transaction,
         defaults={
@@ -2907,19 +3830,54 @@ def _finalize_bank_transfer_payment(request, transaction, buyer_details):
             'amount': transaction.price,
             'status': 'pending',  # Pending until seller confirms receipt
             'payment_method': 'bank_transfer',
+            'manual_verification_status': 'submitted',
+            'manual_evidence_type': '',
+            'manual_evidence_reference': '',
+            'manual_evidence_notes': '',
+            'manual_evidence_hash': '',
+            'seller_acknowledged_at': None,
+            'seller_acknowledged_by': None,
+            'verified_at': None,
+            'verified_by': None,
         }
     )
 
+    if previous_manual_status != payment.manual_verification_status:
+        _record_state_transition(
+            request,
+            entity_type='payment',
+            transition_kind='manual_verification',
+            transaction=transaction,
+            payment=payment,
+            from_state=previous_manual_status,
+            to_state=payment.manual_verification_status,
+            reason='manual_payment_submitted',
+            details={'payment_method': 'bank_transfer'},
+        )
+
+    if previous_payment_status != payment.status:
+        _record_state_transition(
+            request,
+            entity_type='payment',
+            transition_kind='payment_status',
+            transaction=transaction,
+            payment=payment,
+            from_state=previous_payment_status,
+            to_state=payment.status,
+            reason='manual_payment_submitted',
+            details={'payment_method': 'bank_transfer'},
+        )
+
     receipt = _create_receipt(transaction, payment)
     receipt.status = 'pending'
-    if buyer_details:
+    if validated_details:
         parts = []
-        if buyer_details.get('bank_name'):
-            parts.append(f"Bank: {buyer_details.get('bank_name')}")
-        if buyer_details.get('bank_account_name'):
-            parts.append(f"Name: {buyer_details.get('bank_account_name')}")
-        if buyer_details.get('bank_account_last4'):
-            parts.append(f"Last4: {buyer_details.get('bank_account_last4')}")
+        if validated_details.get('bank_name'):
+            parts.append(f"Bank: {validated_details.get('bank_name')}")
+        if validated_details.get('bank_account_name'):
+            parts.append(f"Name: {validated_details.get('bank_account_name')}")
+        if validated_details.get('bank_account_last4'):
+            parts.append(f"Last4: {validated_details.get('bank_account_last4')}")
         if parts:
             receipt.notes = (receipt.notes or '').strip()
             receipt.notes = (receipt.notes + "\n" if receipt.notes else "") + "Bank transfer details (buyer): " + ", ".join(parts)
@@ -2937,9 +3895,104 @@ def _finalize_bank_transfer_payment(request, transaction, buyer_details):
     return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
 
 
+def _finalize_third_party_delivery_payment(request, transaction, delivery_details):
+    existing_payment = Payment.objects.filter(transaction=transaction).first()
+    previous_payment_status = existing_payment.status if existing_payment else ''
+    previous_manual_status = existing_payment.manual_verification_status if existing_payment else ''
+
+    provider_code = (delivery_details.get('provider') or 'other').strip().lower()
+    if provider_code not in THIRD_PARTY_PROVIDER_CODES:
+        provider_code = 'other'
+
+    tracking_link = (delivery_details.get('tracking_link') or '').strip()
+    delivery_notes = (delivery_details.get('delivery_notes') or '').strip()
+    now = timezone.now()
+
+    payment, created = Payment.objects.update_or_create(
+        transaction=transaction,
+        defaults={
+            'stripe_charge_id': f'third_party_delivery_{transaction.id}_{timezone.now().timestamp()}',
+            'amount': transaction.price,
+            'status': 'pending',
+            'payment_method': 'third_party_delivery',
+            'manual_verification_status': 'submitted',
+            'manual_evidence_type': '',
+            'manual_evidence_reference': '',
+            'manual_evidence_notes': '',
+            'manual_evidence_hash': '',
+            'seller_acknowledged_at': None,
+            'seller_acknowledged_by': None,
+            'verified_at': None,
+            'verified_by': None,
+            'third_party_provider': provider_code,
+            'third_party_tracking_link': tracking_link,
+            'third_party_tracking_link_submitted_at': now,
+            'third_party_tracking_link_submitted_by': request.user,
+            'buyer_tracking_acknowledged_at': None,
+            'seller_tracking_acknowledged_at': None,
+        }
+    )
+
+    if previous_manual_status != payment.manual_verification_status:
+        _record_state_transition(
+            request,
+            entity_type='payment',
+            transition_kind='manual_verification',
+            transaction=transaction,
+            payment=payment,
+            from_state=previous_manual_status,
+            to_state=payment.manual_verification_status,
+            reason='manual_payment_submitted',
+            details={'payment_method': 'third_party_delivery', 'provider': provider_code},
+        )
+
+    if previous_payment_status != payment.status:
+        _record_state_transition(
+            request,
+            entity_type='payment',
+            transition_kind='payment_status',
+            transaction=transaction,
+            payment=payment,
+            from_state=previous_payment_status,
+            to_state=payment.status,
+            reason='manual_payment_submitted',
+            details={'payment_method': 'third_party_delivery', 'provider': provider_code},
+        )
+
+    receipt = _create_receipt(transaction, payment)
+    receipt.status = 'pending'
+    receipt.confirmed_at = None
+    note_lines = [
+        f"Third-party delivery provider: {provider_code}",
+        f"Shared tracking link: {tracking_link}",
+    ]
+    if delivery_notes:
+        note_lines.append(f"Delivery notes: {delivery_notes}")
+    receipt.notes = (receipt.notes or '').strip()
+    receipt.notes = (receipt.notes + "\n" if receipt.notes else "") + "\n".join(note_lines)
+    receipt.save()
+
+    Notification.objects.create(
+        user=transaction.seller,
+        related_user=transaction.buyer,
+        message=(
+            f'{transaction.buyer.username} initiated third-party delivery payment setup for ₱{transaction.price}. '
+            'Review the shared tracking link and acknowledge it in transaction details before verification.'
+        ),
+        notification_type='transaction',
+        url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
+    )
+
+    messages.success(
+        request,
+        'Third-party delivery setup recorded. Both parties must acknowledge the shared tracking link before verification.',
+    )
+    return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+
 @login_required
 def confirm_payment_received(request, transaction_id):
-    """Seller confirms receipt of a pending payment submission."""
+    """Seller acknowledges or verifies receipt of a pending payment submission."""
     transaction = get_object_or_404(Transaction, id=transaction_id)
 
     if request.user != transaction.seller:
@@ -2958,11 +4011,277 @@ def confirm_payment_received(request, transaction_id):
         messages.info(request, 'Payment is already confirmed.')
         return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
 
+    if _is_manual_payment_method(payment.payment_method):
+        if transaction.status != 'confirmed':
+            messages.error(request, 'Manual payment can only be verified for confirmed transactions.')
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+        if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
+            messages.error(request, 'Both parties must confirm meetup/agreement before payment verification.')
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+        requested_action = (request.POST.get('verification_action') or 'acknowledge').strip().lower()
+
+        previous_manual_status = payment.manual_verification_status or 'submitted'
+        if previous_manual_status == 'not_required':
+            previous_manual_status = 'submitted'
+            payment.manual_verification_status = 'submitted'
+            payment.save(update_fields=['manual_verification_status', 'updated_at'])
+
+        if previous_manual_status == 'awaiting_moderator_review':
+            messages.info(request, 'This payment is already waiting for moderator review.')
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+        if requested_action == 'acknowledge':
+            if previous_manual_status != 'seller_acknowledged':
+                payment.manual_verification_status = 'seller_acknowledged'
+                payment.seller_acknowledged_at = timezone.now()
+                payment.seller_acknowledged_by = request.user
+                payment.save(
+                    update_fields=[
+                        'manual_verification_status',
+                        'seller_acknowledged_at',
+                        'seller_acknowledged_by',
+                        'updated_at',
+                    ]
+                )
+                _record_state_transition(
+                    request,
+                    entity_type='payment',
+                    transition_kind='manual_verification',
+                    transaction=transaction,
+                    payment=payment,
+                    from_state=previous_manual_status,
+                    to_state='seller_acknowledged',
+                    reason='seller_acknowledged_manual_submission',
+                    details={'payment_method': payment.payment_method},
+                )
+
+            messages.success(
+                request,
+                'Payment submission acknowledged. Provide verification evidence to mark this payment completed.',
+            )
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+        if requested_action != 'verify':
+            messages.error(request, 'Unknown payment verification action.')
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+        evidence_type = (request.POST.get('evidence_type') or '').strip().lower()
+        evidence_reference = (request.POST.get('evidence_reference') or '').strip()
+        evidence_notes = (request.POST.get('evidence_notes') or '').strip()
+
+        if evidence_type not in MANUAL_EVIDENCE_TYPES:
+            messages.error(request, 'Select a valid evidence type before verifying payment.')
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+        if len(evidence_reference) < 6:
+            messages.error(request, 'Evidence reference must be at least 6 characters long.')
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+        if len(evidence_notes) < 12:
+            messages.error(request, 'Verification notes must be at least 12 characters long.')
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+        required_evidence_by_method = {
+            'gcash': 'gcash_reference',
+            'bank_transfer': 'bank_reference',
+            'in_person': 'cash_receipt',
+            'third_party_delivery': 'delivery_tracking',
+            'other': 'chat_confirmation',
+        }
+        required_evidence_type = required_evidence_by_method.get(payment.payment_method)
+        if required_evidence_type and evidence_type != required_evidence_type:
+            messages.error(
+                request,
+                f"Selected payment method requires '{required_evidence_type}' as evidence type.",
+            )
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+        if payment.payment_method == 'gcash':
+            normalized_reference = re.sub(r'\s+', '', evidence_reference).upper()
+            if not re.fullmatch(r'[A-Z0-9\-]{8,40}', normalized_reference):
+                messages.error(request, 'GCash evidence reference must be 8 to 40 alphanumeric characters/dashes.')
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+            evidence_reference = normalized_reference
+
+        if payment.payment_method == 'bank_transfer':
+            normalized_reference = re.sub(r'\s+', '', evidence_reference).upper()
+            if not re.fullmatch(r'[A-Z0-9\-]{8,60}', normalized_reference):
+                messages.error(request, 'Bank evidence reference must be 8 to 60 alphanumeric characters/dashes.')
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+            evidence_reference = normalized_reference
+
+        if payment.payment_method == 'other':
+            if len(evidence_reference) < 10:
+                messages.error(request, 'Custom arrangement evidence reference must be at least 10 characters long.')
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+            if len(evidence_notes) < 24:
+                messages.error(request, 'Custom arrangement verification notes must be at least 24 characters long.')
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+        if payment.payment_method == 'in_person' and not _in_person_meetup_proof_ready(payment):
+            messages.error(
+                request,
+                'Both buyer and seller must upload meetup photo proof before in-person cash payment can be verified.',
+            )
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+        if payment.payment_method == 'third_party_delivery':
+            if not _third_party_tracking_link_ready(payment):
+                messages.error(
+                    request,
+                    'A shared delivery tracking link is required before third-party delivery payment can be verified.',
+                )
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+            if not _third_party_tracking_ack_ready(payment):
+                messages.error(
+                    request,
+                    'Both buyer and seller must acknowledge the shared delivery tracking link before verification.',
+                )
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+        evidence_hash = _build_manual_evidence_hash(
+            transaction,
+            payment,
+            evidence_type,
+            evidence_reference,
+            evidence_notes,
+        )
+
+        external_verification_result = _run_external_manual_verification(
+            payment.payment_method,
+            evidence_reference,
+            evidence_notes,
+        )
+
+        if external_verification_result.get('status') == 'error':
+            messages.error(request, external_verification_result.get('message', 'External verification failed.'))
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+        external_note = (
+            f"External verification ({external_verification_result.get('provider')}): "
+            f"{external_verification_result.get('status')} - {external_verification_result.get('message')}"
+        )
+        if external_note not in evidence_notes:
+            evidence_notes = f"{evidence_notes}\n{external_note}"
+
+        requires_moderator_review = _manual_payment_requires_moderator_review(payment)
+        if not requires_moderator_review:
+            messages.error(
+                request,
+                'Manual payment verification is not permitted to complete without moderator review under current safety policy.',
+            )
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+        previous_payment_status = payment.status
+        now = timezone.now()
+
+        payment.manual_verification_status = 'awaiting_moderator_review'
+        payment.manual_evidence_type = evidence_type
+        payment.manual_evidence_reference = evidence_reference
+        payment.manual_evidence_notes = evidence_notes
+        payment.manual_evidence_hash = evidence_hash
+        if payment.seller_acknowledged_at is None:
+            payment.seller_acknowledged_at = now
+            payment.seller_acknowledged_by = request.user
+
+        update_fields = [
+            'manual_verification_status',
+            'manual_evidence_type',
+            'manual_evidence_reference',
+            'manual_evidence_notes',
+            'manual_evidence_hash',
+            'seller_acknowledged_at',
+            'seller_acknowledged_by',
+            'updated_at',
+        ]
+
+        payment.verified_at = None
+        payment.verified_by = None
+        update_fields.extend(['verified_at', 'verified_by'])
+
+        payment.save(update_fields=update_fields)
+
+        if previous_manual_status != payment.manual_verification_status:
+            _record_state_transition(
+                request,
+                entity_type='payment',
+                transition_kind='manual_verification',
+                transaction=transaction,
+                payment=payment,
+                from_state=previous_manual_status,
+                to_state=payment.manual_verification_status,
+                reason='seller_verified_manual_payment',
+                evidence_hash=evidence_hash,
+                details={
+                    'payment_method': payment.payment_method,
+                    'evidence_type': evidence_type,
+                    'requires_moderator_review': requires_moderator_review,
+                    'external_verification': external_verification_result,
+                },
+            )
+
+        if previous_payment_status != payment.status:
+            _record_state_transition(
+                request,
+                entity_type='payment',
+                transition_kind='payment_status',
+                transaction=transaction,
+                payment=payment,
+                from_state=previous_payment_status,
+                to_state=payment.status,
+                reason='seller_verified_manual_payment',
+                evidence_hash=evidence_hash,
+                details={
+                    'payment_method': payment.payment_method,
+                    'requires_moderator_review': requires_moderator_review,
+                    'external_verification': external_verification_result,
+                },
+            )
+
+        admin_review_url = reverse('marketplace:mod_transaction_detail', kwargs={'transaction_id': transaction.pk})
+        for admin_user in User.objects.filter(is_superuser=True).exclude(pk=request.user.pk):
+            Notification.objects.create(
+                user=admin_user,
+                related_user=request.user,
+                message=(
+                    f'Manual payment verification for transaction #{transaction.pk} '
+                    f'requires moderator approval (amount: P{transaction.price}).'
+                ),
+                notification_type='system',
+                url=admin_review_url,
+            )
+
+        Notification.objects.create(
+            user=transaction.buyer,
+            related_user=transaction.seller,
+            message='Your manual payment evidence was submitted and is pending moderator review.',
+            notification_type='transaction',
+            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
+        )
+
+        messages.success(
+            request,
+            'Evidence submitted. Manual payments can only complete after moderator safety approval.',
+        )
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
+
+    previous_payment_status = payment.status
     payment.status = 'completed'
     payment.save(update_fields=['status', 'updated_at'])
 
-    receipt = getattr(payment, 'receipt', None)
-    if receipt and receipt.status == 'pending':
+    _record_state_transition(
+        request,
+        entity_type='payment',
+        transition_kind='payment_status',
+        transaction=transaction,
+        payment=payment,
+        from_state=previous_payment_status,
+        to_state=payment.status,
+        reason='seller_confirmed_non_manual_payment',
+    )
+
+    receipt = _ensure_receipt_for_payment(transaction, payment)
+    if receipt.status == 'pending':
         receipt.status = 'confirmed'
         receipt.confirmed_at = timezone.now()
         receipt.save(update_fields=['status', 'confirmed_at'])
@@ -3010,7 +4329,16 @@ def payment_checkout(request, transaction_id):
             messages.info(request, "This transaction has already been paid.")
             return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
         if transaction.payment.status == 'pending':
-            messages.info(request, "Payment submission already exists and is waiting for seller confirmation.")
+            if (
+                transaction.payment.payment_method == 'credit_card'
+                and bool(getattr(settings, 'STRIPE_WEBHOOK_REQUIRED', False))
+            ):
+                messages.info(
+                    request,
+                    "Card payment authorization is pending signed webhook confirmation. Please refresh transaction details shortly.",
+                )
+            else:
+                messages.info(request, "Payment submission already exists and is waiting for seller confirmation.")
             return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
 
     if request.method == 'GET':
@@ -3024,6 +4352,7 @@ def payment_checkout(request, transaction_id):
             'exchange_method': exchange_method,
             'allowed_methods': allowed_methods,
             'stripe_public_key': settings.STRIPE_PUBLIC_KEY,
+            'stripe_webhook_required': bool(getattr(settings, 'STRIPE_WEBHOOK_REQUIRED', False)),
         }
 
         # ALWAYS create PaymentIntent for credit card transactions
@@ -3092,11 +4421,17 @@ def payment_checkout(request, transaction_id):
             return _finalize_credit_card_payment(request, transaction, payment_intent_id)
 
         elif exchange_method == 'gcash':
-            # Persist buyer details across redirect
-            request.session['payment_details_gcash'] = {
+            gcash_details = {
                 'gcash_number': (request.POST.get('gcash_number') or '').strip(),
                 'gcash_name': (request.POST.get('gcash_name') or '').strip(),
             }
+            validated_gcash_details, validation_error = _validate_gcash_details(gcash_details)
+            if validation_error:
+                messages.error(request, validation_error)
+                return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+
+            # Persist buyer details across redirect
+            request.session['payment_details_gcash'] = validated_gcash_details
 
             if not is_sensitive_recent(request.session, request.user):
                 return _start_sensitive_payment_step_up(
@@ -3111,11 +4446,17 @@ def payment_checkout(request, transaction_id):
             return redirect('marketplace:payment_gcash', transaction_id=transaction_id)
         
         elif exchange_method == 'bank_transfer':
-            request.session['payment_details_bank'] = {
+            bank_details = {
                 'bank_name': (request.POST.get('bank_name') or '').strip(),
                 'bank_account_name': (request.POST.get('bank_account_name') or '').strip(),
                 'bank_account_last4': (request.POST.get('bank_account_last4') or '').strip(),
             }
+            validated_bank_details, validation_error = _validate_bank_details(bank_details)
+            if validation_error:
+                messages.error(request, validation_error)
+                return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+
+            request.session['payment_details_bank'] = validated_bank_details
 
             if not is_sensitive_recent(request.session, request.user):
                 return _start_sensitive_payment_step_up(
@@ -3128,6 +4469,19 @@ def payment_checkout(request, transaction_id):
                 )
 
             return redirect('marketplace:payment_bank_transfer', transaction_id=transaction_id)
+
+        elif exchange_method == 'third_party_delivery':
+            if not is_sensitive_recent(request.session, request.user):
+                return _start_sensitive_payment_step_up(
+                    request,
+                    transaction_id=transaction_id,
+                    action_payload={
+                        'kind': 'checkout_to_third_party_delivery',
+                        'transaction_id': transaction_id,
+                    },
+                )
+
+            return redirect('marketplace:payment_third_party_delivery', transaction_id=transaction_id)
         
         elif exchange_method == 'in_person':
             return redirect('marketplace:payment_cash_arrangement', transaction_id=transaction_id)
@@ -3142,6 +4496,7 @@ def payment_checkout(request, transaction_id):
     return render(request, 'marketplace/payment_checkout.html', {
         'transaction': transaction,
         'allowed_methods': allowed_methods,
+        'stripe_webhook_required': bool(getattr(settings, 'STRIPE_WEBHOOK_REQUIRED', False)),
     })
 
 
@@ -3194,6 +4549,13 @@ def payment_finalize_pending(request, transaction_id):
         buyer_details = request.session.pop('payment_details_bank', None) or {}
         return _finalize_bank_transfer_payment(request, transaction, buyer_details)
 
+    if action_kind == 'third_party_delivery':
+        if 'third_party_delivery' not in allowed_methods:
+            messages.error(request, "Third-party delivery is not allowed for this listing.")
+            return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+        delivery_details = request.session.pop('payment_details_third_party_delivery', None) or {}
+        return _finalize_third_party_delivery_payment(request, transaction, delivery_details)
+
     if action_kind == 'checkout_to_gcash':
         if 'gcash' not in allowed_methods:
             messages.error(request, "GCash is not allowed for this listing.")
@@ -3206,8 +4568,107 @@ def payment_finalize_pending(request, transaction_id):
             return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
         return redirect('marketplace:payment_bank_transfer', transaction_id=transaction_id)
 
+    if action_kind == 'checkout_to_third_party_delivery':
+        if 'third_party_delivery' not in allowed_methods:
+            messages.error(request, "Third-party delivery is not allowed for this listing.")
+            return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+        return redirect('marketplace:payment_third_party_delivery', transaction_id=transaction_id)
+
     messages.error(request, "Unknown pending payment action.")
     return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+
+
+@csrf_exempt
+@require_POST
+def stripe_webhook(request):
+    """Handle Stripe webhook events for card-payment verification."""
+    webhook_secret = getattr(settings, 'STRIPE_WEBHOOK_SECRET', '')
+    if not webhook_secret:
+        return JsonResponse({'error': 'Webhook secret is not configured.'}, status=503)
+
+    signature_header = request.META.get('HTTP_STRIPE_SIGNATURE', '')
+    if not signature_header:
+        return JsonResponse({'error': 'Missing Stripe signature header.'}, status=400)
+
+    try:
+        event = stripe.Webhook.construct_event(request.body, signature_header, webhook_secret)
+    except ValueError:
+        return JsonResponse({'error': 'Invalid webhook payload.'}, status=400)
+    except stripe.error.SignatureVerificationError:
+        return JsonResponse({'error': 'Invalid webhook signature.'}, status=400)
+    except Exception:
+        logger.exception('Unexpected Stripe webhook parse failure')
+        return JsonResponse({'error': 'Unable to parse webhook event.'}, status=400)
+
+    event_id = (event.get('id') or '').strip()
+    event_type = (event.get('type') or '').strip()
+
+    if _stripe_event_already_processed(event_id):
+        return JsonResponse({'status': 'already_processed'})
+
+    if event_type != 'payment_intent.succeeded':
+        return JsonResponse({'status': 'ignored', 'event_type': event_type})
+
+    intent = ((event.get('data') or {}).get('object') or {})
+    payment_intent_id = (intent.get('id') or '').strip()
+    if not payment_intent_id.startswith('pi_'):
+        return JsonResponse({'status': 'ignored', 'reason': 'invalid_payment_intent'})
+
+    metadata = intent.get('metadata') or {}
+    tx_meta = str(metadata.get('transaction_id') or '').strip()
+
+    payment = Payment.objects.select_related('transaction').filter(stripe_charge_id=payment_intent_id).first()
+    transaction_obj = payment.transaction if payment else None
+
+    if transaction_obj is None and tx_meta.isdigit():
+        transaction_obj = Transaction.objects.filter(pk=int(tx_meta)).first()
+
+    if transaction_obj is None:
+        logger.warning('Stripe webhook ignored: no matching transaction for payment_intent=%s', payment_intent_id)
+        return JsonResponse({'status': 'ignored', 'reason': 'transaction_not_found'})
+
+    expected_amount = _transaction_amount_cents(transaction_obj)
+    intent_amount = intent.get('amount_received') or intent.get('amount')
+    intent_currency = (intent.get('currency') or '').lower()
+    if expected_amount is None or intent_amount != expected_amount or intent_currency != 'php':
+        logger.warning(
+            'Stripe webhook ignored: amount/currency mismatch for transaction=%s intent=%s',
+            transaction_obj.pk,
+            payment_intent_id,
+        )
+        return JsonResponse({'status': 'ignored', 'reason': 'amount_or_currency_mismatch'})
+
+    with db_transaction.atomic():
+        payment = Payment.objects.select_for_update().filter(transaction=transaction_obj).first()
+        if payment is None or payment.payment_method != 'credit_card' or payment.stripe_charge_id != payment_intent_id:
+            payment, _ = _ensure_credit_card_pending_record(
+                request,
+                transaction_obj,
+                payment_intent_id,
+                reason='stripe_webhook_seed_pending',
+                details={
+                    'stripe_event_id': event_id,
+                    'payment_intent_id': payment_intent_id,
+                    'event_type': event_type,
+                    'source': 'stripe_webhook',
+                },
+            )
+
+        if payment.status != 'completed':
+            _complete_credit_card_payment_record(
+                request,
+                transaction_obj,
+                payment,
+                reason='stripe_webhook_payment_intent_succeeded',
+                details={
+                    'stripe_event_id': event_id,
+                    'payment_intent_id': payment_intent_id,
+                    'event_type': event_type,
+                    'source': 'stripe_webhook',
+                },
+            )
+
+    return JsonResponse({'status': 'processed'})
 
 
 @login_required
@@ -3311,6 +4772,10 @@ def payment_gcash(request, transaction_id):
     if 'gcash' not in _get_allowed_payment_methods(transaction.listing):
         messages.error(request, "GCash is not an allowed payment method for this listing.")
         return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+
+    if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
+        messages.error(request, "Both parties must confirm meetup/agreement before starting payment.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
     
     if request.method == 'POST':
         if not is_sensitive_recent(request.session, request.user):
@@ -3350,6 +4815,10 @@ def payment_bank_transfer(request, transaction_id):
     if 'bank_transfer' not in _get_allowed_payment_methods(transaction.listing):
         messages.error(request, "Bank transfer is not an allowed payment method for this listing.")
         return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+
+    if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
+        messages.error(request, "Both parties must confirm meetup/agreement before starting payment.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
     
     if request.method == 'POST':
         if not is_sensitive_recent(request.session, request.user):
@@ -3376,6 +4845,77 @@ def payment_bank_transfer(request, transaction_id):
 
 
 @login_required
+def payment_third_party_delivery(request, transaction_id):
+    """Third-party delivery payment page requiring shared tracking link details."""
+    try:
+        transaction = get_object_or_404(Transaction, id=transaction_id, buyer=request.user)
+    except:
+        messages.error(request, "Transaction not found.")
+        return redirect('marketplace:home')
+
+    if transaction.status != 'confirmed':
+        messages.error(request, "This transaction is not ready for payment.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+
+    if 'third_party_delivery' not in _get_allowed_payment_methods(transaction.listing):
+        messages.error(request, "Third-party delivery is not an allowed payment method for this listing.")
+        return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+
+    if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
+        messages.error(request, "Both parties must confirm meetup/agreement before starting payment.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+
+    if request.method == 'POST':
+        provider_code = (request.POST.get('tracking_provider') or '').strip().lower()
+        tracking_link = (request.POST.get('tracking_link') or '').strip()
+        delivery_notes = (request.POST.get('delivery_notes') or '').strip()
+
+        if provider_code not in THIRD_PARTY_PROVIDER_CODES:
+            messages.error(request, "Please select a valid third-party provider.")
+            return redirect('marketplace:payment_third_party_delivery', transaction_id=transaction_id)
+
+        is_valid_link, validation_error = _is_valid_tracking_link(tracking_link, provider=provider_code)
+        if not is_valid_link:
+            messages.error(request, validation_error)
+            return redirect('marketplace:payment_third_party_delivery', transaction_id=transaction_id)
+
+        if len(delivery_notes) < 12:
+            messages.error(request, "Please add delivery coordination notes (at least 12 characters).")
+            return redirect('marketplace:payment_third_party_delivery', transaction_id=transaction_id)
+
+        request.session['payment_details_third_party_delivery'] = {
+            'provider': provider_code,
+            'tracking_link': tracking_link,
+            'delivery_notes': delivery_notes,
+        }
+
+        if not is_sensitive_recent(request.session, request.user):
+            return _start_sensitive_payment_step_up(
+                request,
+                transaction_id=transaction_id,
+                action_payload={
+                    'kind': 'third_party_delivery',
+                    'transaction_id': transaction_id,
+                },
+            )
+
+        delivery_details = request.session.pop('payment_details_third_party_delivery', None) or {}
+        return _finalize_third_party_delivery_payment(request, transaction, delivery_details)
+
+    payment = getattr(transaction, 'payment', None)
+    saved_details = request.session.get('payment_details_third_party_delivery', {})
+
+    context = {
+        'transaction': transaction,
+        'payment_method': 'third_party_delivery',
+        'tracking_provider': saved_details.get('provider') or (payment.third_party_provider if payment else ''),
+        'tracking_link': saved_details.get('tracking_link') or (payment.third_party_tracking_link if payment else ''),
+        'delivery_notes': saved_details.get('delivery_notes') or '',
+    }
+    return render(request, 'marketplace/payment_third_party_delivery.html', context)
+
+
+@login_required
 def payment_cash_arrangement(request, transaction_id):
     """Cash on hand arrangement page for when meeting in person."""
     try:
@@ -3391,8 +4931,16 @@ def payment_cash_arrangement(request, transaction_id):
     if 'in_person' not in _get_allowed_payment_methods(transaction.listing):
         messages.error(request, "In-person cash is not an allowed payment method for this listing.")
         return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+
+    if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
+        messages.error(request, "Both parties must confirm meetup/agreement before starting payment.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
     
     if request.method == 'POST':
+        existing_payment = Payment.objects.filter(transaction=transaction).first()
+        previous_payment_status = existing_payment.status if existing_payment else ''
+        previous_manual_status = existing_payment.manual_verification_status if existing_payment else ''
+
         # Create payment record
         payment, created = Payment.objects.update_or_create(
             transaction=transaction,
@@ -3401,26 +4949,61 @@ def payment_cash_arrangement(request, transaction_id):
                 'amount': transaction.price,
                 'status': 'pending',
                 'payment_method': 'in_person',
+                'manual_verification_status': 'submitted',
+                'manual_evidence_type': '',
+                'manual_evidence_reference': '',
+                'manual_evidence_notes': '',
+                'manual_evidence_hash': '',
+                'seller_acknowledged_at': None,
+                'seller_acknowledged_by': None,
+                'verified_at': None,
+                'verified_by': None,
             }
         )
-        
-        # Create receipt
-        receipt = _create_receipt(transaction, payment)
-        receipt.status = 'pending'
-        receipt.confirmed_at = None
-        receipt.save()
+
+        if previous_manual_status != payment.manual_verification_status:
+            _record_state_transition(
+                request,
+                entity_type='payment',
+                transition_kind='manual_verification',
+                transaction=transaction,
+                payment=payment,
+                from_state=previous_manual_status,
+                to_state=payment.manual_verification_status,
+                reason='manual_payment_submitted',
+                details={'payment_method': 'in_person'},
+            )
+
+        if previous_payment_status != payment.status:
+            _record_state_transition(
+                request,
+                entity_type='payment',
+                transition_kind='payment_status',
+                transaction=transaction,
+                payment=payment,
+                from_state=previous_payment_status,
+                to_state=payment.status,
+                reason='manual_payment_submitted',
+                details={'payment_method': 'in_person'},
+            )
         
         # Notify seller
         Notification.objects.create(
             user=transaction.seller,
             related_user=transaction.buyer,
-            message=f'{transaction.buyer.username} confirmed an in-person cash arrangement for ₱{transaction.price}. Confirm once payment is received.',
+            message=(
+                f'{transaction.buyer.username} confirmed an in-person cash arrangement for ₱{transaction.price}. '
+                'Both parties must upload meetup photo proof before payment can be verified.'
+            ),
             notification_type='transaction',
             url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.id}),
         )
-        
-        messages.success(request, "Cash arrangement recorded. Your receipt is pending seller payment confirmation.")
-        return redirect('marketplace:receipt_detail', receipt_id=receipt.id)
+
+        messages.success(
+            request,
+            'Cash arrangement recorded. Upload meetup photo proof (both buyer and seller) before receipt can be issued.',
+        )
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.id)
     
     context = {
         'transaction': transaction,
@@ -3449,14 +5032,24 @@ def payment_other_arrangement(request, transaction_id):
     if 'other' not in _get_allowed_payment_methods(transaction.listing):
         messages.error(request, "Custom arrangements are not allowed for this listing.")
         return redirect('marketplace:payment_checkout', transaction_id=transaction_id)
+
+    if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
+        messages.error(request, "Both parties must confirm meetup/agreement before starting payment.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
     
     if request.method == 'POST':
-        arrangement_details = request.POST.get('arrangement_details', '').strip()
-        
-        if not arrangement_details:
-            messages.error(request, "Please provide details of your arrangement with the seller.")
+        arrangement_details, validation_error = _validate_other_arrangement_details(
+            request.POST.get('arrangement_details', '')
+        )
+
+        if validation_error:
+            messages.error(request, validation_error)
             return redirect('marketplace:payment_other_arrangement', transaction_id=transaction_id)
         
+        existing_payment = Payment.objects.filter(transaction=transaction).first()
+        previous_payment_status = existing_payment.status if existing_payment else ''
+        previous_manual_status = existing_payment.manual_verification_status if existing_payment else ''
+
         # Create payment record
         payment, created = Payment.objects.update_or_create(
             transaction=transaction,
@@ -3465,8 +5058,43 @@ def payment_other_arrangement(request, transaction_id):
                 'amount': transaction.price,
                 'status': 'pending',
                 'payment_method': 'other',
+                'manual_verification_status': 'submitted',
+                'manual_evidence_type': '',
+                'manual_evidence_reference': '',
+                'manual_evidence_notes': '',
+                'manual_evidence_hash': '',
+                'seller_acknowledged_at': None,
+                'seller_acknowledged_by': None,
+                'verified_at': None,
+                'verified_by': None,
             }
         )
+
+        if previous_manual_status != payment.manual_verification_status:
+            _record_state_transition(
+                request,
+                entity_type='payment',
+                transition_kind='manual_verification',
+                transaction=transaction,
+                payment=payment,
+                from_state=previous_manual_status,
+                to_state=payment.manual_verification_status,
+                reason='manual_payment_submitted',
+                details={'payment_method': 'other'},
+            )
+
+        if previous_payment_status != payment.status:
+            _record_state_transition(
+                request,
+                entity_type='payment',
+                transition_kind='payment_status',
+                transaction=transaction,
+                payment=payment,
+                from_state=previous_payment_status,
+                to_state=payment.status,
+                reason='manual_payment_submitted',
+                details={'payment_method': 'other'},
+            )
         
         # Create receipt with arrangement details in notes
         receipt = _create_receipt(transaction, payment)
