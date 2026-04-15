@@ -2,6 +2,8 @@ import logging
 import io
 import re
 import hashlib
+from collections import deque
+from pathlib import Path
 from urllib.parse import urlparse
 from decimal import Decimal
 from django.shortcuts import render, get_object_or_404, redirect
@@ -114,6 +116,24 @@ def _get_allowed_payment_methods(listing):
     configured = listing.preferred_payment_methods or []
     allowed = [code for code in configured if code in valid_codes]
     return allowed or default_codes
+
+
+def _tail_text_file(file_path, limit=30):
+    """Return the last non-empty lines from a text file, safely.
+
+    This is used to surface live Render-side logs in moderator views when the
+    hosted platform does not expose its own log console.
+    """
+    try:
+        path = Path(file_path)
+        if not path.exists() or not path.is_file():
+            return []
+
+        lines = deque(path.read_text(encoding='utf-8', errors='replace').splitlines(), maxlen=max(1, int(limit)))
+        return [line for line in lines if line.strip()]
+    except Exception:
+        logger.exception('Failed to tail log file path=%s', file_path)
+        return []
 
 
 @login_required
@@ -2551,6 +2571,8 @@ def mod_dashboard(request):
 
     # Recent moderation log
     recent_logs = ModerationLog.objects.select_related('actor').order_by('-created_at')[:15]
+    recent_auth_log_lines = _tail_text_file(settings.BASE_DIR / 'logs' / 'authentication.log', limit=25)
+    recent_security_log_lines = _tail_text_file(settings.BASE_DIR / 'logs' / 'security.log', limit=25)
 
     # Reports / tickets
     reports_open_count = UserReport.objects.filter(status__in=['new', 'reviewing']).count()
@@ -2589,6 +2611,8 @@ def mod_dashboard(request):
         'forum_post_count': forum_post_count,
         'hidden_forum_count': hidden_forum_count,
         'recent_logs': recent_logs,
+        'recent_auth_log_lines': recent_auth_log_lines,
+        'recent_security_log_lines': recent_security_log_lines,
         'reports_open_count': reports_open_count,
         'tickets_open_count': tickets_open_count,
         'open_reports': open_reports,
@@ -3050,7 +3074,13 @@ def mod_log(request):
         return redirect('marketplace:home')
 
     logs = ModerationLog.objects.select_related('actor').order_by('-created_at')[:100]
-    return render(request, 'marketplace/mod/mod_log.html', {'logs': logs})
+    recent_auth_log_lines = _tail_text_file(settings.BASE_DIR / 'logs' / 'authentication.log', limit=40)
+    recent_security_log_lines = _tail_text_file(settings.BASE_DIR / 'logs' / 'security.log', limit=40)
+    return render(request, 'marketplace/mod/mod_log.html', {
+        'logs': logs,
+        'recent_auth_log_lines': recent_auth_log_lines,
+        'recent_security_log_lines': recent_security_log_lines,
+    })
 
 
 def mod_security_probe(request):

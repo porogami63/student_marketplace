@@ -250,7 +250,17 @@ def _send_code_email(user, raw_code, purpose='login'):
             fail_silently=False,
         )
     except Exception:
-        auth_logger.exception('Email 2FA send failed for user=%s recipient=%s', user.username, recipient)
+        auth_logger.exception(
+            'Email 2FA send failed for user=%s recipient=%s backend=%s host=%s port=%s tls=%s ssl=%s from_email_set=%s',
+            user.username,
+            recipient,
+            getattr(settings, 'EMAIL_BACKEND', ''),
+            getattr(settings, 'EMAIL_HOST', ''),
+            getattr(settings, 'EMAIL_PORT', ''),
+            getattr(settings, 'EMAIL_USE_TLS', ''),
+            getattr(settings, 'EMAIL_USE_SSL', ''),
+            bool(getattr(settings, 'DEFAULT_FROM_EMAIL', '')),
+        )
         raise
 
     auth_logger.info('Email 2FA delivered for user=%s recipient=%s', user.username, recipient)
