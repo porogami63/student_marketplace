@@ -31,6 +31,8 @@ urlpatterns = [
     path('listings/<int:pk>/message/', views.message_send, name='message_send'),
     path('transactions/<int:transaction_id>/', views.transaction_detail, name='transaction_detail'),
     path('transactions/<int:transaction_id>/confirm/', views.confirm_transaction, name='confirm_transaction'),
+    path('transactions/<int:transaction_id>/confirm-arrival/', views.confirm_arrival, name='confirm_arrival'),
+    path('transactions/<int:transaction_id>/report-no-show/', views.report_no_show, name='report_no_show'),
     path('transactions/<int:transaction_id>/complete/', views.complete_transaction, name='complete_transaction'),
     path('transactions/<int:transaction_id>/cancel/', views.cancel_transaction, name='cancel_transaction'),
     # Payment URLs

@@ -283,6 +283,15 @@
                 {% endif %}
             {% endif %}
 
+            <!-- No-Show Report Button -->
+            {% if transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting and transaction.no_show_status == 'pending' and transaction.status == 'confirmed' %}
+                {% if is_buyer or is_seller %}
+                <a href="{% url 'marketplace:report_no_show' transaction.pk %}" class="btn btn-sm btn-warning">
+                    <i class="bi bi-exclamation-triangle me-1"></i> Report No-Show
+                </a>
+                {% endif %}
+            {% endif %}
+
             {% if is_buyer or is_seller %}
                 <a href="{% url 'marketplace:report_create' 'transaction' transaction.pk %}" class="btn btn-sm btn-outline-danger">
                     <i class="bi bi-flag me-1"></i> Report
@@ -496,7 +505,75 @@
             </div>
             {% endif %}
 
-            {% if is_buyer and transaction.status == 'confirmed' and not payment_completed and meeting_confirmed and not payment_pending %}
+            <!-- Arrival Confirmation Gate (NEW) -->
+            {% if transaction.status == 'confirmed' and transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting %}
+            <div class="mt-3 p-3 rounded-3" style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25);">
+                <div>
+                    <div class="txn-section-label mb-2" style="color: #4b5563;">
+                        <i class="bi bi-geo-alt-fill me-2"></i>Pre-payment Safety Gate - Step 2
+                    </div>
+                    <div class="fw-semibold mb-1">Confirm you've arrived at the meetup location</div>
+                    <small class="text-muted d-block mb-3">
+                        <strong>Scheduled for:</strong> {{ transaction.proposed_meetup_datetime|date:"M d, Y at h:i A" }}
+                    </small>
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <div class="p-2 rounded" style="background: rgba(59, 130, 246, 0.04); border-left: 3px solid {% if transaction.buyer_confirmed_arrival %}#10b981{% else %}#cbd5e1{% endif %};">
+                                <div class="small d-flex align-items-center gap-2">
+                                    <i class="bi {% if transaction.buyer_confirmed_arrival %}bi-check-circle-fill text-success{% else %}bi-circle text-muted{% endif %}"></i>
+                                    <strong>Buyer</strong>
+                                </div>
+                                {% if transaction.buyer_confirmed_arrival %}
+                                <div class="small text-success mt-1">
+                                    <i class="bi bi-clock me-1"></i>Arrived at {{ transaction.buyer_arrival_confirmed_at|date:"h:i A" }}
+                                </div>
+                                {% else %}
+                                <div class="small text-muted mt-1">Awaiting confirmation</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-2 rounded" style="background: rgba(59, 130, 246, 0.04); border-left: 3px solid {% if transaction.seller_confirmed_arrival %}#10b981{% else %}#cbd5e1{% endif %};">
+                                <div class="small d-flex align-items-center gap-2">
+                                    <i class="bi {% if transaction.seller_confirmed_arrival %}bi-check-circle-fill text-success{% else %}bi-circle text-muted{% endif %}"></i>
+                                    <strong>Seller</strong>
+                                </div>
+                                {% if transaction.seller_confirmed_arrival %}
+                                <div class="small text-success mt-1">
+                                    <i class="bi bi-clock me-1"></i>Arrived at {{ transaction.seller_arrival_confirmed_at|date:"h:i A" }}
+                                </div>
+                                {% else %}
+                                <div class="small text-muted mt-1">Awaiting confirmation</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if is_buyer and not transaction.buyer_confirmed_arrival %}
+                    <form method="post" action="{% url 'marketplace:confirm_arrival' transaction.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="bi bi-geo-alt-fill me-1"></i> I've Arrived at {{ transaction.proposed_meetup_datetime|date:"h:i A" }}
+                        </button>
+                    </form>
+                    {% elif is_seller and not transaction.seller_confirmed_arrival %}
+                    <form method="post" action="{% url 'marketplace:confirm_arrival' transaction.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="bi bi-geo-alt-fill me-1"></i> I've Arrived at {{ transaction.proposed_meetup_datetime|date:"h:i A" }}
+                        </button>
+                    </form>
+                    {% else %}
+                    <button class="btn btn-sm btn-primary" disabled>
+                        <i class="bi bi-check2-circle me-1"></i> Both Arrivals Confirmed
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if is_buyer and transaction.status == 'confirmed' and not payment_completed and meeting_confirmed and transaction.buyer_confirmed_arrival and transaction.seller_confirmed_arrival and not payment_pending %}
             <div class="alert alert-primary mt-3 p-3 border-start border-4" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%); border-color: #667eea !important;">
                 <div class="d-flex gap-3 align-items-start">
                     <div style="font-size: 1.5rem; color: #667eea;">

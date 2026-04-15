@@ -414,8 +414,16 @@
         transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
         display: flex;
         flex-direction: column;
+        height: 100%;
+        min-height: 430px;
         min-width: 0;
         scroll-snap-align: start;
+    }
+
+    .listing-card-shell {
+        position: relative;
+        scroll-snap-align: start;
+        display: flex;
     }
 
     .listing-card:hover {
@@ -424,29 +432,34 @@
         box-shadow: 0 14px 26px rgba(15, 23, 42, 0.12);
     }
 
-    .listing-card::after {
-        content: 'Preview';
+    .listing-preview-btn {
         position: absolute;
         top: 0.6rem;
         right: 0.6rem;
-        padding: 0.2rem 0.55rem;
+        z-index: 3;
+        width: 38px;
+        height: 38px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
         border-radius: 999px;
-        font-size: 0.68rem;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        color: #075985;
-        background: rgba(255, 255, 255, 0.92);
-        border: 1px solid rgba(56, 189, 248, 0.35);
+        background: rgba(255, 255, 255, 0.96);
+        color: #0f172a;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
         opacity: 0;
-        transform: translateY(-4px);
-        transition: opacity 0.2s ease, transform 0.2s ease;
-        pointer-events: none;
-        z-index: 2;
+        transform: translateY(-6px);
+        transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
     }
 
-    .listing-card:hover::after {
+    .listing-card-shell:hover .listing-preview-btn,
+    .listing-preview-btn:focus-visible {
         opacity: 1;
         transform: translateY(0);
+    }
+
+    .listing-preview-btn:hover {
+        background: #eff6ff;
     }
 
     .listing-card:hover .listing-image {
@@ -507,6 +520,38 @@
         display: flex;
         flex-direction: column;
         gap: 0.4rem;
+        flex: 1;
+    }
+
+    .listing-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.18rem;
+        max-height: 7.3rem;
+        overflow: hidden;
+        margin-bottom: 0.15rem;
+        mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+    }
+
+    .listing-detail-item {
+        display: flex;
+        gap: 0.35rem;
+        align-items: baseline;
+        min-width: 0;
+    }
+
+    .listing-detail-label {
+        color: #475569;
+        font-weight: 600;
+        flex: 0 0 auto;
+    }
+
+    .listing-detail-value {
+        color: #0f172a;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
     }
 
     .listing-title {
@@ -527,6 +572,7 @@
         font-size: 1.2rem;
         font-weight: 800;
         color: #38bdf8;
+        margin-top: auto;
     }
 
     .listing-meta {
@@ -534,6 +580,117 @@
         justify-content: space-between;
         font-size: 0.8rem;
         color: #475569;
+    }
+
+    .listing-preview-modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        background: rgba(15, 23, 42, 0.58);
+        backdrop-filter: blur(2px);
+        z-index: 1200;
+    }
+
+    .listing-preview-modal.is-open {
+        display: flex;
+    }
+
+    .listing-preview-dialog {
+        position: relative;
+        width: min(980px, 96vw);
+        max-height: 92vh;
+        overflow: auto;
+        border-radius: 18px;
+        background: #ffffff;
+        box-shadow: 0 20px 44px rgba(15, 23, 42, 0.28);
+        display: grid;
+        grid-template-columns: minmax(260px, 46%) minmax(300px, 1fr);
+    }
+
+    .listing-preview-media {
+        background: #f1f5f9;
+    }
+
+    .listing-preview-media img {
+        width: 100%;
+        height: 100%;
+        min-height: 340px;
+        object-fit: cover;
+        display: block;
+    }
+
+    .listing-preview-body {
+        padding: 1.25rem 1.35rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+    }
+
+    .listing-preview-title {
+        margin: 0;
+        font-size: 1.8rem;
+        line-height: 1.1;
+        color: #0f172a;
+    }
+
+    .listing-preview-price {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 800;
+        color: #38bdf8;
+    }
+
+    .listing-preview-meta {
+        font-size: 0.95rem;
+        color: #475569;
+    }
+
+    .listing-preview-description {
+        margin: 0;
+        color: #1f2937;
+        line-height: 1.45;
+    }
+
+    .listing-preview-details {
+        margin: 0;
+        padding-left: 1.1rem;
+        color: #334155;
+        font-size: 0.95rem;
+    }
+
+    .listing-preview-actions {
+        display: flex;
+        gap: 0.7rem;
+        margin-top: 0.4rem;
+    }
+
+    .listing-preview-close {
+        position: absolute;
+        top: 0.65rem;
+        right: 0.75rem;
+        border: none;
+        background: transparent;
+        font-size: 2rem;
+        line-height: 1;
+        color: #64748b;
+    }
+
+    .listing-preview-close:hover {
+        color: #0f172a;
+    }
+
+    @media (max-width: 860px) {
+        .listing-preview-dialog {
+            grid-template-columns: 1fr;
+        }
+
+        .listing-preview-media img {
+            min-height: 230px;
+            max-height: 300px;
+        }
     }
 
     .forum-preview-section {
@@ -614,6 +771,14 @@
         .listing-title {
             font-size: 1rem;
             min-height: 3.5em;
+        }
+
+        .listing-card {
+            min-height: 405px;
+        }
+
+        .listing-details {
+            max-height: 6.8rem;
         }
 
         .listing-carousel-control {
@@ -816,17 +981,14 @@
             <div class="hero-trending">
                 <span>Trending:</span>
                 {% for item in trending|slice:":8" %}
-                    {% if item.slug %}
-                        <a href="{% url 'marketplace:listing_list' %}?category={{ item.slug }}" class="hero-trend-tag">{{ item.name }}</a>
-                    {% else %}
-                        <a href="{% url 'marketplace:listing_list' %}?q={{ item.name|urlencode }}" class="hero-trend-tag">{{ item.name }}</a>
+                    {% if item.slug != 'test-category' and item.name|lower != 'test category' %}
+                        {% if item.slug %}
+                            <a href="{% url 'marketplace:listing_list' %}?category={{ item.slug }}" class="hero-trend-tag">{{ item.name }}</a>
+                        {% else %}
+                            <a href="{% url 'marketplace:listing_list' %}?q={{ item.name|urlencode }}" class="hero-trend-tag">{{ item.name }}</a>
+                        {% endif %}
                     {% endif %}
                 {% endfor %}
-            </div>
-            <div class="hero-tagline-list" aria-label="UBXchange brand highlights">
-                <span>Your Campus. Your Marketplace.</span>
-                <span>Campus Deals, Made Easy.</span>
-                <span>From Dorm to Doorstep—UBXchange.</span>
             </div>
         </div>
     </div>
@@ -866,43 +1028,61 @@
                     <button class="listing-carousel-control prev" type="button" data-direction="prev" aria-label="Previous listings"><i class="bi bi-chevron-left"></i></button>
                     <div class="listing-carousel-track">
                         {% for listing in listings %}
-                            <a href="{{ listing.get_absolute_url }}" class="listing-card">
-                                {% if listing.image %}
-                                    <img src="{{ listing.image|media_or_static }}" alt="{{ listing.title }}" class="listing-image" loading="lazy">
-                                {% else %}
-                                    <div class="listing-image" style="display:flex; align-items:center; justify-content:center;"><i class="bi bi-box2" style="font-size:2rem; color:#94a3b8;"></i></div>
-                                {% endif %}
-                                <div class="listing-body">
-                                    <h3 class="listing-title">{{ listing.title }}</h3>
-                                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
-                                        {% if listing.listing_type == 'wtb' %}
-                                            <span style="background: #fbbf24; color: #1f2937; padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">WTB</span>
-                                        {% else %}
-                                            <span style="background: #60a5fa; color: white; padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">WTS</span>
-                                            {% if listing.listing_type == 'wts' %}<span style="font-size: 0.75rem; color: #64748b;">{{ listing.get_condition_display }}</span>{% endif %}
-                                        {% endif %}
-                                    </div>
-                                    {% if listing.product_details %}
-                                        <div class="listing-details">
-                                            {% for key, value in listing.product_details.items %}
-                                                {% if value and value != '--' %}
-                                                    <div class="listing-detail-item" style="font-size:0.8rem; justify-content:space-between;">
-                                                        <span class="listing-detail-label">{{ key|title }}:</span>
-                                                        <span class="listing-detail-value">{{ value }}</span>
-                                                    </div>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </div>
+                            <div class="listing-card-shell">
+                                <a href="{{ listing.get_absolute_url }}" class="listing-card">
+                                    {% if listing.image %}
+                                        <img src="{{ listing.image|media_or_static }}" alt="{{ listing.title }}" class="listing-image" loading="lazy">
+                                    {% else %}
+                                        <div class="listing-image" style="display:flex; align-items:center; justify-content:center;"><i class="bi bi-box2" style="font-size:2rem; color:#94a3b8;"></i></div>
                                     {% endif %}
-                                    <div class="listing-price">₱{{ listing.price|floatformat:0 }}</div>
-                                    <div class="listing-meta" style="align-items:center;">
-                                        {% if listing.school %}
-                                            {% include 'marketplace/_school_badge.html' with school=listing.school %}
+                                    <div class="listing-body">
+                                        <h3 class="listing-title">{{ listing.title }}</h3>
+                                        <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
+                                            {% if listing.listing_type == 'wtb' %}
+                                                <span style="background: #fbbf24; color: #1f2937; padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">WTB</span>
+                                            {% else %}
+                                                <span style="background: #60a5fa; color: white; padding: 0.2rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">WTS</span>
+                                                {% if listing.listing_type == 'wts' %}<span style="font-size: 0.75rem; color: #64748b;">{{ listing.get_condition_display }}</span>{% endif %}
+                                            {% endif %}
+                                        </div>
+                                        {% if listing.product_details %}
+                                            <div class="listing-details">
+                                                {% for key, value in listing.product_details.items %}
+                                                    {% if value and value != '--' %}
+                                                        <div class="listing-detail-item" style="font-size:0.8rem; justify-content:space-between;">
+                                                            <span class="listing-detail-label">{{ key|title }}:</span>
+                                                            <span class="listing-detail-value">{{ value }}</span>
+                                                        </div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
                                         {% endif %}
-                                        <span style="opacity: 0.7;">{{ listing.view_count }} views</span>
+                                        <div class="listing-price">₱{{ listing.price|floatformat:0 }}</div>
+                                        <div class="listing-meta" style="align-items:center;">
+                                            {% if listing.school %}
+                                                {% include 'marketplace/_school_badge.html' with school=listing.school %}
+                                            {% endif %}
+                                            <span style="opacity: 0.7;">{{ listing.view_count }} views</span>
+                                        </div>
                                     </div>
-                                </div>
-                            </a>
+                                </a>
+                                <button
+                                    type="button"
+                                    class="listing-preview-btn"
+                                    aria-label="Preview {{ listing.title }}"
+                                    data-preview-title="{{ listing.title|escapejs }}"
+                                    data-preview-price="₱{{ listing.price|floatformat:0 }}"
+                                    data-preview-type="{{ listing.listing_type|upper }}"
+                                    data-preview-condition="{% if listing.listing_type == 'wts' %}{{ listing.get_condition_display|escapejs }}{% endif %}"
+                                    data-preview-description="{{ listing.description|default_if_none:''|striptags|escapejs }}"
+                                    data-preview-seller="{{ listing.seller.username|escapejs }}"
+                                    data-preview-school="{% if listing.school %}{{ listing.school.short_name|default:listing.school.name|escapejs }}{% endif %}"
+                                    data-preview-image="{% if listing.image %}{{ listing.image|media_or_static|escapejs }}{% endif %}"
+                                    data-preview-url="{{ listing.get_absolute_url }}"
+                                >
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
                         {% endfor %}
                     </div>
                     <button class="listing-carousel-control next" type="button" data-direction="next" aria-label="Next listings"><i class="bi bi-chevron-right"></i></button>
@@ -965,6 +1145,26 @@
         </section>
         {% endif %}
 
+    </div>
+</div>
+
+<div class="listing-preview-modal" id="listingPreviewModal" aria-hidden="true">
+    <div class="listing-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="listingPreviewTitle">
+        <button type="button" class="listing-preview-close" id="listingPreviewClose" aria-label="Close preview">&times;</button>
+        <div class="listing-preview-media">
+            <img id="listingPreviewImage" src="" alt="Listing preview image" loading="lazy">
+        </div>
+        <div class="listing-preview-body">
+            <h3 class="listing-preview-title" id="listingPreviewTitle"></h3>
+            <p class="listing-preview-price" id="listingPreviewPrice"></p>
+            <div class="listing-preview-meta" id="listingPreviewMeta"></div>
+            <p class="listing-preview-description" id="listingPreviewDescription"></p>
+            <ul class="listing-preview-details" id="listingPreviewDetails"></ul>
+            <div class="listing-preview-actions">
+                <a href="#" class="btn btn-primary" id="listingPreviewViewDetails">View Details</a>
+                <button type="button" class="btn btn-outline-secondary" id="listingPreviewCloseButton">Close</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1048,6 +1248,101 @@ function dismissSafetyAlert() {
                 const distance = (cardWidth + gap) * 2;
                 track.scrollBy({ left: direction === 'prev' ? -distance : distance, behavior: 'smooth' });
             };
+        });
+    });
+})();
+
+(function () {
+    const modal = document.getElementById('listingPreviewModal');
+    if (!modal) return;
+
+    const previewImage = document.getElementById('listingPreviewImage');
+    const previewTitle = document.getElementById('listingPreviewTitle');
+    const previewPrice = document.getElementById('listingPreviewPrice');
+    const previewMeta = document.getElementById('listingPreviewMeta');
+    const previewDescription = document.getElementById('listingPreviewDescription');
+    const previewDetails = document.getElementById('listingPreviewDetails');
+    const previewViewDetails = document.getElementById('listingPreviewViewDetails');
+    const closeButtons = [
+        document.getElementById('listingPreviewClose'),
+        document.getElementById('listingPreviewCloseButton'),
+    ].filter(Boolean);
+
+    const openModal = () => {
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    };
+
+    const closeModal = () => {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    };
+
+    closeButtons.forEach((button) => {
+        button.addEventListener('click', closeModal);
+    });
+
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+            closeModal();
+        }
+    });
+
+    const previewButtons = document.querySelectorAll('.listing-preview-btn');
+    previewButtons.forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const shell = button.closest('.listing-card-shell');
+            const detailsNodes = shell ? shell.querySelectorAll('.listing-detail-item') : [];
+
+            previewTitle.textContent = button.dataset.previewTitle || 'Listing Preview';
+            previewPrice.textContent = button.dataset.previewPrice || '';
+
+            const typePart = button.dataset.previewType || '';
+            const conditionPart = button.dataset.previewCondition || '';
+            previewMeta.textContent = conditionPart ? `${typePart} • ${conditionPart}` : typePart;
+
+            const description = button.dataset.previewDescription || '';
+            previewDescription.textContent = description || 'No additional description provided.';
+
+            previewDetails.innerHTML = '';
+            if (detailsNodes.length > 0) {
+                detailsNodes.forEach((detailNode) => {
+                    const text = detailNode.textContent ? detailNode.textContent.trim() : '';
+                    if (!text) return;
+                    const item = document.createElement('li');
+                    item.textContent = text;
+                    previewDetails.appendChild(item);
+                });
+            }
+
+            const seller = button.dataset.previewSeller || '';
+            const school = button.dataset.previewSchool || '';
+            if (seller || school) {
+                const identity = document.createElement('li');
+                identity.textContent = school ? `Seller: ${seller} (${school})` : `Seller: ${seller}`;
+                previewDetails.appendChild(identity);
+            }
+
+            const imageUrl = button.dataset.previewImage || '';
+            if (imageUrl) {
+                previewImage.src = imageUrl;
+            } else {
+                previewImage.src = '/static/media/hero/image-crossing.jpg';
+            }
+
+            previewViewDetails.href = button.dataset.previewUrl || '#';
+            openModal();
         });
     });
 })();

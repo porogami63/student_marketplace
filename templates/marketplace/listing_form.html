@@ -117,7 +117,11 @@
                 
                 <!-- Basic fields -->
                 {% for field in form %}
-                    {% if field.name not in 'product_author,product_edition,product_isbn,product_subject,product_brand,product_model,product_storage,product_ram,product_color,product_year_purchased,product_school_college,product_uniform_type,product_gender,product_size,product_material,product_type,product_quantity,product_semester,product_professor,product_item_type,product_dimensions,product_delivery_available' %}
+                    {% if field.name == 'preferred_payment_methods' %}
+                        {{ field|as_crispy_field }}
+                    {% elif field.name == 'campus' %}
+                        {{ field|as_crispy_field }}
+                    {% elif field.name not in 'product_author,product_edition,product_isbn,product_subject,product_brand,product_model,product_storage,product_ram,product_color,product_year_purchased,product_school_college,product_uniform_type,product_gender,product_size,product_material,product_type,product_quantity,product_semester,product_professor,product_item_type,product_dimensions,product_delivery_available' %}
                         {{ field|as_crispy_field }}
                     {% endif %}
                 {% endfor %}

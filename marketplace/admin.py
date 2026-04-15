@@ -264,10 +264,22 @@ class EmailTwoFactorCodeAdmin(admin.ModelAdmin):
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
-    list_display = ['buyer', 'seller', 'listing', 'price', 'status', 'created_at']
-    list_filter = ['status', 'created_at']
-    search_fields = ['buyer__username', 'seller__username']
+    list_display = ['buyer', 'seller', 'listing', 'price', 'status', 'no_show_status', 'created_at']
+    list_filter = ['status', 'no_show_status', 'created_at', 'exchange_method']
+    search_fields = ['buyer__username', 'seller__username', 'listing__title']
     date_hierarchy = 'created_at'
+    readonly_fields = ['created_at', 'confirmed_at', 'completed_at', 'admin_cancelled_at', 'no_show_reported_at']
+    
+    fieldsets = (
+        ('Transaction Participants', {'fields': ('buyer', 'seller', 'listing')}),
+        ('Transaction Amount', {'fields': ('price', 'quantity', 'unit_price')}),
+        ('Status & Timing', {'fields': ('status', 'created_at', 'confirmed_at', 'completed_at'), 'classes': ('collapse',)}),
+        ('Meeting Agreement', {'fields': ('exchange_method', 'proposed_meetup_location', 'proposed_meetup_datetime', 'buyer_confirmed_meeting', 'seller_confirmed_meeting')}),
+        ('Arrival Confirmation', {'fields': ('buyer_confirmed_arrival', 'buyer_arrival_confirmed_at', 'seller_confirmed_arrival', 'seller_arrival_confirmed_at')}),
+        ('No-Show Protection', {'fields': ('no_show_status', 'no_show_reported_by', 'no_show_reported_at', 'no_show_reason', 'no_show_admin_action'), 'classes': ('collapse',)}),
+        ('Notes & Admin', {'fields': ('notes', 'seller_notes', 'admin_notes', 'admin_cancel_reason', 'admin_cancelled_by', 'admin_cancelled_at'), 'classes': ('collapse',)}),
+        ('Completion & Payment', {'fields': ('buyer_completed', 'seller_completed', 'flagged_for_review'), 'classes': ('collapse',)}),
+    )
 
 
 @admin.register(Review)

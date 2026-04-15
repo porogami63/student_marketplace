@@ -1297,6 +1297,8 @@ def initiate_purchase(request, pk):
             unit_price = offer_amount if offer_amount is not None else listing.price
             total_price = Decimal(unit_price) * Decimal(requested_quantity)
 
+            exchange_method = form.cleaned_data['exchange_method']
+
             transaction = Transaction.objects.create(
                 buyer=buyer,
                 seller=seller,
@@ -1304,7 +1306,7 @@ def initiate_purchase(request, pk):
                 quantity=requested_quantity,
                 unit_price=unit_price,
                 price=total_price,
-                exchange_method=form.cleaned_data['exchange_method'],
+                exchange_method=exchange_method,
                 proposed_meetup_location=form.cleaned_data.get('proposed_meetup_location') or '',
                 proposed_meetup_datetime=form.cleaned_data.get('proposed_meetup_datetime'),
                 notes=form.cleaned_data['notes'],
@@ -1396,6 +1398,8 @@ def transaction_detail(request, transaction_id):
                 transaction.confirmed_at = timezone.now()
                 transaction.buyer_confirmed_meeting = False
                 transaction.seller_confirmed_meeting = False
+                transaction.buyer_confirmed_arrival = False
+                transaction.seller_confirmed_arrival = False
                 transaction.save()
                 
                 # Notify buyer
@@ -1730,6 +1734,8 @@ def confirm_transaction(request, transaction_id):
             transaction.confirmed_at = timezone.now()
             transaction.buyer_confirmed_meeting = False
             transaction.seller_confirmed_meeting = False
+            transaction.buyer_confirmed_arrival = False
+            transaction.seller_confirmed_arrival = False
             transaction.save()
 
             # Notify buyer
@@ -1768,7 +1774,11 @@ def complete_transaction(request, transaction_id):
         return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
 
     if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
-        messages.error(request, "Both parties must confirm meetup/agreement before completing this transaction.")
+        messages.error(request, "Both parties must confirm they will meet before completing this transaction.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+    if not (transaction.buyer_confirmed_arrival and transaction.seller_confirmed_arrival):
+        messages.error(request, "Both parties must confirm they have arrived at the meetup location before completing this transaction.")
         return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
 
     payment = getattr(transaction, 'payment', None)
@@ -1898,6 +1908,105 @@ def complete_transaction(request, transaction_id):
 
 
 @login_required
+def confirm_arrival(request, transaction_id):
+    """Confirm that user has arrived at the meetup location."""
+    transaction = get_object_or_404(Transaction, pk=transaction_id)
+    
+    # Participant check
+    if request.user != transaction.buyer and request.user != transaction.seller:
+        messages.error(request, "You are not a participant in this transaction.")
+        return redirect('marketplace:inbox')
+    
+    # Can only confirm arrival if meeting has been scheduled
+    if transaction.status != 'confirmed':
+        messages.error(request, "Transaction must be confirmed by the seller first.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+    
+    if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
+        messages.error(request, "Both parties must confirm they will meet before confirming arrival.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+    
+    # Can't confirm arrival if already at payment or later stages
+    if transaction.payment and transaction.payment.status == 'completed':
+        messages.error(request, "Payment has already been completed for this transaction.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+    
+    # Require POST to prevent CSRF via GET links
+    if request.method != 'POST':
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+    
+    from django.utils import timezone
+    
+    previous_buyer_arrival = transaction.buyer_confirmed_arrival
+    previous_seller_arrival = transaction.seller_confirmed_arrival
+    
+    if request.user == transaction.buyer:
+        transaction.buyer_confirmed_arrival = True
+        transaction.buyer_arrival_confirmed_at = timezone.now()
+        role = 'buyer'
+    elif request.user == transaction.seller:
+        transaction.seller_confirmed_arrival = True
+        transaction.seller_arrival_confirmed_at = timezone.now()
+        role = 'seller'
+    else:
+        raise PermissionDenied
+    
+    transaction.save()
+    
+    # Log the action
+    _record_state_transition(
+        request,
+        entity_type='participant_arrival',
+        transition_kind=f'{role}_confirmed_arrival',
+        transaction=transaction,
+        from_state='false',
+        to_state='true',
+        reason='user_confirmed_meetup_arrival',
+        details={'actor_role': role},
+    )
+    
+    # Determine other party
+    if request.user == transaction.buyer:
+        other_party = transaction.seller
+        status_msg = "You've confirmed your arrival at the meetup location."
+        other_msg = f"{request.user.username} (Buyer) confirmed arrival at meetup on {transaction.buyer_arrival_confirmed_at.strftime('%b %d at %I:%M %p')}. Please confirm your arrival too."
+    else:
+        other_party = transaction.buyer
+        status_msg = "You've confirmed your arrival at the meetup location."
+        other_msg = f"{request.user.username} (Seller) confirmed arrival at meetup on {transaction.seller_arrival_confirmed_at.strftime('%b %d at %I:%M %p')}. Please confirm your arrival too."
+    
+    # Check if both have confirmed arrival
+    if transaction.buyer_confirmed_arrival and transaction.seller_confirmed_arrival:
+        buyer_arrival_time = transaction.buyer_arrival_confirmed_at.strftime('%b %d at %I:%M %p')
+        seller_arrival_time = transaction.seller_arrival_confirmed_at.strftime('%b %d at %I:%M %p')
+        
+        Notification.objects.create(
+            user=transaction.buyer,
+            message=f'Both parties confirmed arrival! Buyer arrived at {buyer_arrival_time}, Seller arrived at {seller_arrival_time}. Payment checkout is now unlocked.',
+            notification_type='transaction',
+            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+        )
+        Notification.objects.create(
+            user=transaction.seller,
+            message=f'Both parties confirmed arrival! Buyer arrived at {buyer_arrival_time}, Seller arrived at {seller_arrival_time}. Payment checkout is now unlocked.',
+            notification_type='transaction',
+            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+        )
+        messages.success(request, '✓ Both sides have confirmed arrival! Payment can now proceed.')
+    else:
+        Notification.objects.create(
+            user=other_party,
+            related_user=request.user,
+            message=other_msg,
+            notification_type='transaction',
+            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+        )
+        messages.info(request, f"{status_msg} Waiting for the other party.")
+    
+    return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+
+
+@login_required
 def cancel_transaction(request, transaction_id):
     """Allow buyer or seller to cancel a pending or confirmed transaction."""
     transaction = get_object_or_404(Transaction, pk=transaction_id)
@@ -1941,6 +2050,103 @@ def cancel_transaction(request, transaction_id):
     
     return render(request, 'marketplace/transaction_cancel_confirm.html', {
         'transaction': transaction,
+    })
+
+
+@login_required
+def report_no_show(request, transaction_id):
+    """Report that other party didn't show up for the agreed meetup."""
+    from django.utils import timezone
+    from django.urls import reverse
+    
+    transaction = get_object_or_404(Transaction, pk=transaction_id)
+    
+    # Only buyer or seller can report
+    if request.user not in [transaction.buyer, transaction.seller]:
+        messages.error(request, "You are not a participant in this transaction.")
+        return redirect('marketplace:inbox')
+    
+    # Can only report no-show if:
+    # 1. Meeting was confirmed by both parties
+    # 2. Proposed meetup time has passed
+    # 3. Not already reported
+    if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
+        messages.error(request, "You can only report no-show for confirmed meetings.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+    
+    if transaction.proposed_meetup_datetime and timezone.now() < transaction.proposed_meetup_datetime:
+        messages.error(request, "You can only report no-show after the scheduled meetup time has passed.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+    
+    if transaction.no_show_status != 'pending':
+        messages.error(request, "This transaction has already been reported for no-show.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+    
+    if request.method == 'POST':
+        reason = request.POST.get('reason', '').strip()
+        
+        if not reason or len(reason) < 10:
+            messages.error(request, "Please provide a detailed reason (at least 10 characters).")
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+        
+        # Record the no-show report
+        reporter_role = 'buyer' if request.user == transaction.buyer else 'seller'
+        transaction.no_show_status = 'reported'
+        transaction.no_show_reported_at = timezone.now()
+        transaction.no_show_reported_by = reporter_role
+        transaction.no_show_reason = reason
+        transaction.save()
+        
+        # Void the transaction
+        transaction.status = 'cancelled'
+        transaction.save()
+        
+        # Log the action
+        _record_state_transition(
+            request,
+            entity_type='transaction',
+            transition_kind='no_show_reported',
+            transaction=transaction,
+            from_state='confirmed',
+            to_state='voided',
+            reason='no_show_report',
+            details={'reporter_role': reporter_role, 'reason': reason},
+        )
+        
+        # Notify both parties and admin
+        other_user = transaction.seller if request.user == transaction.buyer else transaction.buyer
+        
+        Notification.objects.create(
+            user=transaction.buyer,
+            message=f"No-show reported by {reporter_role}. Transaction has been voided and referred to admin for review.",
+            notification_type='transaction',
+            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+        )
+        Notification.objects.create(
+            user=transaction.seller,
+            message=f"No-show reported by {reporter_role}. Transaction has been voided and referred to admin for review.",
+            notification_type='transaction',
+            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+        )
+        
+        # Create admin notification
+        from django.contrib.auth.models import User
+        admin_users = User.objects.filter(is_staff=True)
+        for admin in admin_users:
+            Notification.objects.create(
+                user=admin,
+                message=f"⚠️ No-show report: {transaction.buyer.username} vs {transaction.seller.username} for '{transaction.listing.title if transaction.listing else 'deleted item'}'. Reported by {reporter_role}.",
+                notification_type='admin_alert',
+                url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+            )
+        
+        messages.success(request, "No-show reported successfully. Transaction has been voided and referred to admin for review.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+    
+    # GET: Show confirmation form
+    return render(request, 'marketplace/report_no_show.html', {
+        'transaction': transaction,
+        'proposed_time': transaction.proposed_meetup_datetime,
     })
 
 
@@ -4348,7 +4554,11 @@ def payment_checkout(request, transaction_id):
         return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
 
     if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
-        messages.info(request, "Payment is locked until both buyer and seller confirm meetup/agreement.")
+        messages.info(request, "Payment is locked until both buyer and seller confirm they will meet.")
+        return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
+
+    if not (transaction.buyer_confirmed_arrival and transaction.seller_confirmed_arrival):
+        messages.info(request, "Payment is locked until both parties confirm they have met up at the location.")
         return redirect('marketplace:transaction_detail', transaction_id=transaction_id)
 
     allowed_methods = _get_allowed_payment_methods(transaction.listing)

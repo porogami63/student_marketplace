@@ -270,7 +270,8 @@ class ListingForm(forms.ModelForm):
     class Meta:
         model = Listing
         fields = [
-            'listing_type', 'title', 'description', 'price', 'quantity_total', 'preferred_payment_methods', 'category', 'condition',
+            'listing_type', 'title', 'description', 'price', 'quantity_total', 'preferred_payment_methods', 
+            'category', 'condition',
             'campus', 'image', 'school', 'contact_info'
         ]
         widgets = {
@@ -707,7 +708,7 @@ class PurchaseForm(forms.ModelForm):
             'quantity': 'Quantity',
             'exchange_method': 'How would you like to exchange payment & goods?',
             'proposed_meetup_location': 'Proposed meetup location',
-            'proposed_meetup_datetime': 'Proposed meetup date & time',
+            'proposed_meetup_datetime': 'Proposed pickup date & time',
             'notes': 'Message to seller (optional)',
         }
 
@@ -775,6 +776,10 @@ class PurchaseForm(forms.ModelForm):
             raise forms.ValidationError('Please choose a future meetup date and time.')
 
         return proposed_meetup_datetime
+
+    def clean(self):
+        cleaned_data = super().clean()
+        return cleaned_data
 
 
 class TransactionConfirmForm(forms.ModelForm):

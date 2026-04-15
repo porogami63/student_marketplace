@@ -616,8 +616,14 @@ class Transaction(models.Model):
         ('in_person', 'Meet in Person'),
         ('gcash', 'GCash (or similar e-wallet)'),
         ('bank_transfer', 'Bank Transfer'),
-        ('third_party_delivery', 'Third-Party Delivery (Lalamove/Grab)'),
         ('other', 'Other arrangement'),
+    ]
+    
+    NO_SHOW_STATUS_CHOICES = [
+        ('pending', 'No Issues'),
+        ('reported', 'No-Show Reported'),
+        ('voided', 'Transaction Voided'),
+        ('admin_review', 'Admin Review'),
     ]
 
     buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='purchases')
@@ -644,15 +650,25 @@ class Transaction(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     confirmed_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
-    buyer_completed = models.BooleanField(default=False, help_text='Buyer confirmed exchange happened')
-    seller_completed = models.BooleanField(default=False, help_text='Seller confirmed exchange happened')
-    buyer_confirmed_meeting = models.BooleanField(default=False, help_text='Buyer confirmed attendance at meeting')
-    seller_confirmed_meeting = models.BooleanField(default=False, help_text='Seller confirmed meetup/agreement before payment')
+    buyer_confirmed_meeting = models.BooleanField(default=False, help_text='Buyer confirmed they will attend meeting')
+    seller_confirmed_meeting = models.BooleanField(default=False, help_text='Seller confirmed they will attend meeting')
+    buyer_confirmed_arrival = models.BooleanField(default=False, help_text='Buyer confirmed they arrived at meetup location')
+    seller_confirmed_arrival = models.BooleanField(default=False, help_text='Seller confirmed they arrived at meetup location')
+    buyer_arrival_confirmed_at = models.DateTimeField(null=True, blank=True, help_text='Timestamp when buyer confirmed arrival')
+    seller_arrival_confirmed_at = models.DateTimeField(null=True, blank=True, help_text='Timestamp when seller confirmed arrival')
+    buyer_completed = models.BooleanField(default=False, help_text='Buyer confirmed exchange happened after payment')
+    seller_completed = models.BooleanField(default=False, help_text='Seller confirmed exchange happened after payment')
     admin_notes = models.TextField(blank=True, help_text='Internal admin notes for dispute/fraud follow-up')
     flagged_for_review = models.BooleanField(default=False, help_text='Flagged by admin for follow-up')
     admin_cancelled_at = models.DateTimeField(null=True, blank=True)
     admin_cancel_reason = models.TextField(blank=True, help_text='Documented reason for admin cancellation (audit trail)')
     admin_cancelled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='admin_cancelled_transactions')
+    # No-show protection system
+    no_show_status = models.CharField(max_length=20, choices=NO_SHOW_STATUS_CHOICES, default='pending', help_text='Status for no-show incidents')
+    no_show_reported_at = models.DateTimeField(null=True, blank=True, help_text='When no-show was reported')
+    no_show_reported_by = models.CharField(max_length=10, choices=[('buyer', 'Buyer'), ('seller', 'Seller')], blank=True, help_text='Who reported the no-show')
+    no_show_reason = models.TextField(blank=True, help_text='Reason for no-show report')
+    no_show_admin_action = models.TextField(blank=True, help_text='Admin action taken on no-show case')
 
     class Meta:
         ordering = ['-created_at']

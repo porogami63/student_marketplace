@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Report No-Show - {{ transaction.listing.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Report No-Show</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning" role="alert">
+                        <strong><i class="bi bi-info-circle me-2"></i>Important:</strong>
+                        <p class="mb-0">
+                            Reporting a no-show will void this transaction and send it to admin for review. 
+                            The other party will be notified, and both parties may face consequences for false reports.
+                        </p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h6><strong>Transaction Details</strong></h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Item:</strong> {{ transaction.listing.title }}</p>
+                                <p><strong>Buyer:</strong> {{ transaction.buyer.username }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Seller:</strong> {{ transaction.seller.username }}</p>
+                                <p><strong>Agreed Time:</strong> 
+                                    {% if proposed_time %}
+                                        {{ proposed_time|date:"M d, Y at h:i A" }}
+                                    {% else %}
+                                        Not specified
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="id_reason" class="form-label">
+                                <strong>Reason for No-Show Report <span class="text-danger">*</span></strong>
+                            </label>
+                            <textarea 
+                                class="form-control" 
+                                id="id_reason" 
+                                name="reason" 
+                                rows="5" 
+                                placeholder="Describe what happened. Include details like: Did they not show up at all? Were they extremely late? Did they cancel without notice? Were they unresponsive?"
+                                minlength="10"
+                                maxlength="1000"
+                                required
+                            ></textarea>
+                            <small class="form-text text-muted">Minimum 10 characters. Please be specific and factual.</small>
+                        </div>
+
+                        <div class="alert alert-info" role="alert">
+                            <strong><i class="bi bi-shield-check me-2"></i>Protection Notice:</strong>
+                            <ul class="mb-0 ms-3">
+                                <li>False reports may result in account suspension or permanent ban.</li>
+                                <li>This report is logged with your details for admin review.</li>
+                                <li>Both parties will have the opportunity to respond.</li>
+                            </ul>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-exclamation-circle me-2"></i>Report No-Show
+                            </button>
+                            <a href="{% url 'marketplace:transaction_detail' transaction.id %}" class="btn btn-outline-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Bootstrap form validation
+    (function() {
+        'use strict';
+        const form = document.querySelector('.needs-validation');
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        }, false);
+    })();
+</script>
+{% endblock %}
