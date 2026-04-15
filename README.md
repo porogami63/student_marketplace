@@ -106,7 +106,7 @@ CSP_FRAME_SRC_EXTRA=
 
 1. Set `DEBUG=False`, `DJANGO_SECRET_KEY`, `ALLOWED_HOSTS`, `DATABASE_URL`.
 2. Ensure `build.sh` is used (installs deps, collects static, migrates, seeds schools).
-3. Set Stripe/Gemini environment variables.
+3. Set Stripe/Gemini environment variables and configure email delivery (Gmail API recommended on Render free tier).
 4. Deploy and run `python manage.py check`.
 
 ## Vouch + Verification (How tiers work)
@@ -147,6 +147,14 @@ STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_WEBHOOK_REQUIRED=False
 
+# Email delivery (Render free tier: use Gmail API backend)
+EMAIL_BACKEND=marketplace.email_backends.GmailAPIBackend
+GMAIL_CLIENT_ID=...
+GMAIL_CLIENT_SECRET=...
+GMAIL_REFRESH_TOKEN=...
+GMAIL_SENDER_EMAIL=your-gmail-address@gmail.com
+DEFAULT_FROM_EMAIL=UBXchange Security <your-gmail-address@gmail.com>
+
 # CSP extensions (for future integrations like Google Maps)
 # Comma-separated list of origins, e.g. "https://maps.googleapis.com,https://maps.gstatic.com"
 CSP_SCRIPT_SRC_EXTRA=
@@ -162,6 +170,34 @@ GEMINI_API_KEY=AIza_...
 ---
 
 ## Google OAuth Setup
+
+### Gmail API for email delivery on Render free tier
+
+If Render blocks SMTP in your region, use Gmail's API instead of SMTP.
+
+1. In Google Cloud Console, open or create the project you want to use for email delivery.
+2. Enable the **Gmail API** for that project.
+3. Configure the OAuth consent screen and add your Gmail account as a test user if the app is still in testing mode.
+4. Create OAuth credentials and choose **Web application** or **Desktop app**.
+5. If you use a Web application client, add this redirect URI while generating the token: `http://localhost:8080/`.
+6. Open [OAuth 2.0 Playground](https://developers.google.com/oauthplayground).
+7. Click the gear icon and enable **Use your own OAuth credentials**.
+8. Paste your Gmail OAuth Client ID and Client Secret.
+9. In Step 1, authorize this scope: `https://www.googleapis.com/auth/gmail.send`.
+10. In Step 2, exchange the authorization code for tokens.
+11. Copy the **refresh_token** value.
+12. Add these Render environment variables:
+
+```env
+EMAIL_BACKEND=marketplace.email_backends.GmailAPIBackend
+GMAIL_CLIENT_ID=your-google-oauth-client-id
+GMAIL_CLIENT_SECRET=your-google-oauth-client-secret
+GMAIL_REFRESH_TOKEN=your-refresh-token
+GMAIL_SENDER_EMAIL=your-gmail-address@gmail.com
+DEFAULT_FROM_EMAIL=UBXchange Security <your-gmail-address@gmail.com>
+```
+
+13. Redeploy the app and test the 2FA flow again.
 
 ### 1. Create Google OAuth Credentials
 
