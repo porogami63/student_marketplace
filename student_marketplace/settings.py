@@ -180,10 +180,10 @@ ACCOUNT_LEGACY_EMAIL_WHITELIST_CUTOFF = os.environ.get(
 
 # Email delivery settings (email verification + email-based 2FA)
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', '').strip()
-GMAIL_CLIENT_ID = os.environ.get('GMAIL_CLIENT_ID', '').strip()
-GMAIL_CLIENT_SECRET = os.environ.get('GMAIL_CLIENT_SECRET', '').strip()
-GMAIL_REFRESH_TOKEN = os.environ.get('GMAIL_REFRESH_TOKEN', '').strip()
-GMAIL_SENDER_EMAIL = os.environ.get('GMAIL_SENDER_EMAIL', '').strip()
+GMAIL_CLIENT_ID = os.environ.get('GMAIL_CLIENT_ID', os.environ.get('GOOGLE_OAUTH_CLIENT_ID', os.environ.get('GOOGLE_CLIENT_ID', ''))).strip()
+GMAIL_CLIENT_SECRET = os.environ.get('GMAIL_CLIENT_SECRET', os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', os.environ.get('GOOGLE_CLIENT_SECRET', ''))).strip()
+GMAIL_REFRESH_TOKEN = os.environ.get('GMAIL_REFRESH_TOKEN', os.environ.get('GOOGLE_OAUTH_REFRESH_TOKEN', os.environ.get('GOOGLE_REFRESH_TOKEN', ''))).strip()
+GMAIL_SENDER_EMAIL = os.environ.get('GMAIL_SENDER_EMAIL', os.environ.get('EMAIL_HOST_USER', '')).strip()
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '').strip()
 SENDGRID_API_URL = os.environ.get('SENDGRID_API_URL', 'https://api.sendgrid.com/v3/mail/send').strip()
 
