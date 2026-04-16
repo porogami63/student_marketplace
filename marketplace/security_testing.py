@@ -6,6 +6,7 @@ from typing import Any, Callable
 
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser, User
+from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.cache import cache
 from django.core.exceptions import DisallowedHost
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -672,35 +673,46 @@ def _run_active_realtime_demo_report(request) -> dict[str, Any]:
 
 
 def _run_active_rate_limit_check(request) -> dict[str, Any]:
-    factory = RequestFactory()
-    middleware = RateLimitMiddleware(lambda req: HttpResponse('ok'))
-    probe_ip = f"198.51.100.{random.randint(10, 220)}"
-    probe_path = '/api/recent-notifications/'
-    cache_key = f'rate_limit:{probe_ip}:{probe_path}'
+    try:
+        factory = RequestFactory()
+        middleware = RateLimitMiddleware(lambda req: HttpResponse('ok'))
+        probe_ip = f"198.51.100.{random.randint(10, 220)}"
+        probe_path = '/api/recent-notifications/'
+        cache_key = f'rate_limit:{probe_ip}:{probe_path}'
 
-    cache.delete(cache_key)
+        cache.delete(cache_key)
 
-    statuses: list[int] = []
-    with override_settings(RATE_LIMIT_API_REQUESTS=2, RATE_LIMIT_API_WINDOW=30):
-        for _ in range(3):
-            req = factory.get(probe_path)
-            req.META['REMOTE_ADDR'] = probe_ip
-            response = middleware.process_request(req)
-            statuses.append(response.status_code if response is not None else 200)
+        statuses: list[int] = []
+        with override_settings(RATE_LIMIT_API_REQUESTS=2, RATE_LIMIT_API_WINDOW=30):
+            for _ in range(3):
+                req = factory.get(probe_path)
+                req.META['REMOTE_ADDR'] = probe_ip
+                response = middleware.process_request(req)
+                # process_request returns None if request passes, HttpResponse(429) if blocked
+                statuses.append(response.status_code if response is not None else 200)
 
-    cache.delete(cache_key)
-    blocked = statuses[-1] == 429 if statuses else False
+        cache.delete(cache_key)
+        blocked = statuses[-1] == 429 if statuses else False
 
-    return {
-        'title': 'Rate limiting probe',
-        'status': 'pass' if blocked else 'warn',
-        'summary': 'Limiter returned 429 after threshold was exceeded.' if blocked else 'Limiter did not return 429 at expected threshold.',
-        'details': [
-            {'label': 'Probe path', 'value': probe_path},
-            {'label': 'Observed statuses', 'value': ', '.join(str(code) for code in statuses)},
-            {'label': 'Applied threshold', 'value': '2 requests / 30s (temporary probe override)'},
-        ],
-    }
+        return {
+            'title': 'Rate limiting probe',
+            'status': 'pass' if blocked else 'warn',
+            'summary': 'Limiter returned 429 after threshold was exceeded.' if blocked else 'Limiter did not return 429 at expected threshold.',
+            'details': [
+                {'label': 'Probe path', 'value': probe_path},
+                {'label': 'Observed statuses', 'value': ', '.join(str(code) for code in statuses)},
+                {'label': 'Applied threshold', 'value': '2 requests / 30s (temporary probe override)'},
+            ],
+        }
+    except Exception as exc:
+        return {
+            'title': 'Rate limiting probe',
+            'status': 'fail',
+            'summary': f'Exception occurred during rate limit probe: {type(exc).__name__}',
+            'details': [
+                {'label': 'Error', 'value': str(exc)},
+            ],
+        }
 
 
 def _run_active_auth_gate_check(request) -> dict[str, Any]:
@@ -709,7 +721,23 @@ def _run_active_auth_gate_check(request) -> dict[str, Any]:
 
     anon_request = factory.get(login_url)
     anon_request.user = AnonymousUser()
-    response = auth_views.email_2fa_verify(anon_request)
+    
+    # Set up session middleware to initialize request.session
+    middleware = SessionMiddleware(lambda r: HttpResponse())
+    middleware.process_request(anon_request)
+    anon_request.session.save()
+
+    try:
+        response = auth_views.email_2fa_verify(anon_request)
+    except Exception as exc:
+        return {
+            'title': 'Auth/2FA gate probe',
+            'status': 'fail',
+            'summary': f'Exception occurred during auth gate check: {type(exc).__name__}',
+            'details': [
+                {'label': 'Error', 'value': str(exc)},
+            ],
+        }
 
     location = response.get('Location', '')
     redirected = response.status_code in (301, 302) and '/accounts/login/' in location

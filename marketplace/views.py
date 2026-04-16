@@ -1908,102 +1908,111 @@ def complete_transaction(request, transaction_id):
 
 
 @login_required
+@login_required
 def confirm_arrival(request, transaction_id):
     """Confirm that user has arrived at the meetup location."""
-    transaction = get_object_or_404(Transaction, pk=transaction_id)
-    
-    # Participant check
-    if request.user != transaction.buyer and request.user != transaction.seller:
-        messages.error(request, "You are not a participant in this transaction.")
-        return redirect('marketplace:inbox')
-    
-    # Can only confirm arrival if meeting has been scheduled
-    if transaction.status != 'confirmed':
-        messages.error(request, "Transaction must be confirmed by the seller first.")
-        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
-    
-    if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
-        messages.error(request, "Both parties must confirm they will meet before confirming arrival.")
-        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
-    
-    # Can't confirm arrival if already at payment or later stages
-    if transaction.payment and transaction.payment.status == 'completed':
-        messages.error(request, "Payment has already been completed for this transaction.")
-        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
-    
-    # Require POST to prevent CSRF via GET links
-    if request.method != 'POST':
-        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
-    
-    from django.utils import timezone
-    
-    previous_buyer_arrival = transaction.buyer_confirmed_arrival
-    previous_seller_arrival = transaction.seller_confirmed_arrival
-    
-    if request.user == transaction.buyer:
-        transaction.buyer_confirmed_arrival = True
-        transaction.buyer_arrival_confirmed_at = timezone.now()
-        role = 'buyer'
-    elif request.user == transaction.seller:
-        transaction.seller_confirmed_arrival = True
-        transaction.seller_arrival_confirmed_at = timezone.now()
-        role = 'seller'
-    else:
-        raise PermissionDenied
-    
-    transaction.save()
-    
-    # Log the action
-    _record_state_transition(
-        request,
-        entity_type='participant_arrival',
-        transition_kind=f'{role}_confirmed_arrival',
-        transaction=transaction,
-        from_state='false',
-        to_state='true',
-        reason='user_confirmed_meetup_arrival',
-        details={'actor_role': role},
-    )
-    
-    # Determine other party
-    if request.user == transaction.buyer:
-        other_party = transaction.seller
-        status_msg = "You've confirmed your arrival at the meetup location."
-        other_msg = f"{request.user.username} (Buyer) confirmed arrival at meetup on {transaction.buyer_arrival_confirmed_at.strftime('%b %d at %I:%M %p')}. Please confirm your arrival too."
-    else:
-        other_party = transaction.buyer
-        status_msg = "You've confirmed your arrival at the meetup location."
-        other_msg = f"{request.user.username} (Seller) confirmed arrival at meetup on {transaction.seller_arrival_confirmed_at.strftime('%b %d at %I:%M %p')}. Please confirm your arrival too."
-    
-    # Check if both have confirmed arrival
-    if transaction.buyer_confirmed_arrival and transaction.seller_confirmed_arrival:
-        buyer_arrival_time = transaction.buyer_arrival_confirmed_at.strftime('%b %d at %I:%M %p')
-        seller_arrival_time = transaction.seller_arrival_confirmed_at.strftime('%b %d at %I:%M %p')
+    try:
+        transaction = get_object_or_404(Transaction, pk=transaction_id)
         
-        Notification.objects.create(
-            user=transaction.buyer,
-            message=f'Both parties confirmed arrival! Buyer arrived at {buyer_arrival_time}, Seller arrived at {seller_arrival_time}. Payment checkout is now unlocked.',
-            notification_type='transaction',
-            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+        # Participant check
+        if request.user != transaction.buyer and request.user != transaction.seller:
+            messages.error(request, "You are not a participant in this transaction.")
+            return redirect('marketplace:inbox')
+        
+        # Can only confirm arrival if meeting has been scheduled
+        if transaction.status != 'confirmed':
+            messages.error(request, "Transaction must be confirmed by the seller first.")
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+        
+        if not (transaction.buyer_confirmed_meeting and transaction.seller_confirmed_meeting):
+            messages.error(request, "Both parties must confirm they will meet before confirming arrival.")
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+        
+        # Can't confirm arrival if already at payment or later stages
+        if transaction.payment and transaction.payment.status == 'completed':
+            messages.error(request, "Payment has already been completed for this transaction.")
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+        
+        # Require POST to prevent CSRF via GET links
+        if request.method != 'POST':
+            return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+        
+        from django.utils import timezone
+        
+        previous_buyer_arrival = transaction.buyer_confirmed_arrival
+        previous_seller_arrival = transaction.seller_confirmed_arrival
+        
+        if request.user == transaction.buyer:
+            transaction.buyer_confirmed_arrival = True
+            transaction.buyer_arrival_confirmed_at = timezone.now()
+            role = 'buyer'
+        elif request.user == transaction.seller:
+            transaction.seller_confirmed_arrival = True
+            transaction.seller_arrival_confirmed_at = timezone.now()
+            role = 'seller'
+        else:
+            raise PermissionDenied
+        
+        transaction.save()
+        
+        # Log the action
+        _record_state_transition(
+            request,
+            entity_type='participant_arrival',
+            transition_kind=f'{role}_confirmed_arrival',
+            transaction=transaction,
+            from_state='false',
+            to_state='true',
+            reason='user_confirmed_meetup_arrival',
+            details={'actor_role': role},
         )
-        Notification.objects.create(
-            user=transaction.seller,
-            message=f'Both parties confirmed arrival! Buyer arrived at {buyer_arrival_time}, Seller arrived at {seller_arrival_time}. Payment checkout is now unlocked.',
-            notification_type='transaction',
-            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
-        )
-        messages.success(request, '✓ Both sides have confirmed arrival! Payment can now proceed.')
-    else:
-        Notification.objects.create(
-            user=other_party,
-            related_user=request.user,
-            message=other_msg,
-            notification_type='transaction',
-            url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
-        )
-        messages.info(request, f"{status_msg} Waiting for the other party.")
+        
+        # Determine other party and format timestamps safely
+        if request.user == transaction.buyer:
+            other_party = transaction.seller
+            status_msg = "You've confirmed your arrival at the meetup location."
+            buyer_time_str = transaction.buyer_arrival_confirmed_at.strftime('%b %d at %I:%M %p') if transaction.buyer_arrival_confirmed_at else 'unknown time'
+            other_msg = f"{request.user.username} (Buyer) confirmed arrival at meetup on {buyer_time_str}. Please confirm your arrival too."
+        else:
+            other_party = transaction.buyer
+            status_msg = "You've confirmed your arrival at the meetup location."
+            seller_time_str = transaction.seller_arrival_confirmed_at.strftime('%b %d at %I:%M %p') if transaction.seller_arrival_confirmed_at else 'unknown time'
+            other_msg = f"{request.user.username} (Seller) confirmed arrival at meetup on {seller_time_str}. Please confirm your arrival too."
+        
+        # Check if both have confirmed arrival
+        if transaction.buyer_confirmed_arrival and transaction.seller_confirmed_arrival:
+            buyer_arrival_time = transaction.buyer_arrival_confirmed_at.strftime('%b %d at %I:%M %p') if transaction.buyer_arrival_confirmed_at else 'unknown'
+            seller_arrival_time = transaction.seller_arrival_confirmed_at.strftime('%b %d at %I:%M %p') if transaction.seller_arrival_confirmed_at else 'unknown'
+            
+            Notification.objects.create(
+                user=transaction.buyer,
+                message=f'Both parties confirmed arrival! Buyer arrived at {buyer_arrival_time}, Seller arrived at {seller_arrival_time}. Payment checkout is now unlocked.',
+                notification_type='transaction',
+                url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+            )
+            Notification.objects.create(
+                user=transaction.seller,
+                message=f'Both parties confirmed arrival! Buyer arrived at {buyer_arrival_time}, Seller arrived at {seller_arrival_time}. Payment checkout is now unlocked.',
+                notification_type='transaction',
+                url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+            )
+            messages.success(request, '✓ Both sides have confirmed arrival! Payment can now proceed.')
+        else:
+            Notification.objects.create(
+                user=other_party,
+                related_user=request.user,
+                message=other_msg,
+                notification_type='transaction',
+                url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk}),
+            )
+            messages.info(request, f"{status_msg} Waiting for the other party.")
+        
+        return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
     
-    return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+    except Exception as exc:
+        auth_logger.exception('Error in confirm_arrival for transaction_id=%s user=%s', transaction_id, request.user.username if request.user.is_authenticated else 'anonymous')
+        messages.error(request, 'An error occurred while confirming arrival. Please try again.')
+        return redirect('marketplace:inbox')
 
 
 @login_required
