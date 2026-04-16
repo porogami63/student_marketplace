@@ -1908,7 +1908,6 @@ def complete_transaction(request, transaction_id):
 
 
 @login_required
-@login_required
 def confirm_arrival(request, transaction_id):
     """Confirm that user has arrived at the meetup location."""
     try:
@@ -1929,9 +1928,13 @@ def confirm_arrival(request, transaction_id):
             return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
         
         # Can't confirm arrival if already at payment or later stages
-        if transaction.payment and transaction.payment.status == 'completed':
-            messages.error(request, "Payment has already been completed for this transaction.")
-            return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+        try:
+            if transaction.payment and transaction.payment.status == 'completed':
+                messages.error(request, "Payment has already been completed for this transaction.")
+                return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
+        except Exception:
+            # Payment relation error - safe to proceed
+            pass
         
         # Require POST to prevent CSRF via GET links
         if request.method != 'POST':
@@ -2010,7 +2013,7 @@ def confirm_arrival(request, transaction_id):
         return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
     
     except Exception as exc:
-        auth_logger.exception('Error in confirm_arrival for transaction_id=%s user=%s', transaction_id, request.user.username if request.user.is_authenticated else 'anonymous')
+        logger.exception('Error in confirm_arrival for transaction_id=%s user=%s', transaction_id, request.user.username if request.user.is_authenticated else 'anonymous')
         messages.error(request, 'An error occurred while confirming arrival. Please try again.')
         return redirect('marketplace:inbox')
 
