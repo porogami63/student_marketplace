@@ -280,6 +280,58 @@ class TransactionAdmin(admin.ModelAdmin):
         ('Notes & Admin', {'fields': ('notes', 'seller_notes', 'admin_notes', 'admin_cancel_reason', 'admin_cancelled_by', 'admin_cancelled_at'), 'classes': ('collapse',)}),
         ('Completion & Payment', {'fields': ('buyer_completed', 'seller_completed', 'flagged_for_review'), 'classes': ('collapse',)}),
     )
+    
+    def save_model(self, request, obj, form, change):
+        """Handle receipt generation and vouch notifications when admin completes transaction."""
+        # Get the original status before saving
+        original_status = None
+        if change:  # Only if editing existing object
+            try:
+                original = Transaction.objects.get(pk=obj.pk)
+                original_status = original.status
+            except Exception:
+                pass
+        
+        # Save the transaction
+        super().save_model(request, obj, form, change)
+        
+        # If status changed to 'completed', generate receipts and send vouch notifications
+        if original_status and original_status != 'completed' and obj.status == 'completed':
+            try:
+                # Import here to avoid circular imports
+                from marketplace.views import _create_receipt
+                from django.urls import reverse
+                from django.db.models import Q
+                
+                # Create receipt for both buyer and seller
+                receipt = _create_receipt(obj, payment=None)
+                
+                # Prepare vouch URLs
+                buyer_review_url = reverse('marketplace:leave_review', kwargs={'username': obj.seller.username}) + f'?transaction_id={obj.pk}'
+                seller_review_url = reverse('marketplace:leave_review', kwargs={'username': obj.buyer.username}) + f'?transaction_id={obj.pk}'
+                
+                # Notify buyer with vouch link for seller
+                Notification.objects.create(
+                    user=obj.buyer,
+                    related_user=obj.seller,
+                    message=f"Transaction verified by admin! Your receipt is ready. Leave a vouch for {obj.seller.username}.",
+                    notification_type='transaction',
+                    url=buyer_review_url
+                )
+                
+                # Notify seller with vouch link for buyer
+                Notification.objects.create(
+                    user=obj.seller,
+                    related_user=obj.buyer,
+                    message=f"Transaction verified by admin! Your receipt is ready. Leave a vouch for {obj.buyer.username}.",
+                    notification_type='transaction',
+                    url=seller_review_url
+                )
+            except Exception as e:
+                # Log but don't fail the save
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.exception('Error generating receipt/notifications for completed transaction %s', obj.pk)
 
 
 @admin.register(Review)

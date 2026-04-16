@@ -836,7 +836,6 @@ def leave_review(request, username):
     eligible_transactions = Transaction.objects.filter(
         Q(buyer=request.user, seller=seller) | Q(buyer=seller, seller=request.user),
         status='completed',
-        payment__status='completed',
     ).select_related('listing')
 
     transaction = None
@@ -846,7 +845,7 @@ def leave_review(request, username):
         transaction = eligible_transactions.order_by('-completed_at', '-created_at').first()
 
     if not transaction:
-        messages.error(request, 'You can only leave a vouch after a completed and paid transaction.')
+        messages.error(request, 'You can only leave a vouch after a transaction is completed and verified by admin.')
         return redirect('marketplace:public_profile', username=username)
 
     counterparty = transaction.seller if request.user == transaction.buyer else transaction.buyer
@@ -883,10 +882,12 @@ def leave_review(request, username):
 
         return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
     
+    transaction_stage = 'Confirmed' if transaction.status == 'confirmed' else 'Completed'
     context = {
         'seller': seller,
         'existing_review': existing_review,
         'transaction': transaction,
+        'transaction_stage': transaction_stage,
     }
     return render(request, 'marketplace/leave_review.html', context)
 
@@ -1743,12 +1744,12 @@ def confirm_transaction(request, transaction_id):
             Notification.objects.create(
                 user=transaction.buyer,
                 related_user=transaction.seller,
-                message=f"{transaction.seller.username} confirmed your purchase!",
+                message=f"{transaction.seller.username} confirmed your purchase! Waiting for admin verification.",
                 notification_type='transaction',
                 url=reverse('marketplace:transaction_detail', kwargs={'transaction_id': transaction.pk})
             )
             
-            messages.success(request, 'Purchase confirmed!')
+            messages.success(request, 'Purchase confirmed! Waiting for admin verification.')
             return redirect('marketplace:transaction_detail', transaction_id=transaction.pk)
     else:
         form = TransactionConfirmForm(instance=transaction)

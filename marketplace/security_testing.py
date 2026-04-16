@@ -138,10 +138,25 @@ def run_active_security_check(
             'executed_at': timezone.now(),
         }
 
-    result = handler(request)
-    result['action'] = action
-    result['executed_at'] = timezone.now()
-    return result
+    try:
+        result = handler(request)
+        result['action'] = action
+        result['executed_at'] = timezone.now()
+        return result
+    except Exception as exc:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.exception('Error running active security check: %s', action)
+        return {
+            'action': action,
+            'title': 'Check Error',
+            'status': 'fail',
+            'summary': f'Exception in {action}: {type(exc).__name__}',
+            'details': [
+                {'label': 'Error', 'value': str(exc)},
+            ],
+            'executed_at': timezone.now(),
+        }
 
 
 def _module_result(module_id: str, title: str, summary: str, checks: list[dict[str, Any]], remediation: str = '') -> dict[str, Any]:
@@ -680,18 +695,42 @@ def _run_active_rate_limit_check(request) -> dict[str, Any]:
         probe_path = '/api/recent-notifications/'
         cache_key = f'rate_limit:{probe_ip}:{probe_path}'
 
-        cache.delete(cache_key)
+        # Clear any existing cache for this probe
+        try:
+            cache.delete(cache_key)
+        except Exception:
+            pass  # Cache might not be available, continue anyway
 
         statuses: list[int] = []
-        with override_settings(RATE_LIMIT_API_REQUESTS=2, RATE_LIMIT_API_WINDOW=30):
-            for _ in range(3):
-                req = factory.get(probe_path)
-                req.META['REMOTE_ADDR'] = probe_ip
-                response = middleware.process_request(req)
-                # process_request returns None if request passes, HttpResponse(429) if blocked
-                statuses.append(response.status_code if response is not None else 200)
+        try:
+            with override_settings(RATE_LIMIT_API_REQUESTS=2, RATE_LIMIT_API_WINDOW=30):
+                for _ in range(3):
+                    req = factory.get(probe_path)
+                    req.META['REMOTE_ADDR'] = probe_ip
+                    req.user = request.user if request.user.is_authenticated else AnonymousUser()
+                    try:
+                        response = middleware.process_request(req)
+                        # process_request returns None if request passes, HttpResponse(429) if blocked
+                        statuses.append(response.status_code if response is not None else 200)
+                    except Exception as e:
+                        # If middleware.process_request fails, assume 200
+                        statuses.append(200)
+        except Exception as e:
+            return {
+                'title': 'Rate limiting probe',
+                'status': 'fail',
+                'summary': f'Could not complete rate limiting test: {type(e).__name__}',
+                'details': [
+                    {'label': 'Error', 'value': str(e)},
+                ],
+            }
+        finally:
+            # Try to clean up cache
+            try:
+                cache.delete(cache_key)
+            except Exception:
+                pass
 
-        cache.delete(cache_key)
         blocked = statuses[-1] == 429 if statuses else False
 
         return {
@@ -716,19 +755,59 @@ def _run_active_rate_limit_check(request) -> dict[str, Any]:
 
 
 def _run_active_auth_gate_check(request) -> dict[str, Any]:
-    factory = RequestFactory()
-    login_url = reverse('account_email_2fa_verify')
-
-    anon_request = factory.get(login_url)
-    anon_request.user = AnonymousUser()
-    
-    # Set up session middleware to initialize request.session
-    middleware = SessionMiddleware(lambda r: HttpResponse())
-    middleware.process_request(anon_request)
-    anon_request.session.save()
-
     try:
-        response = auth_views.email_2fa_verify(anon_request)
+        factory = RequestFactory()
+        login_url = reverse('account_email_2fa_verify')
+
+        anon_request = factory.get(login_url)
+        anon_request.user = AnonymousUser()
+        
+        # Set up session middleware to initialize request.session
+        try:
+            middleware = SessionMiddleware(lambda r: HttpResponse())
+            middleware.process_request(anon_request)
+            anon_request.session.save()
+        except Exception as session_exc:
+            return {
+                'title': 'Auth/2FA gate probe',
+                'status': 'fail',
+                'summary': f'Failed to set up session middleware: {type(session_exc).__name__}',
+                'details': [
+                    {'label': 'Error', 'value': str(session_exc)},
+                ],
+            }
+
+        try:
+            response = auth_views.email_2fa_verify(anon_request)
+        except Exception as view_exc:
+            return {
+                'title': 'Auth/2FA gate probe',
+                'status': 'fail',
+                'summary': f'Exception in email_2fa_verify: {type(view_exc).__name__}',
+                'details': [
+                    {'label': 'Error', 'value': str(view_exc)},
+                ],
+            }
+
+        # Handle different response types
+        try:
+            location = response.get('Location', '') if hasattr(response, 'get') else ''
+            status_code = response.status_code if hasattr(response, 'status_code') else 200
+        except Exception:
+            location = ''
+            status_code = 200
+
+        redirected = status_code in (301, 302) and '/accounts/login/' in location
+
+        return {
+            'title': 'Auth/2FA gate probe',
+            'status': 'pass' if redirected else 'warn',
+            'summary': 'Anonymous user was redirected to login before OTP route access.' if redirected else 'Anonymous access behavior differs from expected login redirect.',
+            'details': [
+                {'label': 'Observed status', 'value': str(status_code)},
+                {'label': 'Redirect target', 'value': location or 'None'},
+            ],
+        }
     except Exception as exc:
         return {
             'title': 'Auth/2FA gate probe',
@@ -738,19 +817,6 @@ def _run_active_auth_gate_check(request) -> dict[str, Any]:
                 {'label': 'Error', 'value': str(exc)},
             ],
         }
-
-    location = response.get('Location', '')
-    redirected = response.status_code in (301, 302) and '/accounts/login/' in location
-
-    return {
-        'title': 'Auth/2FA gate probe',
-        'status': 'pass' if redirected else 'warn',
-        'summary': 'Anonymous user was redirected to login before OTP route access.' if redirected else 'Anonymous access behavior differs from expected login redirect.',
-        'details': [
-            {'label': 'Observed status', 'value': str(response.status_code)},
-            {'label': 'Redirect target', 'value': location or 'None'},
-        ],
-    }
 
 
 def _run_active_upload_validation_check(request) -> dict[str, Any]:
